@@ -5,7 +5,8 @@
 - **Bàn Trộn Mục Tiêu:** Behringer X32 Compact + Hộp mở rộng DL16 stagebox qua AES50 A + Hệ thống kiểm âm cá nhân Ultranet P16-D / 3x P16-HQ
 - **Ngôn Ngữ & Công Nghệ:**
   - Backend: Python 3.12, FastAPI, Uvicorn, WebSockets, SQLite, SoundDevice, NumPy, SciPy
-  - Frontend: Vanilla JavaScript, HTML5 Canvas 60fps, Tailwind CSS (Dark Mode), FontAwesome 6
+  - Frontend: Vanilla JavaScript ES modules (`apps/web/js`), HTML5 Canvas, một file CSS tự chứa (`apps/web/assets/app.css`), không CDN — chạy được offline
+  - Hướng dẫn cho agent (Codex/Gemini/Claude): xem `AGENTS.md`
 - **Cổng Dịch Vụ:**
   - Web UI & API: `http://127.0.0.1:8080`
   - WebSocket Live Telemetry: `ws://127.0.0.1:8080/ws/live`
@@ -27,7 +28,7 @@
   # hoặc
   & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8080
   ```
-- **Chạy toàn bộ 63 bài kiểm thử tự động:**
+- **Chạy toàn bộ bài kiểm thử tự động (Python + `npm test`):**
   ```powershell
   & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
   ```

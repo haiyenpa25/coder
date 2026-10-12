@@ -46,3 +46,71 @@ These rules govern all AI coding agents, automation services, and developers wor
 
 12. **Preserve open-source licenses, notices, commit SHAs, and attributions.**
     - Document all third-party references in `docs/licensing-SBOM.md`.
+
+---
+
+# Developer Guide for AI Agents (Codex, Gemini, Claude) and Humans
+
+This file is the single source of truth for every coding agent. `CLAUDE.md` (Claude Code)
+and `GEMINI.md` (Gemini CLI) only import this file; Codex reads it directly. Update rules
+here, never in the per-tool files.
+
+## Project map
+| Path | What lives there |
+| --- | --- |
+| `apps/api/main.py` | FastAPI app: REST `/api/v1/*`, WebSocket `/ws/live` (~10 Hz telemetry), serves `apps/web` |
+| `apps/web/index.html` + `apps/web/js/` + `apps/web/assets/app.css` | Current UI (vanilla ES modules, no build step, no CDN) |
+| `apps/web/legacy.html`, `monitoring.js/.css` | Previous single-page UI, kept as fallback (`/static/legacy.html`) |
+| `packages/safety_controller/` | `routing.py` (talkback invariant, RoutingGraph), `transaction.py` (SafetyPolicy whitelist + TransactionExecutor), `modes.py` |
+| `packages/x32_osc_adapter/` | OSC codec, `X32Client` (read-only by default), snapshots + SHA-256 |
+| `packages/mock_x32/server.py` | UDP X32 simulator used by all tests and the default app start |
+| `packages/monitoring/` | Signal monitor (peak/RMS, thresholds, events) behind `/api/v1/monitoring/*` |
+| `packages/*` (others) | DSP, feedback detector, EQ optimizer, mix assistant, storage, wizards, copilot |
+| `configs/safety-defaults.yaml` | Safety limits and `talkback_protection.x32_channel` (the X32 channel carrying DL16 #11) |
+| `tests/` | Python `unittest` suites (`test_*.py`) and Node tests (`*.test.js`) |
+| `docs/` | Operator manual, architecture, SOPs, `licensing-SBOM.md` |
+
+`src/`, `server.js`, `templates/`, `community-skills/` belong to a separate project scaffolding tool, not to ChurchMix runtime.
+
+## Commands (Windows; use the full Python path — `python` may be the Store alias)
+```powershell
+$py = "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe"
+& $py -m pip install -r requirements.txt
+.\start_church_engineer.bat                                   # app + mock X32 on http://127.0.0.1:8080
+$env:CHURCHMIX_X32_PORT = "10923"                             # isolate tests from a running app on UDP 10023
+& $py -m unittest discover -s tests -p "test_*.py"            # Python suite (must stay green)
+npm test                                                      # Node suite
+node --check apps/web/js/views/<file>.js                      # quick syntax check for UI modules
+```
+Run a second server for previews on another port, e.g. `CHURCHMIX_X32_PORT=10931 ... uvicorn apps.api.main:app --port 8091`.
+
+## Definition of done
+1. Python and Node suites pass (report counts; never claim green without running them).
+2. New behaviour has a test; safety-relevant changes get a regression test in `tests/test_safety_*.py`.
+3. UI changes are checked in a browser against the mock (no console errors, no horizontal scroll at 390 px).
+4. No write to a real mixer happened (rule 1). Mock or fixtures only.
+5. Docs updated when behaviour or commands change (`README.md`, `docs/operator-manual-vi.md`).
+
+## Backend conventions
+- Every OSC mutation goes through `TransactionExecutor.execute()` with an approved `Proposal`. Never call `X32Client.send_write()` or toggle `read_only_mode` anywhere else.
+- New writable parameters must be added explicitly to `SafetyPolicy.validate_proposal` with limits and a test that rejects out-of-range values.
+- Never hard-code channel 11 for talkback logic: use `get_talkback_channel()` from `packages/safety_controller/routing.py`.
+- Anything the invariant checker needs must be captured in `X32Client.take_full_snapshot()` (see `talkback_routing_paths`). Missing routing data must fail closed.
+- When adding a mixer parameter the app reads, add it to `packages/mock_x32/server.py` too, otherwise queries time out in tests.
+- Keep API error messages in `HTTPException(detail=...)`; the UI shows `detail` verbatim.
+
+## Frontend conventions (`apps/web/js`)
+- No frameworks, bundlers or CDN assets: the FOH laptop is often offline. Styles only from `assets/app.css`, icons only from `js/icons.js`.
+- A page is `js/views/<id>.js` exporting `default { mount(root, ctx) { ...; return cleanup; } }`, registered in `js/routes.js`. Cleanup must clear timers, cancel animation frames and call every `store.on(...)` unsubscribe.
+- Use `js/api.js` for HTTP, `js/store.js` for the shared WebSocket/status (never open another WebSocket), and helpers in `js/ui.js` (`card`, `callout`, `openDialog`, `confirmDialog`, `withLoading`, `toast`, `renderMarkdown`, `drawCurve`).
+- Every mixer write needs explicit confirmation: proposals use `renderProposal()` (confirm → `POST /api/v1/proposals/apply`); direct actions (mute, connect hardware, delete, import) use `confirmDialog()` first. STOP is the only action without a confirm.
+- Two audiences: **Simple mode** (`views/home.js`) is for volunteers — plain Vietnamese, one primary action per step, no jargon. **Technical mode** is everything else. Put new expert tools in technical pages; surface only safety-critical signals in Simple mode.
+- Live data: mutate existing DOM nodes, draw canvases at most once per animation frame, skip work when `document.hidden`.
+- All user-facing text is Vietnamese; code, identifiers and commit messages are English.
+
+## Working together (several agents on one repo)
+- Before editing, run `git status`. If files you need have uncommitted changes you did not make, another agent may be mid-task: do not overwrite them. Work on a branch or a `git worktree`, or ask the human.
+- Keep changes scoped; one topic per commit. Conventional commits: `feat(scope): ...`, `fix(scope): ...`, `docs: ...`, `test: ...`.
+- Do not reformat or rename files outside your task; line endings are LF in the repo (Git may warn about CRLF on Windows — that is expected).
+- Never commit `data/*.db`, captured audio, `.env` files or credentials. Pushing to `origin` only when the human asks.
+- Record notable decisions in `docs/` (e.g. a dated review file) so the next agent has context.

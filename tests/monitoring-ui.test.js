@@ -42,7 +42,7 @@ function fixture(width = 900) {
 }
 
 test('monitoring charts render on wide and narrow canvas with explicit demo source',async()=>{
-  const html=fs.readFileSync(new URL('../apps/web/index.html',import.meta.url),'utf8');
+  const html=fs.readFileSync(new URL('../apps/web/legacy.html',import.meta.url),'utf8');
   assert.match(html,/<summary>Công cụ & quy trình/);
   assert.match(html,/id="rtaSourceInfo"/);
   assert.doesNotMatch(html,/M\? PH\?NG|C\?ng c\?/);
