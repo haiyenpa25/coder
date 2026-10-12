@@ -1,0 +1,30 @@
+# Cấu hình mặc định an toàn cho hệ thống X32 AI Sound Engineer
+
+safety_engine:
+  # Mặc định kết nối luôn là Chỉ Đọc
+  default_mode: "OBSERVE"
+  enforce_read_only_on_connect: true
+
+  # Giới hạn tốc độ gửi lệnh OSC (tránh làm tràn buffer DSP của mixer)
+  rate_limit_ms: 20
+  readback_timeout_ms: 300
+  max_retries_before_rollback: 2
+
+peq_constraints:
+  # Giới hạn tăng Gain tối đa cho từng dải EQ (tránh gây hú)
+  max_boost_db: 2.0
+  max_cut_db: -12.0
+  # Quy tắc No-Boost-in-Nulls khi coherence âm học thấp
+  coherence_threshold_for_boost: 0.65
+  # Q tối thiểu cho notch triệt tiêu hú
+  min_notch_q: 5.0
+  max_notch_depth_db: -4.5
+
+speech_leveler:
+  # Silence Hold: Khóa fader khi người nói tạm dừng, không tăng ồn nền
+  silence_hold_delay_s: 0.8
+  speech_vad_threshold_dbfs: -42.0
+  # Giới hạn tăng fader tự động
+  max_upward_step_db: 0.5
+  max_downward_step_db: 3.0
+  anti_clip_threshold_dbfs: -1.5

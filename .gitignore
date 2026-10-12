@@ -1,7 +1,12 @@
 # Dependency directories
 node_modules/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
 
 # Local machine settings & temporary project data
+data/*.db
 data/settings.json
 data/*.tmp
 *.tmp
@@ -14,3 +19,4 @@ community-skills/antigravity-awesome-skills/
 .DS_Store
 Thumbs.db
 desktop.ini
+

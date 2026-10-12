@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>X32 AI Sound Engineer — ChurchMix Console</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+    /* Meter LED animation */
+    .led-meter {
+      background: linear-gradient(to top, #10b981 0%, #10b981 65%, #f59e0b 80%, #ef4444 95%);
+    }
+    .custom-scrollbar::-webkit-scrollbar { height: 6px; width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
+
+  <!-- TOP HEADER & EMERGENCY STOP BAR -->
+  <header class="bg-slate-900 border-b border-slate-800 px-6 py-3 flex items-center justify-between shadow-lg sticky top-0 z-50">
+    <div class="flex items-center space-x-4">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-indigo-500/20 shadow-md">
+        <i class="fa-solid fa-sliders text-white text-lg"></i>
+      </div>
+      <div>
+        <div class="flex items-center space-x-2">
+          <h1 class="text-lg font-bold tracking-tight text-white">X32 AI SOUND ENGINEER</h1>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-mono">v1.0 ChurchMix</span>
+        </div>
+        <p class="text-xs text-slate-400">Trợ lý Kỹ thuật Âm thanh Nhà thờ • Behringer X32 Compact + DL16</p>
+      </div>
+    </div>
+
+    <!-- Central Status Badges -->
+    <div class="hidden md:flex items-center space-x-3">
+      <!-- Mixer Online -->
+      <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="text-xs font-mono text-emerald-400" id="mixerStatus">X32 Compact: ONLINE</span>
+      </div>
+
+      <!-- Mode -->
+      <div class="flex items-center space-x-1.5 bg-indigo-950/60 border border-indigo-700/50 px-3 py-1.5 rounded-lg">
+        <i class="fa-solid fa-eye text-indigo-400 text-xs"></i>
+        <span class="text-xs font-semibold text-indigo-300" id="modeBadge">OBSERVE (Chỉ đọc)</span>
+      </div>
+
+      <!-- Hard Invariant DL16 #11 Badge -->
+      <div class="flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-600/40 px-3 py-1.5 rounded-lg" title="Bất biến an toàn: DL16 In 11 chỉ đi về P16, cách ly 100% khỏi Main FOH">
+        <i class="fa-solid fa-shield-halved text-emerald-400 text-xs"></i>
+        <span class="text-xs font-semibold text-emerald-300">DL16 #11: P16 ONLY</span>
+      </div>
+    </div>
+
+    <!-- Header Action Buttons -->
+    <div class="flex items-center space-x-3">
+      <button onclick="openWizardModal('tab-w2')" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
+        <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
+        <span>Wizards Quy Trình</span>
+      </button>
+
+      <button onclick="openHardwareModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
+        <i class="fa-solid fa-network-wired text-emerald-400"></i>
+        <span id="headerHardwareLabel">Mixer: Simulator</span>
+      </button>
+
+      <button onclick="openAudioDeviceModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
+        <i class="fa-solid fa-volume-high text-cyan-400"></i>
+        <span id="audioDeviceHeaderBtn">Card USB: Auto</span>
+      </button>
+
+      <!-- EMERGENCY STOP BUTTON -->
+      <button id="btnStopAuto" onclick="triggerStopAuto()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs tracking-wider shadow-lg shadow-red-600/30 border border-red-500 transition-all cursor-pointer">
+        <i class="fa-solid fa-hand text-white animate-bounce"></i>
+        <span>STOP AUTO</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN BODY -->
+  <main class="flex-1 p-6 space-y-6 max-w-[1800px] mx-auto w-full">
+
+    <!-- SECTION 1: REAL-TIME 60FPS RTA SPECTRUM & ACOUSTIC RADAR -->
+    <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl backdrop-blur-md">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-wave-square text-indigo-400"></i>
+          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Phổ Âm Học Thời Gian Thực (1/12-Octave RTA)</h2>
+          <span class="text-xs text-slate-500 font-mono">20 Hz – 20,000 Hz</span>
+        </div>
+        <div class="flex items-center space-x-4 text-xs font-mono text-slate-400">
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-3 rounded bg-indigo-500 inline-block"></span>
+            <span>Năng lượng RTA</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-3 rounded bg-red-500 inline-block"></span>
+            <span>Cảnh báo hú (Feedback Risk)</span>
+          </div>
+          <div class="flex items-center space-x-1.5">
+            <span class="w-3 h-3 rounded bg-emerald-400 inline-block"></span>
+            <span>Hài âm Giọng hát (Harmonic Safe)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- RTA Canvas -->
+      <div class="relative w-full h-44 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+        <canvas id="rtaCanvas" class="w-full h-full block"></canvas>
+      </div>
+    </section>
+
+    <!-- SECTION 2: 32 CHANNEL STRIPS CONSOLE -->
+    <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-table-cells text-indigo-400"></i>
+          <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Bàn Trộn Kênh Mixer (Channels 1–32)</h2>
+        </div>
+        <div class="text-xs text-slate-400">
+          Chạm vào kênh để xem chi tiết EQ/Routing • DL16 #11 được đánh dấu <span class="text-blue-400 font-bold">P16 Only</span>
+        </div>
+      </div>
+
+      <!-- Channel Strips Horizontal Grid -->
+      <div class="overflow-x-auto custom-scrollbar pb-3">
+        <div id="channelContainer" class="flex space-x-2.5 min-w-[1400px]">
+          <!-- Channel strips will be rendered here by JavaScript -->
+          <div class="text-slate-500 text-xs py-8 text-center w-full">Đang kết nối tải trạng thái 32 kênh...</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 3: 3 WORKSPACE PANELS -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+      <!-- PANEL 1: AI SOUND COPILOT (TIẾNG VIỆT) -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-robot text-purple-400"></i>
+              <h3 class="text-sm font-bold text-slate-200">Trợ Lý AI Sound Copilot</h3>
+            </div>
+            <span class="text-xs bg-purple-950/60 border border-purple-800/50 text-purple-300 px-2 py-0.5 rounded-full font-mono">Tiếng Việt</span>
+          </div>
+
+          <div class="space-y-2 mb-4">
+            <p class="text-xs text-slate-400">Gợi ý câu hỏi nhanh cho buổi lễ:</p>
+            <div class="flex flex-wrap gap-1.5">
+              <button onclick="askCopilot('Làm sao để tiếng Mục sư rõ lời?')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer">🎤 Tiếng Mục sư rõ lời</button>
+              <button onclick="askCopilot('Nguyên tắc xử lý chống hú')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer">🚨 Xử lý hú an toàn</button>
+              <button onclick="askCopilot('Kiểm tra cổng Talkback DL16 #11')" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer">🛡️ Cổng DL16 #11 P16</button>
+            </div>
+          </div>
+
+          <!-- Answer Box -->
+          <div id="copilotAnswer" class="bg-slate-950 rounded-xl p-4 border border-slate-800 text-xs text-slate-300 leading-relaxed font-mono min-h-[140px] max-h-[220px] overflow-y-auto custom-scrollbar">
+            Xin chào! Tôi là Trợ lý Kỹ thuật Âm thanh X32. Hãy nhấn vào các gợi ý trên hoặc nhập câu hỏi để nhận hướng dẫn âm học theo đúng Master Plan.
+          </div>
+        </div>
+
+        <div class="mt-4 flex space-x-2">
+          <input id="copilotInput" type="text" placeholder="Hỏi AI về kỹ thuật âm thanh..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500">
+          <button onclick="submitCopilotQuestion()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer">Gửi</button>
+        </div>
+      </div>
+
+      <!-- PANEL 2: PEQ CALIBRATION WIZARD & A/B CURVE PREVIEW -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-chart-line text-emerald-400"></i>
+              <h3 class="text-sm font-bold text-slate-200">Đề Xuất Cân Chỉnh PEQ (A/B Preview)</h3>
+            </div>
+            <button onclick="generatePastorProposal()" class="text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-2.5 py-1 rounded-lg font-semibold cursor-pointer">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Tạo Đề Xuất Mic Mục Sư
+            </button>
+          </div>
+
+          <!-- A/B Curve Canvas -->
+          <div class="relative w-full h-28 bg-slate-950 rounded-xl border border-slate-800 mb-3 overflow-hidden">
+            <canvas id="abCurveCanvas" class="w-full h-full block"></canvas>
+            <div class="absolute top-2 left-3 text-[10px] font-mono text-slate-400">Đáp tuyến PEQ mô phỏng (A/B)</div>
+          </div>
+
+          <!-- Active Proposal Details -->
+          <div id="proposalBox" class="bg-slate-950 rounded-xl p-3 border border-slate-800 text-xs space-y-1.5 min-h-[90px]">
+            <p class="text-slate-400">Chưa có đề xuất nào được tạo. Nhấn nút <strong>"Tạo Đề Xuất Mic Mục Sư"</strong> ở trên để xem quy trình.</p>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <button id="btnApplyProposal" disabled onclick="applyActiveProposal()" class="w-full py-2.5 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs tracking-wider transition-all cursor-not-allowed">
+            <i class="fa-solid fa-check mr-1.5"></i>DUYỆT & ÁP DỤNG QUA SAFETY GATE
+          </button>
+        </div>
+      </div>
+
+      <!-- PANEL 3: AUDIT TRAIL & SYSTEM INTEGRITY -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-xl flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-3">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-list-check text-amber-400"></i>
+              <h3 class="text-sm font-bold text-slate-200">Nhật Ký Giao Dịch & An Toàn</h3>
+            </div>
+            <span class="text-xs text-slate-500 font-mono" id="snapshotHash">SHA: ...</span>
+          </div>
+
+          <div id="auditLogContainer" class="space-y-2 text-xs font-mono max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span class="text-emerald-400 font-bold">[ONLINE]</span> Kết nối thành công X32 Compact. Mặc định kích hoạt chế độ <strong class="text-indigo-300">OBSERVE (Chỉ đọc)</strong>.
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80">
+              <span class="text-blue-400 font-bold">[INVARIANT]</span> Đã xác minh DL16 #11 (Talkback) chỉ kết nối P16 Slot 11, cách ly 100% khỏi Main FOH.
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3">
+          <button onclick="downloadX32Scene()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 cursor-pointer flex items-center justify-center space-x-1.5 transition-all shadow-sm">
+            <i class="fa-solid fa-floppy-disk text-amber-400"></i>
+            <span>Xuất File Scene USB (.scn) Cho X32</span>
+          </button>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[11px] text-slate-400 font-mono">
+          <span>Rate Limit: 20ms</span>
+          <span>Readback Check: ENABLED</span>
+          <span class="text-emerald-400">Fail-Safe: ARMED</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- SECTION 4: ACOUSTIC MEASUREMENT & MIX ASSISTANT WIZARDS -->
+    <section class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- TOOL A: OPEN SOUND METER & TRANSFER FUNCTION H1 -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-microphone-lines text-cyan-400"></i>
+            <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Đo Âm Học Hội Trường & Open Sound Meter (H1)</h3>
+          </div>
+          <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-300">H1(f) & Coherence</span>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+          Đo đáp tuyến loa FOH bằng phương pháp hàm truyền 2 kênh (Reference vs Measurement Mic). Tự động tính độ trễ Time-of-flight và kích hoạt quy tắc bảo vệ loa <strong>No-Boost-in-Nulls</strong>.
+        </p>
+
+        <div class="grid grid-cols-3 gap-3 mb-4 text-center font-mono">
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500">Độ trễ (Latency)</div>
+            <div id="acousticDelay" class="text-sm font-bold text-cyan-400">-- ms</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500">Độ tin cậy Coherence</div>
+            <div id="acousticCoh" class="text-sm font-bold text-emerald-400">--</div>
+          </div>
+          <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <div class="text-[10px] text-slate-500">Quy tắc No-Boost-Null</div>
+            <div class="text-xs font-bold text-amber-400">ARMED</div>
+          </div>
+        </div>
+
+        <div class="flex space-x-3">
+          <button onclick="runAcousticMeasurement()" class="flex-1 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs cursor-pointer shadow-lg shadow-cyan-600/20">
+            <i class="fa-solid fa-play mr-1.5"></i>Chạy Đo Hàm Truyền H1
+          </button>
+          <button onclick="promptImportOSM()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs cursor-pointer border border-slate-700">
+            <i class="fa-solid fa-file-import mr-1.5"></i>Nhập OSM CSV
+          </button>
+        </div>
+      </div>
+
+      <!-- TOOL B: SPEECH LEVELER & ANTI-CLIPPING GUARD -->
+      <div class="bg-slate-900 rounded-2xl border border-slate-800 p-5 shadow-xl">
+        <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-gauge-high text-amber-400"></i>
+            <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Bộ Điều Khiển Mức Giọng Nói & Anti-Clip</h3>
+          </div>
+          <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800 text-amber-300">M32 Live Tool Pilot</span>
+        </div>
+
+        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+          Tự động kiểm soát mức âm thanh bài giảng Mục sư. Áp dụng cơ chế <strong>Silence Hold</strong> (khóa chặt fader khi người nói tạm dừng, không bao giờ tự kéo tiếng ồn nền lên) và <strong>Anti-Clip</strong> khẩn cấp.
+        </p>
+
+        <div class="space-y-2 mb-4 text-xs font-mono">
+          <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            <span class="text-slate-400">Kênh giám sát:</span>
+            <span class="text-white font-bold">Kênh 1 (Pastor Mic)</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            <span class="text-slate-400">Trạng thái VAD / Silence Hold:</span>
+            <span id="levelerStatus" class="text-emerald-400 font-bold">SILENCE HOLD (Fader Khóa Cố Định)</span>
+          </div>
+          <div class="flex items-center justify-between p-2.5 bg-slate-950 rounded-xl border border-slate-800">
+            <span class="text-slate-400">Khuyến nghị Fader:</span>
+            <span id="levelerAction" class="text-slate-300">Giữ nguyên vị trí (Fader: 75%)</span>
+          </div>
+        </div>
+
+        <button onclick="refreshLevelerStatus()" class="w-full py-2.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs cursor-pointer shadow-lg shadow-amber-600/20">
+          <i class="fa-solid fa-rotate mr-1.5"></i>Kiểm Tra Mức & Headroom Ngay
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- MODAL 1: WIZARDS QUY TRÌNH BUỔI LỄ          -->
+  <!-- ========================================== -->
+  <div id="wizardModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header & Tabs -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-purple-600/30 border border-purple-500/40 flex items-center justify-center text-purple-300">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white">Quy Trình & Báo Cáo Kỹ Thuật (SOP Wizards)</h3>
+            <p class="text-xs text-slate-400">Kiểm tra an toàn đường truyền, line check trước giờ lễ và tổng kết</p>
+          </div>
+        </div>
+        <button onclick="closeWizardModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Tab Navigation -->
+      <div class="flex border-b border-slate-800 bg-slate-950/40 px-5 text-xs font-semibold overflow-x-auto custom-scrollbar">
+        <button id="tabBtnW2" onclick="switchWizardTab('tab-w2')" class="py-3 px-3.5 border-b-2 border-purple-500 text-purple-400 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-clipboard-check"></i>
+          <span>W2: Line Check Chúa Nhật</span>
+        </button>
+        <button id="tabBtnW3" onclick="switchWizardTab('tab-w3')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-microphone-lines"></i>
+          <span>W3: Cân Chỉnh Giọng (Vocal)</span>
+        </button>
+        <button id="tabBtnW4" onclick="switchWizardTab('tab-w4')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-volume-high"></i>
+          <span>W4: Cân Chỉnh Loa (PA)</span>
+        </button>
+        <button id="tabBtnW5" onclick="switchWizardTab('tab-w5')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-shield-virus"></i>
+          <span>W5: Dò Hú Khi Tập (Ring-Out)</span>
+        </button>
+        <button id="tabBtnW6" onclick="switchWizardTab('tab-w6')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-headset"></i>
+          <span>W6: Trực Tiếp Buổi Lễ</span>
+        </button>
+        <button id="tabBtnW1" onclick="switchWizardTab('tab-w1')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-boxes-stacked"></i>
+          <span>W1: Kiểm Kê & Talkback</span>
+        </button>
+        <button id="tabBtnW7" onclick="switchWizardTab('tab-w7')" class="py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap">
+          <i class="fa-solid fa-flag-checkered"></i>
+          <span>W7: Báo Cáo Buổi Lễ</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="flex-1 p-6 overflow-y-auto custom-scrollbar space-y-6">
+
+        <!-- TAB WIZARD 2: SUNDAY LINE CHECK -->
+        <div id="tabContentW2" class="space-y-5">
+          <!-- Readiness Status Banner -->
+          <div id="lineCheckBanner" class="p-4 rounded-xl bg-amber-950/40 border border-amber-600/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-triangle-exclamation text-amber-400 text-xl" id="lineCheckIcon"></i>
+              <div>
+                <div class="text-xs font-bold text-amber-300" id="lineCheckTitle">ĐANG KIỂM TRA TRƯỚC GIỜ LỄ (PRE-SERVICE LINE CHECK)</div>
+                <div class="text-[11px] text-slate-300" id="lineCheckSub">Vui lòng hoàn thành 4 mục kiểm tra vật lý và đối chiếu bảng kênh bên dưới.</div>
+              </div>
+            </div>
+            <span id="lineCheckBadge" class="text-xs font-mono px-3 py-1 rounded-full bg-amber-600/20 text-amber-300 border border-amber-500/40 font-bold">CẦN KIỂM TRA</span>
+          </div>
+
+          <!-- Section A: 4 Physical Checklist Items -->
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center">
+              <i class="fa-solid fa-battery-three-quarters text-emerald-400 mr-2"></i>Bảng Kiểm Vật Lý Tại Chỗ (Physical Checks)
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs" id="physicalChecklistContainer">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+
+          <!-- Section B: Automated Channel Audit Table -->
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-slate-300 flex items-center">
+                <i class="fa-solid fa-sliders text-indigo-400 mr-2"></i>Trạng Thái Kênh Tín Hiệu (Channels Audit)
+              </h4>
+              <button onclick="fetchLineCheckData()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer">
+                <i class="fa-solid fa-rotate mr-1"></i>Quét lại mixer
+              </button>
+            </div>
+
+            <div class="max-h-56 overflow-y-auto custom-scrollbar border border-slate-800 rounded-lg">
+              <table class="w-full text-left text-[11px] text-slate-300">
+                <thead class="bg-slate-900 sticky top-0 text-[10px] text-slate-400 uppercase tracking-wider border-b border-slate-800">
+                  <tr>
+                    <th class="py-2 px-3">Kênh</th>
+                    <th class="py-2 px-3">Tên Kênh</th>
+                    <th class="py-2 px-3">Mute / On</th>
+                    <th class="py-2 px-3">Đường Đi</th>
+                    <th class="py-2 px-3">Fader</th>
+                    <th class="py-2 px-3">Đánh Giá</th>
+                  </tr>
+                </thead>
+                <tbody id="lineCheckTableBody" class="divide-y divide-slate-800/60 font-mono">
+                  <tr><td colspan="6" class="py-4 text-center text-slate-500">Đang quét trạng thái bàn trộn...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 3: VOCAL / SPEECH CALIBRATION -->
+        <div id="tabContentW3" class="hidden space-y-5">
+          <div class="p-4 rounded-xl bg-indigo-950/40 border border-indigo-600/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-microphone-lines text-indigo-400 text-xl"></i>
+              <div>
+                <div class="text-xs font-bold text-indigo-300">HIỆU CHUẨN GIỌNG HÁT & BÀI GIẢNG (WIZARD 3)</div>
+                <div class="text-[11px] text-slate-300">Lấy mẫu giọng tự nhiên 20–40s, phân tích dải tần, đề xuất HPF, PEQ và compressor bảo toàn âm sắc.</div>
+              </div>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-indigo-600/20 text-indigo-300 border border-indigo-500/40 font-bold">REHEARSAL</span>
+          </div>
+
+          <!-- Configuration Row -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Chọn Kênh Cần Hiệu Chuẩn:</label>
+              <select id="w3ChannelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none">
+                <option value="1">CH 1: Pastor Mic (Mục sư)</option>
+                <option value="2">CH 2: Assistant (Phụ lễ)</option>
+                <option value="3">CH 3: Lead Vocal (Đơn ca)</option>
+                <option value="4">CH 4: Backing Vocal 1</option>
+                <option value="5">CH 5: Choir Overhead (Ca đoàn)</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Loại Nguồn Âm (Vocal Role):</label>
+              <select id="w3RoleSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none">
+                <option value="PASTOR_SPEECH">Giọng Nói Mục Sư (Pastor Speech)</option>
+                <option value="LEAD_VOCAL_FEMALE">Ca Sĩ Nữ Đơn Ca (Female Lead Vocal)</option>
+                <option value="LEAD_VOCAL_MALE">Ca Sĩ Nam Đơn Ca (Male Lead Vocal)</option>
+                <option value="CHOIR_OVERHEAD">Ca Đoàn Tổng Hợp (Choir Overhead)</option>
+              </select>
+            </div>
+          </div>
+
+          <button onclick="runVocalCalibrationUI()" class="w-full py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-lg shadow-indigo-600/30 cursor-pointer">
+            <i class="fa-solid fa-play mr-1.5"></i>Lấy Mẫu 20s & Phân Tích Đề Xuất Âm Học
+          </button>
+
+          <!-- Result Area -->
+          <div id="w3ResultBox" class="hidden space-y-4">
+            <!-- Guidelines & Dynamics -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+                <h5 class="font-bold text-indigo-300 uppercase tracking-wider flex items-center">
+                  <i class="fa-solid fa-person-chalkboard mr-1.5"></i>Hướng Dẫn Bố Trí Micro Vật Lý
+                </h5>
+                <p id="w3MicGuide" class="text-slate-300 leading-relaxed font-mono text-[11px]"></p>
+                <div class="pt-2 border-t border-slate-800/80 text-[10px] text-slate-400">
+                  <span class="text-emerald-400 font-bold">HPF (Lọc Trầm):</span> <span id="w3HpfVal">85 Hz (12dB/oct)</span>
+                </div>
+              </div>
+
+              <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-2">
+                <h5 class="font-bold text-indigo-300 uppercase tracking-wider flex items-center">
+                  <i class="fa-solid fa-gauge mr-1.5"></i>Thông Số Dynamics / Compressor Khuyên Dùng
+                </h5>
+                <div id="w3DynamicsBox" class="font-mono text-[11px] text-slate-300 space-y-1"></div>
+              </div>
+            </div>
+
+            <!-- Bands Table -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <h5 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2">Đề Xuất Các Dải PEQ Cân Bằng Giọng</h5>
+              <table class="w-full text-left text-[11px] text-slate-300 font-mono">
+                <thead class="text-slate-500 border-b border-slate-800">
+                  <tr>
+                    <th class="py-1.5 px-2">Band</th>
+                    <th class="py-1.5 px-2">Tần Số</th>
+                    <th class="py-1.5 px-2">Độ Tăng/Giảm (Gain)</th>
+                    <th class="py-1.5 px-2">Độ Rộng (Q)</th>
+                    <th class="py-1.5 px-2">Mục Tiêu Âm Học</th>
+                  </tr>
+                </thead>
+                <tbody id="w3BandsTableBody" class="divide-y divide-slate-900"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 4: ROOM & PA SYSTEM CALIBRATION -->
+        <div id="tabContentW4" class="hidden space-y-5">
+          <div class="p-4 rounded-xl bg-cyan-950/40 border border-cyan-600/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-volume-high text-cyan-400 text-xl"></i>
+              <div>
+                <div class="text-xs font-bold text-cyan-300">CÂN CHỈNH HỆ THỐNG LOA HỘI TRƯỜNG & PA (WIZARD 4)</div>
+                <div class="text-[11px] text-slate-300">Đo hàm truyền hai kênh (Dual-Channel H1 Transfer Function), Coherence, Delay Alignment và bất biến No-Boost-in-Nulls.</div>
+              </div>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 font-bold">ACOUSTIC H1</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Vị Trí Đo Âm Học (Mic Position):</label>
+              <select id="w4PositionSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none">
+                <option value="Center Hall">1. Chính Giữa Hội Trường (Center Hall - FOH)</option>
+                <option value="Front Row Center">2. Hàng Ghế Đầu (Front Row Center)</option>
+                <option value="Under Balcony">3. Dưới Ban Công (Under Balcony Fill)</option>
+                <option value="Rear Hall Left">4. Góc Cuối Hội Trường (Rear Hall)</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Tín Hiệu Thử Nghiệm (Test Signal):</label>
+              <div class="flex items-center space-x-2 pt-1">
+                <span class="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-800 font-mono text-[11px] text-cyan-300">Pink Noise (48kHz, -18dBFS)</span>
+                <span class="px-2.5 py-1.5 rounded-lg bg-emerald-950/60 text-emerald-400 border border-emerald-800/80 font-mono text-[10px]">No-Boost-in-Nulls Bật</span>
+              </div>
+            </div>
+          </div>
+
+          <button onclick="runAcousticMeasurementUI()" class="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 cursor-pointer">
+            <i class="fa-solid fa-wave-square mr-1.5"></i>Khởi Động Đo Hàm Truyền H1 & Tính Toán Coherence
+          </button>
+
+          <!-- Result Area -->
+          <div id="w4ResultBox" class="hidden space-y-4">
+            <div class="grid grid-cols-3 gap-3 text-center font-mono text-xs">
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Độ Trễ Hệ Thống (Delay)</div>
+                <div id="w4DelayMs" class="text-sm font-bold text-cyan-400 mt-1">-- ms</div>
+              </div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Độ Tin Cậy Trung Bình (Coherence)</div>
+                <div id="w4CoherenceAvg" class="text-sm font-bold text-emerald-400 mt-1">--</div>
+              </div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Bất Biến Bảo Vệ Loa</div>
+                <div id="w4RuleEnforced" class="text-[11px] font-bold text-amber-300 mt-1">NO-BOOST-IN-NULLS</div>
+              </div>
+            </div>
+
+            <!-- Curve Points Sample -->
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800">
+              <h5 class="font-bold text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center justify-between">
+                <span>Dữ Liệu Đáp Tuyến & Đề Xuất Target EQ</span>
+                <span class="text-[10px] text-slate-400 font-mono">Hiển thị mẫu 8 điểm tiêu biểu</span>
+              </h5>
+              <div class="overflow-x-auto">
+                <table class="w-full text-left text-[11px] text-slate-300 font-mono">
+                  <thead>
+                    <tr class="text-[10px] text-slate-400 uppercase border-b border-slate-800">
+                      <th class="py-1.5 px-2">Tần số (Hz)</th>
+                      <th class="py-1.5 px-2">Magnitude (dB)</th>
+                      <th class="py-1.5 px-2">Coherence</th>
+                      <th class="py-1.5 px-2">Target EQ An Toàn</th>
+                      <th class="py-1.5 px-2">Ghi Chú</th>
+                    </tr>
+                  </thead>
+                  <tbody id="w4CurveTableBody" class="divide-y divide-slate-900"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 5: SAFE FEEDBACK RING-OUT -->
+        <div id="tabContentW5" class="hidden space-y-5">
+          <div class="p-4 rounded-xl bg-red-950/40 border border-red-600/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-shield-virus text-red-400 text-xl"></i>
+              <div>
+                <div class="text-xs font-bold text-red-300">QUY TRÌNH DÒ HÚ AN TOÀN TRONG BUỔI TẬP (WIZARD 5)</div>
+                <div class="text-[11px] text-slate-300">Quy trình dò tìm tần số cộng hưởng tại vị trí ca sĩ, áp dụng notch cực hẹp để tăng Headroom trước khi làm lễ.</div>
+              </div>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-red-600/20 text-red-300 border border-red-500/40 font-bold">REHEARSAL ONLY</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Chọn Kênh Cần Dò Hú:</label>
+              <select id="w5ChannelSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none">
+                <option value="3">CH 3: Lead Vocal (Đơn ca - Đứng gần loa)</option>
+                <option value="1">CH 1: Pastor Mic (Micro bục giảng)</option>
+                <option value="4">CH 4: Backing Vocal (Ca sĩ bè)</option>
+              </select>
+            </div>
+            <div>
+              <label class="font-bold text-slate-300 block mb-1.5">Mục Tiêu Tăng Gain An Toàn (Headroom):</label>
+              <select id="w5GainSelect" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white focus:outline-none">
+                <option value="3.0">+3.0 dB Gain-Before-Feedback (Khuyên Dùng)</option>
+                <option value="4.0">+4.0 dB Gain-Before-Feedback</option>
+                <option value="5.0">+5.0 dB Gain-Before-Feedback (Tối Đa)</option>
+              </select>
+            </div>
+          </div>
+
+          <button onclick="runFeedbackRingoutUI()" class="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 cursor-pointer">
+            <i class="fa-solid fa-satellite-dish mr-1.5"></i>Khởi Động Quy Trình Dò Hú & Tạo Notch Filter
+          </button>
+
+          <!-- Result Area -->
+          <div id="w5ResultBox" class="hidden space-y-4">
+            <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+              <h5 class="font-bold text-red-300 text-xs uppercase tracking-wider flex items-center">
+                <i class="fa-solid fa-list-ol mr-1.5"></i>Các Bước Thực Hiện Bắt Buộc (SOP 8 Bước)
+              </h5>
+              <div id="w5SopStepsContainer" class="space-y-1.5 font-mono text-[11px] text-slate-300"></div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 text-center font-mono text-xs">
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Tần Số Cộng Hưởng</div>
+                <div id="w5ResFreq" class="text-sm font-bold text-red-400 mt-1">-- Hz</div>
+              </div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Đề Xuất Notch Filter</div>
+                <div id="w5NotchDetail" class="text-sm font-bold text-amber-400 mt-1">--</div>
+              </div>
+              <div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                <div class="text-[10px] text-slate-400">Headroom Đạt Thêm</div>
+                <div id="w5GainMargin" class="text-sm font-bold text-emerald-400 mt-1">-- dB</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 6: LIVE SERVICE ASSISTANT -->
+        <div id="tabContentW6" class="hidden space-y-5">
+          <div class="p-4 rounded-xl bg-amber-950/40 border border-amber-600/40 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+              <i class="fa-solid fa-headset text-amber-400 text-xl"></i>
+              <div>
+                <div class="text-xs font-bold text-amber-300">TRỢ LÝ TRỰC TIẾP TRONG BUỔI LỄ (WIZARD 6)</div>
+                <div class="text-[11px] text-slate-300">Giám sát một màn hình: cảnh báo rủi ro hú, mức quá ngưỡng (clipping), trạng thái fader và hướng dẫn xử lý thời gian thực.</div>
+              </div>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-full bg-amber-600/20 text-amber-300 border border-amber-500/40 font-bold">LIVE ASSIST</span>
+          </div>
+
+          <!-- Overall Status Grid -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-center">
+              <div class="text-[10px] text-slate-400 uppercase font-mono">Tình Trạng Hệ Thống</div>
+              <div id="w6OverallHealth" class="text-sm font-bold text-emerald-400 mt-1">HOÀN HẢO</div>
+            </div>
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-center">
+              <div class="text-[10px] text-slate-400 uppercase font-mono">Fader Tổng Main FOH</div>
+              <div id="w6MasterFader" class="text-sm font-bold text-indigo-300 mt-1 font-mono">75% (0 dB)</div>
+            </div>
+            <div class="p-3 bg-slate-950 border border-slate-800 rounded-xl text-center">
+              <div class="text-[10px] text-slate-400 uppercase font-mono">Chế Độ An Toàn</div>
+              <div class="text-sm font-bold text-cyan-400 mt-1 font-mono">READ-ONLY (Khóa Ghi)</div>
+            </div>
+          </div>
+
+          <!-- Tactical Guidance Box -->
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="text-xs font-bold text-indigo-300 flex items-center">
+              <i class="fa-solid fa-comment-dots mr-1.5"></i>Chỉ Đạo Kỹ Thuật Trực Tiếp:
+            </div>
+            <p id="w6TacticalGuidance" class="text-xs text-slate-300 leading-relaxed font-mono">Đang tải trạng thái trực tiếp...</p>
+          </div>
+
+          <!-- Active Key Channels Table -->
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <h5 class="text-xs font-bold uppercase tracking-wider text-slate-300">
+                <i class="fa-solid fa-sliders text-amber-400 mr-1.5"></i>Trạng Thái Các Tuyến Kênh Quan Trọng
+              </h5>
+              <button onclick="loadLiveAssistantUI()" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 cursor-pointer">
+                <i class="fa-solid fa-rotate mr-1"></i>Làm mới
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-left text-[11px] text-slate-300 font-mono">
+                <thead>
+                  <tr class="text-[10px] text-slate-400 uppercase border-b border-slate-800">
+                    <th class="py-2 px-2.5">Kênh</th>
+                    <th class="py-2 px-2.5">Vai Trò</th>
+                    <th class="py-2 px-2.5">Fader</th>
+                    <th class="py-2 px-2.5">Rủi Ro Hú</th>
+                    <th class="py-2 px-2.5">Khuyến Nghị & Hành Động Kỹ Thuật Viên</th>
+                  </tr>
+                </thead>
+                <tbody id="w6ChannelsTableBody" class="divide-y divide-slate-800/60">
+                  <tr><td colspan="5" class="py-3 text-center text-slate-500">Đang quét trạng thái buổi lễ...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 1: INVENTORY AUDIT -->
+        <div id="tabContentW1" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <p class="text-xs text-slate-400">Báo cáo kiểm kê cấu hình mixer X32, danh sách 32 kênh và xác minh bất biến cách ly Talkback DL16 #11.</p>
+            <button onclick="downloadInventoryReport()" class="text-xs bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer">
+              <i class="fa-solid fa-download mr-1.5"></i>Tải Báo Cáo (.md)
+            </button>
+          </div>
+          <div id="w1MarkdownContainer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 leading-relaxed max-h-96 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+            Đang tải dữ liệu kiểm kê mixer...
+          </div>
+        </div>
+
+        <!-- TAB WIZARD 7: END-OF-SERVICE REPORT -->
+        <div id="tabContentW7" class="hidden space-y-4">
+          <div class="flex items-center justify-between">
+            <p class="text-xs text-slate-400">Báo cáo tổng kết buổi lễ: lịch sử giao dịch EQ/HPF, can thiệp Speech Leveler và số lần chặn hú.</p>
+            <button onclick="downloadEndOfServiceReport()" class="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-lg shadow cursor-pointer">
+              <i class="fa-solid fa-download mr-1.5"></i>Xuất Báo Cáo (.md)
+            </button>
+          </div>
+          <div id="w7MarkdownContainer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-300 leading-relaxed max-h-96 overflow-y-auto custom-scrollbar whitespace-pre-wrap">
+            Đang tạo báo cáo tổng kết buổi lễ...
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-400 font-mono">Bảo mật: Xác thực SHA-256 trên mọi thay đổi</span>
+        <button onclick="closeWizardModal()" class="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer">
+          Đóng cửa sổ
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 2: HARDWARE CONNECTION SWITCHER       -->
+  <!-- ========================================== -->
+  <div id="hardwareModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+            <i class="fa-solid fa-network-wired"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Kết Nối Bàn Trộn X32</h3>
+            <p class="text-[11px] text-slate-400">Chuyển đổi giữa Simulator và Mixer Thật qua mạng LAN</p>
+          </div>
+        </div>
+        <button onclick="closeHardwareModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div class="space-y-2">
+          <label class="text-xs font-bold text-slate-300 block">Chế độ kết nối:</label>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <button id="hwModeSim" onclick="selectHardwareMode('SIMULATOR')" class="p-3 rounded-xl border border-indigo-500 bg-indigo-950/40 text-indigo-300 font-semibold text-center cursor-pointer">
+              Giả Lập Simulator<br><span class="text-[10px] text-slate-400 font-mono">127.0.0.1:10023</span>
+            </button>
+            <button id="hwModeReal" onclick="selectHardwareMode('REAL_HARDWARE')" class="p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-semibold text-center hover:border-slate-700 cursor-pointer">
+              Mixer Thật X32<br><span class="text-[10px] text-slate-400 font-mono">LAN IP nội bộ</span>
+            </button>
+          </div>
+        </div>
+
+        <div id="hwRealFields" class="space-y-3 hidden">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-bold text-slate-300">Dò Tìm Tự Động:</span>
+            <button onclick="discoverMixersUI()" id="btnDiscoverMixers" class="text-[11px] bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-2.5 py-1 rounded-lg shadow cursor-pointer">
+              <i class="fa-solid fa-satellite-dish mr-1"></i>Quét Mạng LAN Tìm X32
+            </button>
+          </div>
+          <div id="discoveredMixersList" class="hidden space-y-1.5 p-2 bg-slate-950 border border-slate-800 rounded-xl text-xs"></div>
+          <div>
+            <label class="text-xs font-medium text-slate-400 block mb-1">Địa chỉ IP X32 trên mạng LAN:</label>
+            <input id="hwMixerIp" type="text" value="192.168.1.50" placeholder="Ví dụ: 192.168.1.50" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-400 block mb-1">Cổng UDP OSC (Mặc định: 10023):</label>
+            <input id="hwMixerPort" type="number" value="10023" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-amber-950/30 border border-amber-700/40 text-[11px] text-amber-300 space-y-1">
+          <div class="font-bold flex items-center"><i class="fa-solid fa-shield mr-1.5"></i>Bảo vệ an toàn bắt buộc:</div>
+          <p class="text-slate-400">Mọi kết nối mới luôn được gán cưỡng bức <strong>READ_ONLY_MODE = True</strong>. Bất biến Talkback DL16 #11 được kiểm tra ngay khi kết nối.</p>
+        </div>
+
+        <div id="hwConnectResult" class="text-xs font-mono p-2.5 rounded-lg bg-slate-950 border border-slate-800 hidden"></div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-end space-x-3">
+        <button onclick="closeHardwareModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">Hủy</button>
+        <button id="btnHwConnect" onclick="executeHardwareConnect()" class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/30 cursor-pointer">
+          <i class="fa-solid fa-plug mr-1.5"></i>Xác Nhận Kết Nối
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 3: AUDIO DEVICE SELECTOR & CAPTURE    -->
+  <!-- ========================================== -->
+  <div id="audioDeviceModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-cyan-600/30 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+            <i class="fa-solid fa-volume-high"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white">Thiết Bị Thu Âm (Audio Capture)</h3>
+            <p class="text-[11px] text-slate-400">Card mở rộng X-USB / DN32-USB hoặc micro đo lường</p>
+          </div>
+        </div>
+        <button onclick="closeAudioDeviceModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="text-xs font-bold text-slate-300 block mb-1.5">Chọn Card / Thiết Bị Đầu Vào:</label>
+          <select id="audioDeviceSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500">
+            <option value="-1">Simulated X-USB Card (32 Ch In, 48kHz)</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3 text-xs">
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Số kênh thu âm:</label>
+            <select id="audioChannelsSelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none">
+              <option value="2">2 Kênh (Stereo / Reference + Mic)</option>
+              <option value="16">16 Kênh (DL16 Multitrack)</option>
+              <option value="32">32 Kênh (Toàn bộ X-USB)</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-[11px] text-slate-400 block mb-1">Tần số lấy mẫu:</label>
+            <input type="text" value="48,000 Hz (Chuẩn X32)" readonly class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-400 font-mono">
+          </div>
+        </div>
+
+        <!-- Live Capture Status Card -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2 text-xs font-mono">
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">Trạng thái luồng:</span>
+            <span id="audioCaptureStatusText" class="text-slate-400 font-bold">Chưa kích hoạt</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-slate-400">Số khối âm thanh đã xử lý:</span>
+            <span id="audioCaptureBlocks" class="text-cyan-400 font-bold">0 blocks</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <button id="btnAudioCaptureToggle" onclick="toggleAudioCapture()" class="px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 cursor-pointer">
+          <i class="fa-solid fa-play mr-1.5"></i>Bắt Đầu Thu Âm
+        </button>
+        <button onclick="closeAudioDeviceModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL 4: CHANNEL DETAIL & MIXER EXPLORER   -->
+  <!-- ========================================== -->
+  <div id="channelDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div id="cdmIconBox" class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold font-mono text-sm">
+            CH 1
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 id="cdmTitle" class="text-sm font-bold text-white">Pastor Mic</h3>
+              <span id="cdmRoutingBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">FOH</span>
+            </div>
+            <p id="cdmSub" class="text-[11px] text-slate-400">Chi tiết thông số Preamp, 4-Band PEQ & Định tuyến</p>
+          </div>
+        </div>
+        <button onclick="closeChannelDetailModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Invariant Banner if Talkback -->
+        <div id="cdmTalkbackNotice" class="hidden p-3 rounded-xl bg-blue-950/40 border border-blue-600/50 flex items-center space-x-3">
+          <i class="fa-solid fa-shield-halved text-blue-400 text-xl"></i>
+          <div>
+            <div class="font-bold text-blue-300">BẤT BIẾN AN TOÀN SỐNG CÒN (HARD INVARIANT)</div>
+            <div class="text-[11px] text-slate-300">Cổng DL16 #11 được hệ thống cách ly tuyệt đối khỏi loa FOH hội trường; tín hiệu CHỈ ĐƯỢC PHÉP gửi về Ultranet P16 ban nhạc.</div>
+          </div>
+        </div>
+
+        <!-- Quick Metrics -->
+        <div class="grid grid-cols-3 gap-2.5 text-center font-mono">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Fader Level</div>
+            <div id="cdmFaderVal" class="text-sm font-bold text-cyan-400 mt-0.5">75% (0 dB)</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">Trạng Thái Mute</div>
+            <div id="cdmMuteVal" class="text-sm font-bold text-emerald-400 mt-0.5">ON (Mở)</div>
+          </div>
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+            <div class="text-[10px] text-slate-400 uppercase">HPF Low-Cut</div>
+            <div id="cdmHpfVal" class="text-sm font-bold text-indigo-300 mt-0.5">85 Hz</div>
+          </div>
+        </div>
+
+        <!-- 4-Band Parametric EQ Detail Table -->
+        <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-300 uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-chart-line text-indigo-400 mr-1.5"></i>4-Band Parametric EQ (Hiện Tại)
+            </span>
+            <span id="cdmEqOnBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">EQ BẬT</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-[11px] text-slate-300 font-mono">
+              <thead>
+                <tr class="text-[10px] text-slate-400 uppercase border-b border-slate-800">
+                  <th class="py-1 px-2">Dải</th>
+                  <th class="py-1 px-2">Kiểu (Type)</th>
+                  <th class="py-1 px-2">Tần Số (Hz)</th>
+                  <th class="py-1 px-2">Độ Lợi (Gain)</th>
+                  <th class="py-1 px-2">Độ Rộng (Q)</th>
+                </tr>
+              </thead>
+              <tbody id="cdmEqTableBody" class="divide-y divide-slate-800/60"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Shortcut Action Buttons -->
+        <div class="space-y-2">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thao Tác Nhanh Theo Quy Trình (Wizards):</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="cdmBtnCalib" class="p-2.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 font-semibold text-center cursor-pointer flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-microphone-lines"></i>
+              <span>Cân Chỉnh Vocal (W3)</span>
+            </button>
+            <button id="cdmBtnRingout" class="p-2.5 rounded-xl bg-red-600/30 hover:bg-red-600/50 border border-red-500/50 text-red-300 font-semibold text-center cursor-pointer flex items-center justify-center space-x-1.5">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span>Dò Hú Rehearsal (W5)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[10px] text-slate-500 font-mono">Bấm vào bất kỳ kênh nào trên bảng mixer để xem chi tiết</span>
+        <button onclick="closeChannelDetailModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let activeProposalId = null;
+    let ws = null;
+    let rtaData = [];
+    let channelsData = [];
+
+    // --- WebSocket Telemetry Loop ---
+    function initWebSocket() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws/live`;
+      ws = new WebSocket(wsUrl);
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'TELEMETRY') {
+            rtaData = data.rta || [];
+            drawRTA(rtaData, data.feedback_alerts || []);
+            updateMeters(data.meters || []);
+
+            if (data.stop_auto) {
+              document.getElementById('btnStopAuto').classList.add('bg-red-800', 'animate-pulse');
+              document.getElementById('modeBadge').innerText = 'EMERGENCY STOP (Khóa Cứng)';
+              document.getElementById('modeBadge').className = 'text-xs font-bold text-red-400 bg-red-950/80 border border-red-700 px-3 py-1.5 rounded-lg';
+            }
+          }
+        } catch (e) {
+          console.error("WS error:", e);
+        }
+      };
+
+      ws.onclose = () => {
+        setTimeout(initWebSocket, 2000);
+      };
+    }
+
+    // --- Draw 1/12-Octave RTA Spectrum on Canvas ---
+    function drawRTA(bands, alerts) {
+      const canvas = document.getElementById('rtaCanvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const width = canvas.width = canvas.parentElement.clientWidth;
+      const height = canvas.height = canvas.parentElement.clientHeight;
+
+      ctx.clearRect(0, 0, width, height);
+
+      if (!bands || bands.length === 0) return;
+
+      const barWidth = Math.max(2, (width / bands.length) - 1.5);
+      const minDb = -90.0;
+      const maxDb = 0.0;
+
+      bands.forEach((b, i) => {
+        const x = i * (barWidth + 1.5);
+        const norm = Math.max(0, Math.min(1, (b.level_dbfs - minDb) / (maxDb - minDb)));
+        const barHeight = norm * (height - 24);
+        const y = height - barHeight - 18;
+
+        // Check if frequency matches any active feedback alert
+        const isAlert = alerts.some(a => Math.abs(a.freq_hz - b.center_freq) < (b.center_freq * 0.08));
+
+        if (isAlert) {
+          ctx.fillStyle = '#ef4444'; // Red for feedback
+        } else {
+          // Gradient from blue to emerald
+          const grad = ctx.createLinearGradient(0, height, 0, y);
+          grad.addColorStop(0, '#3b82f6');
+          grad.addColorStop(0.7, '#10b981');
+          grad.addColorStop(1, '#f59e0b');
+          ctx.fillStyle = grad;
+        }
+
+        ctx.fillRect(x, y, barWidth, barHeight);
+
+        // Draw frequency labels at key points (100Hz, 1kHz, 10kHz)
+        if ([100, 250, 1000, 2500, 10000].includes(Math.round(b.center_freq))) {
+          ctx.fillStyle = '#64748b';
+          ctx.font = '9px monospace';
+          const label = b.center_freq >= 1000 ? `${(b.center_freq/1000).toFixed(1)}k` : `${Math.round(b.center_freq)}`;
+          ctx.fillText(label, x - 4, height - 4);
+        }
+      });
+    }
+
+    // --- Update Channel Meters ---
+    function updateMeters(meters) {
+      meters.forEach(m => {
+        const fillEl = document.getElementById(`meter-fill-${m.channel}`);
+        if (fillEl) {
+          // -60dBFS to 0dBFS -> 0% to 100%
+          const pct = Math.max(0, Math.min(100, ((m.meter_dbfs + 60) / 60) * 100));
+          fillEl.style.height = `${pct}%`;
+        }
+      });
+    }
+
+    // --- Load Channel Data & Render Strips ---
+    async function loadChannels() {
+      try {
+        const res = await fetch('/api/v1/channels');
+        const data = await res.json();
+        channelsData = data.channels || [];
+        renderChannelStrips(channelsData);
+      } catch (err) {
+        console.error("Failed to load channels:", err);
+      }
+    }
+
+    function renderChannelStrips(channels) {
+      const container = document.getElementById('channelContainer');
+      container.innerHTML = '';
+
+      channels.forEach(ch => {
+        const isTalkback = ch.channel === 11;
+        const strip = document.createElement('div');
+        strip.className = `flex-1 min-w-[76px] max-w-[96px] bg-slate-950 rounded-xl p-2.5 border ${isTalkback ? 'border-blue-600/70 bg-blue-950/20' : 'border-slate-800'} flex flex-col items-center justify-between text-center select-none cursor-pointer hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/10 transition-all`;
+        strip.onclick = () => openChannelDetail(ch);
+
+        strip.innerHTML = `
+          <div class="w-full">
+            <div class="flex items-center justify-between w-full mb-1">
+              <span class="text-[10px] font-mono font-bold text-slate-400">CH ${ch.channel}</span>
+              ${isTalkback ? '<span class="text-[8px] font-bold bg-blue-600 text-white px-1 rounded">P16</span>' : '<span class="text-[8px] font-bold bg-emerald-900/60 text-emerald-400 border border-emerald-700/50 px-1 rounded">FOH</span>'}
+            </div>
+            <div class="text-[11px] font-bold text-white truncate w-full" title="${ch.name}">${ch.name}</div>
+          </div>
+
+          <!-- Vertical LED Meter & Fader Slider -->
+          <div class="h-28 w-8 my-2 flex items-center justify-center space-x-1.5 bg-slate-900 rounded-lg p-1 border border-slate-800/80">
+            <!-- LED Meter Bar -->
+            <div class="w-2.5 h-full bg-slate-950 rounded-sm relative overflow-hidden flex flex-col justify-end">
+              <div id="meter-fill-${ch.channel}" class="w-full led-meter transition-all duration-75" style="height: 10%;"></div>
+            </div>
+            <!-- Fader indicator -->
+            <div class="text-[9px] font-mono text-slate-400 transform -rotate-90 origin-center whitespace-nowrap">
+              ${(ch.fader * 100).toFixed(0)}%
+            </div>
+          </div>
+
+          <!-- Bottom Status Buttons -->
+          <div class="w-full space-y-1">
+            <div class="text-[9px] font-mono py-0.5 rounded ${ch.on ? 'bg-slate-800 text-slate-300' : 'bg-red-950 text-red-400 font-bold'}">
+              ${ch.on ? 'ON' : 'MUTE'}
+            </div>
+            <div class="text-[8px] font-mono text-slate-500">
+              HPF: ${ch.hpon ? 'ON' : 'OFF'}
+            </div>
+          </div>
+        `;
+        container.appendChild(strip);
+      });
+    }
+
+    // --- Channel Detail Modal & Mixer Explorer ---
+    function openChannelDetail(ch) {
+      document.getElementById('channelDetailModal').classList.remove('hidden');
+
+      const isTalkback = ch.channel === 11;
+      document.getElementById('cdmIconBox').innerText = `CH ${ch.channel}`;
+      document.getElementById('cdmTitle').innerText = ch.name;
+
+      const badge = document.getElementById('cdmRoutingBadge');
+      if (isTalkback) {
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-blue-950 text-blue-300 border border-blue-600/60";
+        badge.innerText = "P16 ONLY (Bảo Vệ)";
+        document.getElementById('cdmTalkbackNotice').classList.remove('hidden');
+      } else {
+        badge.className = "text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800";
+        badge.innerText = ch.is_foh && ch.is_p16 ? "FOH + P16" : (ch.is_foh ? "FOH" : "Muted");
+        document.getElementById('cdmTalkbackNotice').classList.add('hidden');
+      }
+
+      document.getElementById('cdmFaderVal').innerText = `${Math.round(ch.fader * 100)}% (${ch.fader >= 0.75 ? '0 dB Unity' : '-dB'})`;
+      document.getElementById('cdmMuteVal').innerText = ch.on ? "ON (Mở Tín Hiệu)" : "MUTED (Đang Tắt)";
+      document.getElementById('cdmMuteVal').className = ch.on ? "text-sm font-bold text-emerald-400 mt-0.5" : "text-sm font-bold text-red-400 mt-0.5";
+
+      const hpfHz = ch.hpf ? Math.round(20 * Math.pow(1000, ch.hpf)) : (ch.hpon ? 85 : 0);
+      document.getElementById('cdmHpfVal').innerText = ch.hpon ? `${hpfHz} Hz (Bật)` : "Tắt (Bypass)";
+
+      // Render 4-band PEQ Table
+      const eqBody = document.getElementById('cdmEqTableBody');
+      eqBody.innerHTML = '';
+      const bands = ch.eq_bands || [];
+      const bandNames = ["Low (Dải Trầm)", "Low-Mid (Trung Trầm)", "High-Mid (Trung Cao)", "High (Dải Cao)"];
+
+      bands.forEach((b, idx) => {
+        const row = document.createElement('tr');
+        const freqHz = Math.round(20 * Math.pow(1000, b.f));
+        const gainDb = Math.round((b.gain - 0.5) * 30 * 10) / 10;
+        const qVal = Math.round((Math.pow(10, b.q * 1.5) * 0.3) * 10) / 10;
+        const isCut = gainDb < 0;
+        const gainColor = isCut ? 'text-blue-400' : (gainDb > 0 ? 'text-amber-400' : 'text-slate-400');
+
+        row.innerHTML = `
+          <td class="py-1 px-2 font-bold text-white">Band ${b.band}</td>
+          <td class="py-1 px-2 text-slate-400">${bandNames[idx] || 'PEQ'}</td>
+          <td class="py-1 px-2 text-indigo-300 font-bold">${freqHz} Hz</td>
+          <td class="py-1 px-2 ${gainColor} font-bold">${gainDb > 0 ? '+' : ''}${gainDb} dB</td>
+          <td class="py-1 px-2 text-slate-300">${qVal}</td>
+        `;
+        eqBody.appendChild(row);
+      });
+
+      // Quick Wizard shortcuts
+      document.getElementById('cdmBtnCalib').onclick = () => {
+        closeChannelDetailModal();
+        openWizardModal('tab-w3');
+        const sel = document.getElementById('w3ChannelSelect');
+        if (sel) {
+          sel.value = ch.channel;
+        }
+      };
+
+      document.getElementById('cdmBtnRingout').onclick = () => {
+        closeChannelDetailModal();
+        openWizardModal('tab-w5');
+        const sel = document.getElementById('w5ChannelSelect');
+        if (sel) {
+          sel.value = ch.channel;
+        }
+      };
+    }
+
+    function closeChannelDetailModal() {
+      document.getElementById('channelDetailModal').classList.add('hidden');
+    }
+
+    // --- Load Status & Snapshot ---
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/v1/status');
+        const data = await res.json();
+        document.getElementById('snapshotHash').innerText = `SHA: ${data.sha256.substring(0, 12)}...`;
+      } catch (err) {}
+    }
+
+    // --- Trigger STOP AUTO Panic ---
+    async function triggerStopAuto() {
+      try {
+        const res = await fetch('/api/v1/emergency/stop-auto', { method: 'POST' });
+        const data = await res.json();
+        alert("🚨 EMERGENCY STOP AUTO KÍCH HOẠT:\nĐã ngắt toàn bộ tự động và khóa chặt mixer ở chế độ CHỈ ĐỌC.");
+        addAuditEntry("STOP_AUTO", "KHẨN CẤP: Kỹ thuật viên nhấn STOP AUTO. Toàn bộ tự động bị ngắt.");
+      } catch (e) {
+        alert("Lỗi gửi lệnh dừng khẩn cấp: " + e);
+      }
+    }
+
+    // --- Generate Pastor Proposal ---
+    async function generatePastorProposal() {
+      try {
+        const res = await fetch('/api/v1/proposals/generate-pastor', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel_id: 1, role: 'PASTOR_SPEECH' }),
+        });
+        const data = await res.json();
+        activeProposalId = data.proposal_id;
+
+        const box = document.getElementById('proposalBox');
+        box.innerHTML = `
+          <div class="text-emerald-400 font-bold">Proposal ID: ${data.proposal_id}</div>
+          <div class="text-slate-300">${data.hypothesis}</div>
+          <div class="text-slate-400 font-mono text-[10px]">
+            • Bật HPF: 85 Hz (lọc rung gió)<br>
+            • Band 1: Cắt -1.8 dB @ 250 Hz (giảm đục phòng)<br>
+            • Band 2: Tăng +1.2 dB @ 2.8 kHz (tăng độ rõ lời)
+          </div>
+        `;
+
+        // Draw A/B Preview Curve
+        drawABCurve(data.tuning_detail.simulated_curve);
+
+        // Enable Apply button
+        const btn = document.getElementById('btnApplyProposal');
+        btn.disabled = false;
+        btn.className = "w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider transition-all cursor-pointer shadow-lg shadow-emerald-600/30";
+      } catch (e) {
+        alert("Lỗi tạo đề xuất: " + e);
+      }
+    }
+
+    // --- Draw Simulated A/B Frequency Curve ---
+    function drawABCurve(curve) {
+      const canvas = document.getElementById('abCurveCanvas');
+      if (!canvas || !curve) return;
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.parentElement.clientWidth;
+      const h = canvas.height = canvas.parentElement.clientHeight;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw center 0dB line
+      const zeroY = h / 2;
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, zeroY);
+      ctx.lineTo(w, zeroY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Draw Curve
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      curve.forEach((pt, i) => {
+        const x = (i / (curve.length - 1)) * w;
+        // Map -18dB to +18dB to h to 0
+        const y = zeroY - (pt.response_db / 18.0) * (h / 2);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    // --- Apply Active Proposal ---
+    async function applyActiveProposal() {
+      if (!activeProposalId) return;
+
+      try {
+        const res = await fetch('/api/v1/proposals/apply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            proposal_id: activeProposalId,
+            operator_id: "SoundTech_Chinh",
+          }),
+        });
+        const result = await res.json();
+
+        if (res.ok) {
+          alert("✅ ÁP DỤNG THÀNH CÔNG!\nThông số EQ và HPF đã được ghi xuống X32 an toàn với xác thực Readback.");
+          addAuditEntry("COMMITTED", `Áp dụng thành công proposal ${activeProposalId} cho Kênh 1 (Pastor Mic).`);
+          activeProposalId = null;
+          document.getElementById('btnApplyProposal').disabled = true;
+          document.getElementById('btnApplyProposal').className = "w-full py-2.5 rounded-xl bg-slate-800 text-slate-500 font-bold text-xs tracking-wider transition-all cursor-not-allowed";
+          loadChannels();
+        } else {
+          alert("Lỗi Safety Gate: " + result.detail);
+        }
+      } catch (e) {
+        alert("Lỗi kết nối: " + e);
+      }
+    }
+
+    function addAuditEntry(type, message) {
+      const container = document.getElementById('auditLogContainer');
+      const item = document.createElement('div');
+      item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 animate-fade-in";
+      item.innerHTML = `<span class="text-amber-400 font-bold">[${type}]</span> ${message}`;
+      container.prepend(item);
+    }
+
+    // --- Copilot Q&A ---
+    async function askCopilot(question) {
+      document.getElementById('copilotInput').value = question;
+      submitCopilotQuestion();
+    }
+
+    async function submitCopilotQuestion() {
+      const input = document.getElementById('copilotInput');
+      const q = input.value.trim();
+      if (!q) return;
+
+      const answerBox = document.getElementById('copilotAnswer');
+      answerBox.innerHTML = '<span class="text-purple-400 animate-pulse">Đang truy vấn tài liệu âm học và phân tích trạng thái X32...</span>';
+
+      try {
+        const res = await fetch('/api/v1/copilot/ask', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question: q }),
+        });
+        const data = await res.json();
+        // Simple markdown formatting for bold and line breaks
+        const formatted = data.answer.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>').replace(/\n/g, '<br>');
+        answerBox.innerHTML = formatted;
+      } catch (e) {
+        answerBox.innerText = "Lỗi kết nối trợ lý AI: " + e;
+      }
+    }
+
+    // --- Acoustic Measurement H1 ---
+    async function runAcousticMeasurement() {
+      try {
+        const res = await fetch('/api/v1/acoustics/measure', { method: 'POST' });
+        const data = await res.json();
+        document.getElementById('acousticDelay').innerText = `${data.delay_ms} ms`;
+        document.getElementById('acousticCoh').innerText = `${data.coherence_avg}`;
+        alert(`🎯 KẾT QUẢ ĐO HÀM TRUYỀN H1:\n• Độ trễ FOH: ${data.delay_ms} ms\n• Coherence TB: ${data.coherence_avg}\n• Quy tắc: ${data.rule_enforced}`);
+        addAuditEntry("ACOUSTIC", `Đo H1 thành công. Delay FOH: ${data.delay_ms} ms. Kích hoạt quy tắc No-Boost-in-Nulls.`);
+      } catch (e) {
+        alert("Lỗi đo âm học: " + e);
+      }
+    }
+
+    async function promptImportOSM() {
+      const csv = prompt("Dán nội dung xuất CSV từ Open Sound Meter (OSM) hoặc REW vào đây:");
+      if (!csv) return;
+      try {
+        const res = await fetch('/api/v1/acoustics/import-osm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: "Hall_Measurement_1", csv_content: csv }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          alert(`✅ ĐÃ NHẬP THÀNH CÔNG:\nĐã nạp ${data.row_count} điểm tần số từ Open Sound Meter.`);
+          addAuditEntry("OSM_IMPORT", `Nhập thành công file đo OSM (${data.row_count} điểm đo).`);
+        } else {
+          alert("Lỗi phân tích file OSM: " + data.detail);
+        }
+      } catch (e) {
+        alert("Lỗi nhập file OSM: " + e);
+      }
+    }
+
+    // --- Speech Leveler & Anti-Clip ---
+    async function refreshLevelerStatus() {
+      try {
+        const res = await fetch('/api/v1/mix-assistant/speech-status');
+        const data = await res.json();
+        document.getElementById('levelerStatus').innerText = `${data.action} (${data.rationale})`;
+        document.getElementById('levelerAction').innerText = `Mục tiêu Fader: ${(data.target_fader * 100).toFixed(0)}% (${data.safety_invariants.silence_hold})`;
+        addAuditEntry("VAD_CHECK", `Kiểm tra VAD Kênh 1: ${data.action} - ${data.rationale}`);
+      } catch (e) {
+        alert("Lỗi kiểm tra Leveler: " + e);
+      }
+    }
+
+    // ========================================================
+    // MODAL & WIZARD CONTROLLERS
+    // ========================================================
+
+    let physicalChecksState = {
+      p1: false,
+      p2: false,
+      p3: false,
+      p4: false,
+    };
+    let isCapturingAudio = false;
+    let audioStatusInterval = null;
+
+    // --- Wizards Modal Controls ---
+    function openWizardModal(initialTab = 'tab-w2') {
+      document.getElementById('wizardModal').classList.remove('hidden');
+      switchWizardTab(initialTab);
+    }
+
+    function closeWizardModal() {
+      document.getElementById('wizardModal').classList.add('hidden');
+    }
+
+    async function switchWizardTab(tabId) {
+      // Reset all tabs styling & visibility
+      const tabs = [
+        { id: 'tab-w2', btn: 'tabBtnW2', content: 'tabContentW2' },
+        { id: 'tab-w3', btn: 'tabBtnW3', content: 'tabContentW3' },
+        { id: 'tab-w4', btn: 'tabBtnW4', content: 'tabContentW4' },
+        { id: 'tab-w5', btn: 'tabBtnW5', content: 'tabContentW5' },
+        { id: 'tab-w6', btn: 'tabBtnW6', content: 'tabContentW6' },
+        { id: 'tab-w1', btn: 'tabBtnW1', content: 'tabContentW1' },
+        { id: 'tab-w7', btn: 'tabBtnW7', content: 'tabContentW7' },
+      ];
+
+      tabs.forEach(t => {
+        const btn = document.getElementById(t.btn);
+        const content = document.getElementById(t.content);
+        if (!btn || !content) return;
+
+        if (t.id === tabId) {
+          btn.className = "py-3 px-3.5 border-b-2 border-purple-500 text-purple-400 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap font-bold";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "py-3 px-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center space-x-1.5 cursor-pointer whitespace-nowrap";
+          content.classList.add('hidden');
+        }
+      });
+
+      // Load data for specific tab
+      if (tabId === 'tab-w2') {
+        fetchLineCheckData();
+      } else if (tabId === 'tab-w6') {
+        loadLiveAssistantUI();
+      } else if (tabId === 'tab-w1') {
+        loadInventoryReport();
+      } else if (tabId === 'tab-w7') {
+        loadEndOfServiceReport();
+      }
+    }
+
+    // --- Wizard 6: Live Service Assistant ---
+    async function loadLiveAssistantUI() {
+      try {
+        const res = await fetch('/api/v1/wizards/live-assistant');
+        const data = await res.json();
+
+        const healthEl = document.getElementById('w6OverallHealth');
+        if (data.overall_health === 'EXCELLENT') {
+          healthEl.innerText = "HOÀN HẢO (100% AN TOÀN)";
+          healthEl.className = "text-sm font-bold text-emerald-400 mt-1";
+        } else {
+          healthEl.innerText = "CẦN LƯU Ý (CÓ CẢNH BÁO)";
+          healthEl.className = "text-sm font-bold text-amber-400 mt-1";
+        }
+
+        document.getElementById('w6MasterFader').innerText = `${data.master_fader_pct}% (${data.master_fader_pct >= 75 ? '0 dB Unity' : '-dB'})`;
+        document.getElementById('w6TacticalGuidance').innerText = data.tactical_guidance_vi;
+
+        const tbody = document.getElementById('w6ChannelsTableBody');
+        tbody.innerHTML = '';
+        data.channel_highlights.forEach(ch => {
+          const row = document.createElement('tr');
+          const isSafe = ch.feedback_risk === 'SAFE';
+          const riskBadge = isSafe
+            ? '<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">AN TOÀN</span>'
+            : '<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800 font-bold">KHẢ NGHI</span>';
+
+          row.innerHTML = `
+            <td class="py-2 px-2.5 font-bold text-white">CH ${ch.channel_id}: ${ch.name}</td>
+            <td class="py-2 px-2.5 text-slate-400">${ch.role}</td>
+            <td class="py-2 px-2.5 text-cyan-300">${ch.fader_pct}%</td>
+            <td class="py-2 px-2.5">${riskBadge}</td>
+            <td class="py-2 px-2.5 text-slate-300">${ch.recommendation_vi}</td>
+          `;
+          tbody.appendChild(row);
+        });
+      } catch (e) {
+        console.error("Error loading live assistant:", e);
+      }
+    }
+
+    // --- Wizard 4: Room & PA System Calibration ---
+    async function runAcousticMeasurementUI() {
+      const pos = document.getElementById('w4PositionSelect').value;
+      try {
+        const res = await fetch(`/api/v1/acoustics/measure?position=${encodeURIComponent(pos)}`, {
+          method: 'POST',
+        });
+        const data = await res.json();
+
+        document.getElementById('w4ResultBox').classList.remove('hidden');
+        document.getElementById('w4DelayMs').innerText = `${data.delay_ms} ms`;
+        document.getElementById('w4CoherenceAvg').innerText = `${data.coherence_avg}`;
+        document.getElementById('w4RuleEnforced').innerText = data.rule_enforced ? "NO-BOOST-IN-NULLS (BẢO VỆ)" : "CHUẨN";
+
+        const tbody = document.getElementById('w4CurveTableBody');
+        tbody.innerHTML = '';
+        // Sample 8 representative frequencies
+        const curveSample = data.curve.filter((_, idx) => idx % Math.max(1, Math.floor(data.curve.length / 8)) === 0).slice(0, 8);
+        curveSample.forEach(pt => {
+          const row = document.createElement('tr');
+          const isNull = pt.magnitude_db < -6 && pt.coherence < 0.6;
+          const note = isNull ? '<span class="text-amber-400 font-bold">Triệt tiêu pha (Khóa Boost)</span>' : (pt.safe_eq_target_db < 0 ? 'Cắt cộng hưởng' : (pt.safe_eq_target_db > 0 ? 'Bù dải tần' : 'Phẳng'));
+          row.innerHTML = `
+            <td class="py-1.5 px-2 font-bold text-cyan-300">${pt.freq} Hz</td>
+            <td class="py-1.5 px-2 ${pt.magnitude_db < 0 ? 'text-blue-300' : 'text-slate-300'}">${pt.magnitude_db > 0 ? '+' : ''}${pt.magnitude_db} dB</td>
+            <td class="py-1.5 px-2 ${pt.coherence >= 0.8 ? 'text-emerald-400 font-bold' : (pt.coherence < 0.5 ? 'text-red-400' : 'text-amber-400')}">${pt.coherence}</td>
+            <td class="py-1.5 px-2 ${pt.safe_eq_target_db <= 0 ? 'text-emerald-400 font-bold' : 'text-indigo-300'}">${pt.safe_eq_target_db > 0 ? '+' : ''}${pt.safe_eq_target_db} dB</td>
+            <td class="py-1.5 px-2 text-[10px]">${note}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        addAuditEntry("ROOM_PA_CALIB", `Đo kiểm Wizard 4 tại ${pos}: Delay=${data.delay_ms}ms, Coherence=${data.coherence_avg}. Bất biến No-Boost-in-Nulls đã kích hoạt.`);
+      } catch (e) {
+        alert("Lỗi đo âm học loa PA: " + e);
+      }
+    }
+
+    // --- Wizard 3: Vocal & Speech Calibration ---
+    async function runVocalCalibrationUI() {
+      const ch = parseInt(document.getElementById('w3ChannelSelect').value);
+      const role = document.getElementById('w3RoleSelect').value;
+
+      try {
+        const res = await fetch('/api/v1/wizards/vocal-calibration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel_id: ch, vocal_role: role }),
+        });
+        const data = await res.json();
+
+        document.getElementById('w3ResultBox').classList.remove('hidden');
+        document.getElementById('w3MicGuide').innerText = data.mic_placement_guide;
+        document.getElementById('w3HpfVal').innerText = `${data.hpf_freq_hz} Hz (Độ dốc 12dB/octave)`;
+
+        const dyn = data.dynamics;
+        document.getElementById('w3DynamicsBox').innerHTML = `
+          <div>• Threshold: <span class="text-white font-bold">${dyn.threshold_db} dBFS</span></div>
+          <div>• Tỷ lệ nén (Ratio): <span class="text-white font-bold">${dyn.ratio}</span></div>
+          <div>• Thời gian Attack: <span class="text-white font-bold">${dyn.attack_ms} ms</span> | Release: <span class="text-white font-bold">${dyn.release_ms} ms</span></div>
+          <div>• Kiểu uốn (Knee): <span class="text-emerald-400 font-bold">${dyn.knee}</span> (Bảo toàn độ mềm mại tự nhiên)</div>
+        `;
+
+        const tbody = document.getElementById('w3BandsTableBody');
+        tbody.innerHTML = '';
+        data.bands.forEach(b => {
+          const row = document.createElement('tr');
+          const isCut = b.gain_db < 0;
+          row.innerHTML = `
+            <td class="py-1.5 px-2 font-bold text-white">Band ${b.band}</td>
+            <td class="py-1.5 px-2 text-indigo-300 font-bold">${b.freq_hz} Hz</td>
+            <td class="py-1.5 px-2 ${isCut ? 'text-red-400' : 'text-emerald-400'} font-bold">${b.gain_db > 0 ? '+' : ''}${b.gain_db} dB</td>
+            <td class="py-1.5 px-2">${b.q}</td>
+            <td class="py-1.5 px-2 text-slate-400">${b.band === 1 ? 'Giảm đục giọng tiệm cận' : (b.band === 2 ? 'Tăng độ rõ lời phụ âm' : 'Giảm chói gắt sibilance')}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        addAuditEntry("VOCAL_CALIB", `Hiệu chuẩn Wizard 3 thành công cho Kênh ${ch} (${role}). Đã tạo đề xuất PEQ & Compressor.`);
+      } catch (e) {
+        alert("Lỗi hiệu chuẩn giọng: " + e);
+      }
+    }
+
+    // --- Wizard 5: Feedback Ring-Out SOP ---
+    async function runFeedbackRingoutUI() {
+      const ch = parseInt(document.getElementById('w5ChannelSelect').value);
+      const margin = parseFloat(document.getElementById('w5GainSelect').value);
+
+      try {
+        const res = await fetch('/api/v1/wizards/feedback-ringout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel_id: ch, target_gain_increase_db: margin }),
+        });
+        const data = await res.json();
+
+        document.getElementById('w5ResultBox').classList.remove('hidden');
+        document.getElementById('w5ResFreq').innerText = `${data.candidate_freq_hz} Hz`;
+        document.getElementById('w5NotchDetail').innerText = `Cut ${data.notch_gain_db} dB (Q = ${data.notch_q})`;
+        document.getElementById('w5GainMargin').innerText = `+${data.gain_margin_improvement_db} dB`;
+
+        const sopBox = document.getElementById('w5SopStepsContainer');
+        sopBox.innerHTML = '';
+        data.step_by_step_sop.forEach(step => {
+          const item = document.createElement('div');
+          item.className = "p-2 rounded-lg bg-slate-900 border border-slate-800/80";
+          item.innerText = step;
+          sopBox.appendChild(item);
+        });
+
+        addAuditEntry("RING_OUT", `Hoàn thành kế hoạch Wizard 5 dò hú Kênh ${ch}. Tần số cộng hưởng: ${data.candidate_freq_hz} Hz. Notch Q=6.5.`);
+      } catch (e) {
+        alert("Lỗi tạo quy trình dò hú: " + e);
+      }
+    }
+
+    // --- Wizard 2: Pre-Service Line Check ---
+    async function fetchLineCheckData() {
+      try {
+        const res = await fetch('/api/v1/wizards/line-check');
+        const data = await res.json();
+
+        // Render Physical Checklist
+        const container = document.getElementById('physicalChecklistContainer');
+        container.innerHTML = '';
+        data.physical_checklist.forEach((item, idx) => {
+          const key = `p${idx + 1}`;
+          const isChecked = physicalChecksState[key] || false;
+          const card = document.createElement('label');
+          card.className = `p-3 rounded-xl border flex items-start space-x-3 cursor-pointer transition-all ${isChecked ? 'bg-emerald-950/30 border-emerald-600/50 text-emerald-200' : 'bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700'}`;
+          card.innerHTML = `
+            <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="togglePhysicalCheck('${key}', this.checked)" class="mt-1 rounded bg-slate-950 border-slate-700 text-emerald-500 focus:ring-emerald-500 w-4 h-4 cursor-pointer">
+            <div>
+              <div class="font-bold text-xs ${isChecked ? 'text-emerald-300 line-through' : 'text-slate-200'}">${item.item}</div>
+              <div class="text-[10px] text-slate-400 mt-0.5">${item.action}</div>
+            </div>
+          `;
+          container.appendChild(card);
+        });
+
+        // Render Channels Table
+        const tbody = document.getElementById('lineCheckTableBody');
+        tbody.innerHTML = '';
+        data.items.forEach(ch => {
+          const isTB = ch.channel_id === 11;
+          const row = document.createElement('tr');
+          row.className = isTB ? 'bg-blue-950/20 text-blue-300' : 'hover:bg-slate-900/50';
+
+          const pathTag = ch.is_foh && ch.is_p16 ? '<span class="text-emerald-400">FOH + P16</span>' :
+                          ch.is_p16 ? '<span class="text-blue-400 font-bold">P16 ONLY (An Toàn)</span>' :
+                          ch.is_foh ? '<span>FOH</span>' : '<span class="text-slate-500">Muted/None</span>';
+
+          const statusBadge = ch.status === 'READY' 
+            ? '<span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">READY</span>'
+            : '<span class="px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">CHECK</span>';
+
+          row.innerHTML = `
+            <td class="py-2 px-3 font-bold">CH ${ch.channel_id}</td>
+            <td class="py-2 px-3 ${isTB ? 'font-bold text-white' : ''}">${ch.name}</td>
+            <td class="py-2 px-3">${ch.is_muted ? '<span class="text-red-400 font-bold">MUTED</span>' : '<span class="text-emerald-400">ON</span>'}</td>
+            <td class="py-2 px-3">${pathTag}</td>
+            <td class="py-2 px-3">${ch.fader_pct}%</td>
+            <td class="py-2 px-3">${statusBadge}</td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        updateLineCheckOverallReadiness(data.talkback_isolated);
+      } catch (e) {
+        console.error("Error loading line check:", e);
+      }
+    }
+
+    function togglePhysicalCheck(key, checked) {
+      physicalChecksState[key] = checked;
+      fetchLineCheckData();
+    }
+
+    function updateLineCheckOverallReadiness(talkbackIsolated) {
+      const allPhysicalChecked = Object.values(physicalChecksState).every(v => v === true);
+      const banner = document.getElementById('lineCheckBanner');
+      const title = document.getElementById('lineCheckTitle');
+      const sub = document.getElementById('lineCheckSub');
+      const badge = document.getElementById('lineCheckBadge');
+      const icon = document.getElementById('lineCheckIcon');
+
+      if (allPhysicalChecked && talkbackIsolated) {
+        banner.className = "p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between";
+        title.className = "text-xs font-bold text-emerald-300";
+        title.innerText = "HỆ THỐNG ĐÃ SẴN SÀNG CHO BUỔI LỄ (ALL SYSTEMS READY)";
+        sub.innerText = "Toàn bộ bảng kiểm vật lý và trạng thái 32 kênh đã được xác thực an toàn tuyệt đối.";
+        badge.className = "text-xs font-mono px-3 py-1 rounded-full bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 font-bold";
+        badge.innerText = "READY 100%";
+        icon.className = "fa-solid fa-circle-check text-emerald-400 text-xl";
+      } else {
+        banner.className = "p-4 rounded-xl bg-amber-950/40 border border-amber-600/40 flex items-center justify-between";
+        title.className = "text-xs font-bold text-amber-300";
+        title.innerText = "ĐANG KIỂM TRA TRƯỚC GIỜ LỄ (PRE-SERVICE LINE CHECK)";
+        sub.innerText = "Vui lòng hoàn thành đủ 4 mục kiểm tra vật lý để xác nhận sẵn sàng.";
+        badge.className = "text-xs font-mono px-3 py-1 rounded-full bg-amber-600/20 text-amber-300 border border-amber-500/40 font-bold";
+        badge.innerText = "CẦN HOÀN TẤT";
+        icon.className = "fa-solid fa-triangle-exclamation text-amber-400 text-xl";
+      }
+    }
+
+    // --- Wizard 1: Inventory Report ---
+    let cachedInventoryMd = "";
+    async function loadInventoryReport() {
+      const container = document.getElementById('w1MarkdownContainer');
+      container.innerText = "Đang tải báo cáo kiểm kê mixer X32...";
+      try {
+        const res = await fetch('/api/v1/wizards/inventory-report');
+        const data = await res.json();
+        cachedInventoryMd = data.report_markdown;
+        container.innerText = cachedInventoryMd;
+      } catch (e) {
+        container.innerText = "Lỗi tải báo cáo: " + e;
+      }
+    }
+
+    function downloadInventoryReport() {
+      if (!cachedInventoryMd) return;
+      const blob = new Blob([cachedInventoryMd], { type: 'text/markdown;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `X32_Inventory_Audit_${new Date().toISOString().slice(0, 10)}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // --- Wizard 7: End of Service Report ---
+    let cachedEndReportMd = "";
+    async function loadEndOfServiceReport() {
+      const container = document.getElementById('w7MarkdownContainer');
+      container.innerText = "Đang tổng hợp dữ liệu buổi lễ...";
+      try {
+        const res = await fetch('/api/v1/wizards/end-of-service-report');
+        const data = await res.json();
+        cachedEndReportMd = data.report_markdown;
+        container.innerText = cachedEndReportMd;
+      } catch (e) {
+        container.innerText = "Lỗi tổng hợp báo cáo: " + e;
+      }
+    }
+
+    function downloadEndOfServiceReport() {
+      if (!cachedEndReportMd) return;
+      const blob = new Blob([cachedEndReportMd], { type: 'text/markdown;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `X32_Service_Report_${new Date().toISOString().slice(0, 10)}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    // --- Modal 2: Hardware Switcher ---
+    let selectedHwMode = 'SIMULATOR';
+
+    function openHardwareModal() {
+      document.getElementById('hardwareModal').classList.remove('hidden');
+    }
+
+    function closeHardwareModal() {
+      document.getElementById('hardwareModal').classList.add('hidden');
+    }
+
+    function selectHardwareMode(mode) {
+      selectedHwMode = mode;
+      const simBtn = document.getElementById('hwModeSim');
+      const realBtn = document.getElementById('hwModeReal');
+      const realFields = document.getElementById('hwRealFields');
+
+      if (mode === 'SIMULATOR') {
+        simBtn.className = "p-3 rounded-xl border border-indigo-500 bg-indigo-950/40 text-indigo-300 font-semibold text-center cursor-pointer";
+        realBtn.className = "p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-semibold text-center hover:border-slate-700 cursor-pointer";
+        realFields.classList.add('hidden');
+      } else {
+        realBtn.className = "p-3 rounded-xl border border-emerald-500 bg-emerald-950/40 text-emerald-300 font-semibold text-center cursor-pointer";
+        simBtn.className = "p-3 rounded-xl border border-slate-800 bg-slate-950 text-slate-400 font-semibold text-center hover:border-slate-700 cursor-pointer";
+        realFields.classList.remove('hidden');
+      }
+    }
+
+    async function discoverMixersUI() {
+      const btn = document.getElementById('btnDiscoverMixers');
+      const container = document.getElementById('discoveredMixersList');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1"></i>Đang quét...';
+      container.classList.remove('hidden');
+      container.innerHTML = '<span class="text-indigo-400 text-[11px]"><i class="fa-solid fa-radar mr-1"></i>Đang gửi gói OSC /info broadcast trên cổng 10023...</span>';
+
+      try {
+        const res = await fetch('/api/v1/hardware/discover', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-satellite-dish mr-1"></i>Quét lại';
+
+        if (data.consoles && data.consoles.length > 0) {
+          container.innerHTML = '<div class="text-[10px] text-slate-400 mb-1">Tìm thấy thiết bị (Bấm để điền thông tin):</div>';
+          data.consoles.forEach(c => {
+            const card = document.createElement('div');
+            card.className = "p-2 rounded-lg bg-slate-900 border border-indigo-700/60 flex items-center justify-between cursor-pointer hover:bg-indigo-950/40 transition-colors";
+            card.onclick = () => {
+              document.getElementById('hwMixerIp').value = c.ip;
+              document.getElementById('hwMixerPort').value = c.port;
+              card.classList.add('border-emerald-500', 'bg-emerald-950/30');
+            };
+            card.innerHTML = `
+              <div>
+                <span class="font-bold text-white">${c.model}</span>
+                <span class="text-slate-400 text-[10px] ml-1.5 font-mono">${c.ip}:${c.port}</span>
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 font-mono">${c.firmware}</span>
+            `;
+            container.appendChild(card);
+          });
+        } else {
+          container.innerHTML = '<span class="text-amber-400 text-[11px]">Không tìm thấy X32 qua broadcast. Hãy nhập IP tĩnh bên dưới.</span>';
+        }
+      } catch (e) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-satellite-dish mr-1"></i>Quét Mạng LAN Tìm X32';
+        container.innerHTML = `<span class="text-red-400 text-[11px]">Lỗi quét: ${e}</span>`;
+      }
+    }
+
+    async function executeHardwareConnect() {
+      const btn = document.getElementById('btnHwConnect');
+      const resultBox = document.getElementById('hwConnectResult');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner animate-spin mr-1.5"></i>Đang kết nối...';
+      resultBox.classList.remove('hidden');
+      resultBox.innerHTML = '<span class="text-indigo-400">Đang gửi gói OSC heartbeat & xác thực readback...</span>';
+
+      const ip = document.getElementById('hwMixerIp').value.trim();
+      const port = parseInt(document.getElementById('hwMixerPort').value.trim()) || 10023;
+
+      try {
+        const res = await fetch('/api/v1/hardware/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            mode: selectedHwMode,
+            ip: ip,
+            port: port,
+          }),
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          resultBox.innerHTML = `<span class="text-emerald-400 font-bold">✅ KẾT NỐI THÀNH CÔNG!</span><br>Target: ${data.target}<br>Chế độ: ${data.mode}<br>Info: ${data.mixer_info || 'X32 Console'}`;
+          document.getElementById('headerHardwareLabel').innerText = selectedHwMode === 'SIMULATOR' ? 'Mixer: Simulator' : `Mixer: ${ip}`;
+          document.getElementById('mixerStatus').innerText = `${selectedHwMode === 'SIMULATOR' ? 'X32 Compact Simulator' : 'X32 Hardware'}: ONLINE`;
+          addAuditEntry("HARDWARE", `Chuyển mục tiêu kết nối thành công: ${data.target} (${data.mode}). Khởi tạo an toàn READ-ONLY.`);
+          loadChannels();
+          loadStatus();
+          setTimeout(closeHardwareModal, 1500);
+        } else {
+          resultBox.innerHTML = `<span class="text-red-400 font-bold">❌ KẾT NỐI THẤT BẠI:</span><br>${data.detail}`;
+        }
+      } catch (e) {
+        resultBox.innerHTML = `<span class="text-red-400 font-bold">❌ Lỗi:</span> ${e}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plug mr-1.5"></i>Xác Nhận Kết Nối';
+      }
+    }
+
+    // --- Modal 3: Audio Device Selector ---
+    function openAudioDeviceModal() {
+      document.getElementById('audioDeviceModal').classList.remove('hidden');
+      fetchAudioDevices();
+      pollAudioCaptureStatus();
+      if (!audioStatusInterval) {
+        audioStatusInterval = setInterval(pollAudioCaptureStatus, 1000);
+      }
+    }
+
+    function closeAudioDeviceModal() {
+      document.getElementById('audioDeviceModal').classList.add('hidden');
+      if (audioStatusInterval) {
+        clearInterval(audioStatusInterval);
+        audioStatusInterval = null;
+      }
+    }
+
+    async function fetchAudioDevices() {
+      try {
+        const res = await fetch('/api/v1/audio/devices');
+        const data = await res.json();
+        const select = document.getElementById('audioDeviceSelect');
+        select.innerHTML = '';
+
+        data.devices.forEach(d => {
+          const opt = document.createElement('option');
+          opt.value = d.device_id;
+          opt.innerText = `[ID ${d.device_id}] ${d.name} (${d.max_inputs} In @ ${d.default_samplerate}Hz) ${d.is_x32_compatible ? '★ X32 Card' : ''}`;
+          if (data.active_device_id === d.device_id) {
+            opt.selected = true;
+          }
+          select.appendChild(opt);
+        });
+
+        isCapturingAudio = data.is_capturing;
+        updateAudioCaptureUI(isCapturingAudio);
+      } catch (e) {
+        console.error("Error fetching audio devices:", e);
+      }
+    }
+
+    async function pollAudioCaptureStatus() {
+      try {
+        const res = await fetch('/api/v1/audio/capture/status');
+        const data = await res.json();
+        if (data.is_running) {
+          document.getElementById('audioCaptureStatusText').innerHTML = `<span class="text-emerald-400">ĐANG THU ÂM (${data.channels} Kênh @ ${data.sample_rate}Hz)</span>`;
+          document.getElementById('audioCaptureBlocks').innerText = `${data.blocks_processed} blocks processed (Overflow: ${data.overflow_count})`;
+          document.getElementById('audioDeviceHeaderBtn').innerText = `Card USB: ONLINE (${data.channels}ch)`;
+        } else {
+          document.getElementById('audioCaptureStatusText').innerText = 'Chưa kích hoạt (Dùng giả lập)';
+          document.getElementById('audioCaptureBlocks').innerText = '0 blocks';
+          document.getElementById('audioDeviceHeaderBtn').innerText = 'Card USB: Auto';
+        }
+      } catch (e) {}
+    }
+
+    async function toggleAudioCapture() {
+      const btn = document.getElementById('btnAudioCaptureToggle');
+      if (!isCapturingAudio) {
+        // Start capture
+        const devId = parseInt(document.getElementById('audioDeviceSelect').value);
+        const channels = parseInt(document.getElementById('audioChannelsSelect').value);
+        try {
+          const res = await fetch('/api/v1/audio/capture/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: devId, channels: channels, sample_rate: 48000 }),
+          });
+          if (res.ok) {
+            isCapturingAudio = true;
+            updateAudioCaptureUI(true);
+            addAuditEntry("AUDIO_CAPTURE", `Khởi động luồng thu âm USB trên thiết bị ID ${devId} (${channels} kênh).`);
+          }
+        } catch (e) {
+          alert("Lỗi khởi động thu âm: " + e);
+        }
+      } else {
+        // Stop capture
+        try {
+          const res = await fetch('/api/v1/audio/capture/stop', { method: 'POST' });
+          if (res.ok) {
+            isCapturingAudio = false;
+            updateAudioCaptureUI(false);
+            addAuditEntry("AUDIO_CAPTURE", "Đã dừng luồng thu âm USB card.");
+          }
+        } catch (e) {
+          alert("Lỗi dừng thu âm: " + e);
+        }
+      }
+    }
+
+    function updateAudioCaptureUI(capturing) {
+      const btn = document.getElementById('btnAudioCaptureToggle');
+      if (capturing) {
+        btn.className = "px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 cursor-pointer";
+        btn.innerHTML = '<i class="fa-solid fa-stop mr-1.5"></i>Dừng Thu Âm';
+      } else {
+        btn.className = "px-5 py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/30 cursor-pointer";
+        btn.innerHTML = '<i class="fa-solid fa-play mr-1.5"></i>Bắt Đầu Thu Âm';
+      }
+    }
+
+    // --- Download Native X32 Scene File (.scn) ---
+    async function downloadX32Scene() {
+      try {
+        const res = await fetch('/api/v1/scenes/export?name=ChurchMix_Sunday');
+        const data = await res.json();
+        const blob = new Blob([data.content], { type: 'text/plain;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename;
+        a.click();
+        URL.revokeObjectURL(url);
+        addAuditEntry("SCENE_EXPORT", `Đã xuất file Scene chuẩn X32: ${data.filename} (SHA: ${data.sha256.substring(0, 8)}...).`);
+      } catch (e) {
+        alert("Lỗi xuất file scene: " + e);
+      }
+    }
+
+    async function loadAuditHistory() {
+      try {
+        const res = await fetch('/api/v1/audit/events?limit=15');
+        const data = await res.json();
+        const container = document.getElementById('auditLogContainer');
+        if (data.events && data.events.length > 0) {
+          container.innerHTML = '';
+          data.events.reverse().forEach(ev => {
+            const item = document.createElement('div');
+            item.className = "p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 animate-fade-in";
+            item.innerHTML = `<span class="text-amber-400 font-bold">[${ev.action}]</span> <span class="text-slate-400 text-[10px] font-mono">${ev.iso_time}</span> by <span class="text-indigo-300 font-semibold">${ev.actor}</span>: ${ev.status}`;
+            container.prepend(item);
+          });
+        }
+      } catch (e) {
+        console.error("Failed to load audit history:", e);
+      }
+    }
+
+    // --- Initialize ---
+    window.addEventListener('load', () => {
+      loadStatus();
+      loadChannels();
+      loadAuditHistory();
+      initWebSocket();
+    });
+  </script>
+</body>
+</html>
