@@ -62,7 +62,17 @@ class SafetyPolicy:
     def validate_proposal(self, proposal: Proposal) -> None:
         """Validate all proposed changes against safety rules."""
         ch = proposal.target_channel
+        if type(ch) is not int or not 1 <= ch <= 32:
+            raise ProposalRejectedError("SAFETY DENIAL: Target channel must be an integer between 1 and 32.")
         ch_str = f"/ch/{ch:02d}"
+        eq_paths = {f"{ch_str}/eq/on"} | {
+            f"{ch_str}/eq/{band}/{parameter}"
+            for band in range(1, 5) for parameter in ("f", "g", "q")
+        }
+        automix_paths = {f"{ch_str}/automix/{parameter}" for parameter in ("group", "weight")}
+        gate_paths = {f"{ch_str}/gate/{parameter}" for parameter in (
+            "on", "mode", "thr", "range", "filter/on", "filter/f",
+        )}
 
         for change in proposal.changes:
             param = change["parameter"]
@@ -84,13 +94,13 @@ class SafetyPolicy:
 
             # 3. Whitelist check for allowed channel parameters:
             # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), automix, gate/expander, or mixbus sends
-            is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
+            is_eq = param in eq_paths
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
             is_mute = param == f"{ch_str}/mix/on"
             is_trim = param == f"{ch_str}/preamp/trim"
-            is_automix = f"{ch_str}/automix/" in param
-            is_gate = f"{ch_str}/gate/" in param
+            is_automix = param in automix_paths
+            is_gate = param in gate_paths
 
             # Mixbus sends: /ch/{ch}/mix/{bus}/level or /ch/{ch}/mix/{bus}/on
             is_bus_send = False
@@ -100,7 +110,7 @@ class SafetyPolicy:
                 if len(parts) == 6 and parts[3] == "mix" and parts[5] in ("level", "on"):
                     try:
                         bus_num = int(parts[4])
-                        if 1 <= bus_num <= 16:
+                        if 1 <= bus_num <= 16 and parts[4] == f"{bus_num:02d}":
                             is_bus_send = True
                     except ValueError:
                         pass
@@ -127,6 +137,13 @@ class SafetyPolicy:
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )
+
+            # Non-finite or non-numeric values can bypass delta comparisons.
+            for value in (from_val, to_val):
+                if not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise ProposalRejectedError(
+                        f"SAFETY DENIAL: Parameter '{param}' requires finite numeric values."
+                    )
 
             # 4. Slew-rate / Jump limits
             if is_fader and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):

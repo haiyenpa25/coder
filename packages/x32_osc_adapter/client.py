@@ -176,24 +176,33 @@ class X32Client:
 
         raise X32ConnectionError(f"Timeout waiting for write echo from {address}")
 
-    def get_channel_summary(self, ch_num: int) -> Dict[str, Any]:
-        """Read core parameters of a single channel."""
-        ch_str = f"/ch/{ch_num:02d}"
-        
-        name = self.query(f"{ch_str}/config/name")[0]
-        color = self.query(f"{ch_str}/config/color")[0]
-        fader = self.query(f"{ch_str}/mix/fader")[0]
-        is_on = self.query(f"{ch_str}/mix/on")[0]
-        mix_st = self.query(f"{ch_str}/mix/st")[0] # Main Stereo assign
-        hpon = self.query(f"{ch_str}/preamp/hpon")[0]
-        hpf = self.query(f"{ch_str}/preamp/hpf")[0]
+    def get_channel_summary(self, ch_num: int, snapshot: Optional[Snapshot] = None) -> Dict[str, Any]:
+        """Read core parameters, or derive them from the supplied fresh snapshot.
 
-        eq_on = self.query(f"{ch_str}/eq/on")[0]
+        Snapshot reads never fall back to network queries or the state mirror:
+        missing parameters indicate an incomplete snapshot and raise KeyError.
+        """
+        ch_str = f"/ch/{ch_num:02d}"
+
+        def read(path: str) -> Any:
+            if snapshot is not None:
+                return snapshot.parameters[path]
+            return self.query(path)[0]
+        
+        name = read(f"{ch_str}/config/name")
+        color = read(f"{ch_str}/config/color")
+        fader = read(f"{ch_str}/mix/fader")
+        is_on = read(f"{ch_str}/mix/on")
+        mix_st = read(f"{ch_str}/mix/st") # Main Stereo assign
+        hpon = read(f"{ch_str}/preamp/hpon")
+        hpf = read(f"{ch_str}/preamp/hpf")
+
+        eq_on = read(f"{ch_str}/eq/on")
         eq_bands = []
         for b in range(1, 5):
-            f = self.query(f"{ch_str}/eq/{b}/f")[0]
-            g = self.query(f"{ch_str}/eq/{b}/g")[0]
-            q = self.query(f"{ch_str}/eq/{b}/q")[0]
+            f = read(f"{ch_str}/eq/{b}/f")
+            g = read(f"{ch_str}/eq/{b}/g")
+            q = read(f"{ch_str}/eq/{b}/q")
             eq_bands.append({"band": b, "f": f, "gain": g, "q": q})
 
         return {

@@ -37,6 +37,15 @@ class AudioStreamWorker:
         self._thread: Optional[threading.Thread] = None
         self._stream = None
         self._lock = threading.Lock()
+        self._data_lock = threading.Lock()
+        self.is_simulated = device_id < 0 or not SOUNDDEVICE_AVAILABLE
+        self.clock_verified = self.is_simulated
+        self.clock_fault = False
+        self._clock_good_blocks = 0
+        self._last_adc_time = None
+        self.last_block_monotonic = None
+        self.capture_error = None
+        self.tap_point = "UNKNOWN"
 
         # Telemetry metrics
         self.latest_peak_dbfs: List[float] = [-90.0] * channels
@@ -86,6 +95,20 @@ class AudioStreamWorker:
             if status:
                 self.overflow_count += 1
                 logger.warning(f"Audio stream status: {status}")
+            adc_time = getattr(time_info, "inputBufferAdcTime", 0.0)
+            if adc_time > 0 and self._last_adc_time is not None:
+                expected = frames / self.sample_rate
+                interval = adc_time - self._last_adc_time
+                if abs(interval - expected) > expected * 0.05:
+                    self.clock_fault = True
+                    self.clock_verified = False
+                elif not self.clock_fault:
+                    self._clock_good_blocks += 1
+                    self.clock_verified = self._clock_good_blocks >= 5
+            elif adc_time <= 0 or not np.isfinite(adc_time):
+                self.clock_verified = False
+                self.clock_fault = True
+            self._last_adc_time = adc_time if adc_time > 0 else None
             self._process_audio_block(indata.copy())
 
         try:
@@ -98,13 +121,24 @@ class AudioStreamWorker:
                 callback=callback,
             )
             self._stream.start()
+            self.is_simulated = False
             logger.info(f"Physical audio stream started on device {self.device_id} ({self.channels}ch @ {self.sample_rate}Hz)")
         except Exception as e:
             logger.error(f"Failed to start physical stream: {e}. Falling back to simulation.")
+            self.capture_error = str(e)
+            if self._stream is not None:
+                try:
+                    self._stream.close()
+                except Exception:
+                    pass
+                self._stream = None
             self._start_simulated_stream()
 
     def _start_simulated_stream(self):
         """Run simulated audio generator loop in a background thread."""
+        self.is_simulated = True
+        self.clock_verified = True
+        self.tap_point = "SIMULATED"
         self._thread = threading.Thread(target=self._simulated_loop, daemon=True)
         self._thread.start()
         logger.info(f"Simulated audio stream started ({self.channels}ch @ {self.sample_rate}Hz)")
@@ -138,26 +172,17 @@ class AudioStreamWorker:
 
     def _process_audio_block(self, block: np.ndarray):
         """Compute metrics and dispatch block."""
-        self.blocks_processed += 1
-        self.latest_buffer = block
-
-        peak_levels = []
-        rms_levels = []
-        num_ch = block.shape[1] if block.ndim > 1 else 1
-
-        for c in range(min(num_ch, self.channels)):
-            col = block[:, c] if block.ndim > 1 else block
-            peak = float(np.max(np.abs(col)))
-            rms = float(np.sqrt(np.mean(col ** 2)))
-
-            peak_dbfs = 20.0 * np.log10(max(1e-7, peak))
-            rms_dbfs = 20.0 * np.log10(max(1e-7, rms))
-
-            peak_levels.append(round(peak_dbfs, 1))
-            rms_levels.append(round(rms_dbfs, 1))
-
-        self.latest_peak_dbfs = peak_levels
-        self.latest_rms_dbfs = rms_levels
+        columns = block.reshape(-1, 1) if block.ndim == 1 else block[:, :self.channels]
+        peaks = np.max(np.abs(columns), axis=0)
+        rms = np.sqrt(np.mean(columns ** 2, axis=0))
+        peak_levels = [round(float(v), 1) for v in 20 * np.log10(np.maximum(peaks, 1e-7))]
+        rms_levels = [round(float(v), 1) for v in 20 * np.log10(np.maximum(rms, 1e-7))]
+        with self._data_lock:
+            self.blocks_processed += 1
+            self.latest_buffer = block
+            self.latest_peak_dbfs = peak_levels
+            self.latest_rms_dbfs = rms_levels
+            self.last_block_monotonic = time.monotonic()
 
         if self.on_block_callback:
             try:
@@ -177,4 +202,18 @@ class AudioStreamWorker:
             "overflow_count": self.overflow_count,
             "peak_dbfs": self.latest_peak_dbfs,
             "rms_dbfs": self.latest_rms_dbfs,
+            "is_simulated": self.is_simulated,
+            "clock_verified": self.clock_verified,
+            "clock_fault": self.clock_fault,
+            "tap_point": self.tap_point,
+            "capture_error": self.capture_error,
         }
+
+    def get_latest_frame(self):
+        """Read samples and their meters from the same published block."""
+        with self._data_lock:
+            return {"samples": self.latest_buffer, "peaks": list(self.latest_peak_dbfs),
+                "rms": list(self.latest_rms_dbfs), "captured_at": self.last_block_monotonic,
+                "sequence": self.blocks_processed, "overflow_count": self.overflow_count,
+                "clock_verified": self.clock_verified, "clock_fault": self.clock_fault,
+                "is_simulated": self.is_simulated, "capture_error": self.capture_error}

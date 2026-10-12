@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>X32 AI Sound Engineer — ChurchMix Console</title>
+  <link rel="stylesheet" href="/static/monitoring.css">
+  <script defer src="/static/monitoring.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -40,7 +42,7 @@
       <!-- Mixer Online -->
       <div class="flex items-center space-x-2 bg-slate-950 px-3 py-1.5 rounded-lg border border-slate-800">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span class="text-xs font-mono text-emerald-400" id="mixerStatus">X32 Compact: ONLINE</span>
+        <span class="text-xs font-mono text-emerald-400" id="mixerStatus">Mixer: đang kiểm tra</span>
       </div>
 
       <!-- Mode Selector Button -->
@@ -52,18 +54,19 @@
       <!-- Hard Invariant DL16 #11 Badge -->
       <div class="flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-600/40 px-3 py-1.5 rounded-lg" title="Bất biến an toàn: DL16 In 11 chỉ đi về P16, cách ly 100% khỏi Main FOH">
         <i class="fa-solid fa-shield-halved text-emerald-400 text-xs"></i>
-        <span class="text-xs font-semibold text-emerald-300">DL16 #11: P16 ONLY</span>
+        <span class="text-xs font-semibold text-amber-300" id="dl16StatusLabel">DL16 #11: cần xác minh</span>
       </div>
 
       <!-- Pre-Service Health Diagnostic Badge -->
       <button onclick="openDiagnosticsModal()" id="headerDiagBtn" class="flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg cursor-pointer hover:border-emerald-400 transition-all" title="Chẩn đoán tiền lễ: Bấm để kiểm tra 10 mục linh kiện và bất biến">
         <i class="fa-solid fa-stethoscope text-emerald-400 text-xs"></i>
-        <span class="text-xs font-semibold text-emerald-300" id="headerDiagLabel">Khám Sức Khỏe: 10/10 OK</span>
+        <span class="text-xs font-semibold text-emerald-300" id="headerDiagLabel">Chẩn đoán: đang kiểm tra</span>
       </button>
     </div>
 
     <!-- Header Action Buttons -->
-    <div class="flex items-center space-x-3">
+    <details class="cm-tools"><summary>Công cụ & quy trình ▾</summary>
+    <div class="cm-tool-grid">
       <button onclick="openSoundcheckModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
         <i class="fa-solid fa-compact-disc text-blue-400"></i>
         <span id="headerSoundcheckLabel">Soundcheck Ảo</span>
@@ -124,16 +127,47 @@
         <span id="audioDeviceHeaderBtn">Card USB: Auto</span>
       </button>
 
+
+    </div>
+    </details>
       <!-- EMERGENCY STOP BUTTON -->
       <button id="btnStopAuto" onclick="triggerStopAuto()" class="flex items-center space-x-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 active:scale-95 text-white font-bold text-xs tracking-wider shadow-lg shadow-red-600/30 border border-red-500 transition-all cursor-pointer">
         <i class="fa-solid fa-hand text-white animate-bounce"></i>
         <span>STOP AUTO</span>
       </button>
-    </div>
   </header>
 
   <!-- MAIN BODY -->
   <main class="flex-1 p-6 space-y-6 max-w-[1800px] mx-auto w-full">
+
+    <section class="cm-monitor" aria-labelledby="cm-title">
+      <div class="cm-heading">
+        <div><div class="cm-eyebrow">ChurchMix • Signal Monitor</div><h2 id="cm-title">Đầu vào nào đang vượt ngưỡng?</h2><p class="cm-muted">Theo dõi mức tín hiệu, headroom và các đỉnh lớn theo thời gian. Chọn một đầu vào để xem chi tiết.</p></div>
+        <button class="cm-button" id="cm-export" type="button">Xuất báo cáo CSV</button>
+      </div>
+      <div class="cm-source invalid" id="cm-source" role="status"><div><strong id="cm-source-title">Đang chờ dữ liệu…</strong><span id="cm-source-detail">Chưa kết luận về thiết bị khi chưa có khung đo hợp lệ.</span></div><b class="cm-tag" id="cm-source-tag">CHỜ ĐO</b></div>
+      <div class="cm-kpis">
+        <div class="cm-kpi"><label>Đầu vào có dữ liệu</label><b id="cm-measured">—</b><small>trong tối đa 32 đầu vào</small></div>
+        <div class="cm-kpi"><label>Vượt ngưỡng theo dõi</label><b id="cm-warning" style="color:#fbbf24">—</b><small>bao gồm nguy hiểm / sát clipping</small></div>
+        <div class="cm-kpi"><label>Nguy hiểm / sát clipping</label><b id="cm-critical" style="color:#fb7185">—</b><small>headroom còn rất ít</small></div>
+        <div class="cm-kpi"><label>Peak lớn nhất hiện tại</label><b id="cm-peak">—</b><small id="cm-worst-name">chưa có dữ liệu</small></div>
+        <div class="cm-kpi"><label>Đầu vào chưa đo được</label><b id="cm-unknown">—</b><small>không coi là tín hiệu im lặng</small></div>
+      </div>
+      <details class="cm-settings"><summary>Ngưỡng theo dõi và cách đọc biểu đồ</summary>
+        <p class="cm-note">Đơn vị dBFS: càng gần 0, tín hiệu càng lớn. Ngưỡng này dùng để quan sát mức số; không đo nhiệt độ thiết bị, SPL của phòng hay chứng minh có hú. “Im lặng” có thể là khoảng nghỉ bình thường.</p>
+        <form id="cm-threshold-form"><label>Cảnh báo (dBFS)<input id="cm-warning-input" type="number" min="-60" max="0" step="0.5" value="-12" required></label><label>Nguy hiểm (dBFS)<input id="cm-critical-input" type="number" min="-60" max="0" step="0.5" value="-6" required></label><label>Sát clipping (dBFS)<input id="cm-clip-input" type="number" min="-60" max="0" step="0.5" value="-0.5" required></label><button class="cm-button" type="submit">Cập nhật ngưỡng biểu đồ</button></form>
+        <p class="cm-note">Thay đổi ngưỡng bắt đầu phiên thống kê mới và không thay đổi mixer. Ngưỡng chỉ giữ trong phiên máy chủ hiện tại.</p>
+        <p id="cm-settings-message" class="cm-info" role="status"></p>
+      </details>
+      <div class="cm-layout">
+        <div class="cm-panel cm-wide"><div class="cm-card-head"><div><h3>Mức Peak của 32 đầu vào</h3><p class="cm-muted">Bấm cột để chọn đầu vào. Vạch ngang là ngưỡng; vạch nhỏ trên cột là peak cao nhất của phiên.</p></div><span id="cm-updated" class="cm-muted">Chưa cập nhật</span></div><div class="cm-chart"><canvas id="cm-level-chart" role="img" aria-label="Biểu đồ Peak 32 đầu vào, có vạch ngưỡng cảnh báo và nguy hiểm"></canvas></div><div class="cm-legend"><span><i style="background:#38bdf8"></i>Dưới ngưỡng</span><span><i style="background:#fbbf24"></i>Cảnh báo</span><span><i style="background:#fb7185"></i>Nguy hiểm</span><span><i style="background:#f43f5e"></i>Sát clipping</span><span><i style="background:#475569"></i>Chưa có dữ liệu</span></div></div>
+        <div class="cm-panel"><div class="cm-card-head"><div><h3>Diễn biến 2 phút gần nhất</h3><p class="cm-muted">Peak và RMS theo đầu vào đang chọn.</p></div><select id="cm-channel-select" aria-label="Chọn đầu vào phân tích"></select></div><div class="cm-chart"><canvas id="cm-trend-chart" role="img" aria-label="Lịch sử Peak và RMS trong 120 giây"></canvas></div><div class="cm-legend"><span><i style="background:#38bdf8"></i>Peak — đỉnh tức thời</span><span><i style="background:#a78bfa"></i>RMS — mức trung bình khung</span></div><div class="cm-facts"><div><span>Headroom hiện tại</span><b id="cm-headroom">—</b></div><div><span>Peak lớn nhất phiên</span><b id="cm-hold">—</b></div><div><span>Thời gian vượt ngưỡng</span><b id="cm-duration">—</b></div><div><span>Số đợt sát clipping</span><b id="cm-clip-count">—</b></div></div><p class="cm-note" id="cm-advice">Đang chờ dữ liệu.</p></div>
+        <div class="cm-panel"><h3>Đầu vào vượt ngưỡng lâu nhất</h3><p class="cm-muted">Xếp hạng thời gian quan sát vượt ngưỡng trong phiên hiện tại.</p><div class="cm-chart"><canvas id="cm-duration-chart" role="img" aria-label="Xếp hạng đầu vào theo thời gian vượt ngưỡng"></canvas></div><p class="cm-note">Thời gian là ước lượng từ khung quan sát, không phải số sample clipping. Đổi nguồn hoặc thay ngưỡng sẽ bắt đầu phiên mới.</p></div>
+        <div class="cm-panel cm-wide"><div class="cm-card-head"><div><h3>Phân tích từng đầu vào</h3><p class="cm-muted">Các đầu vào cần chú ý được đưa lên trước. Chọn dòng để xem biểu đồ lịch sử.</p></div><label class="cm-muted"><input id="cm-only-alerts" type="checkbox"> Chỉ xem vượt ngưỡng / chưa đo được</label></div><div class="cm-table-wrap"><table class="cm-table"><thead><tr><th>Đầu vào / tên nguồn</th><th>Trạng thái</th><th>Peak / RMS</th><th>Headroom</th><th>Vượt liên tục</th><th>Phân tích & bước kiểm tra</th></tr></thead><tbody id="cm-channel-table"><tr><td colspan="6">Đang chờ dữ liệu đo…</td></tr></tbody></table></div></div>
+        <div class="cm-panel cm-wide"><h3>Nhật ký chuyển ngưỡng</h3><p class="cm-muted">Ghi khi đầu vào chuyển lên mức cảnh báo mới; một đỉnh lớn không có nghĩa là thiết bị hỏng.</p><div class="cm-alerts" id="cm-event-list"><p class="cm-empty">Chưa có sự kiện.</p></div></div>
+      </div>
+      <p class="cm-note">Tên micro trên dữ liệu demo chỉ minh họa. Đầu vào USB thật chưa ánh xạ được ghi riêng; không suy ra cổng DL16 hay slot P16 từ số thứ tự. Phân tích chỉ hướng dẫn kiểm tra, không tự điều chỉnh thiết bị.</p>
+    </section>
 
     <!-- SECTION 1: REAL-TIME 60FPS RTA SPECTRUM & ACOUSTIC RADAR -->
     <section class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl backdrop-blur-md">
@@ -141,6 +175,7 @@
         <div class="flex items-center space-x-2">
           <i class="fa-solid fa-wave-square text-indigo-400"></i>
           <h2 class="text-sm font-bold text-slate-200 uppercase tracking-wider">Phổ Âm Học Thời Gian Thực (1/12-Octave RTA)</h2>
+          <span id="rtaSourceInfo" class="text-xs text-cyan-300">Đang chờ nguồn đo</span>
           <span class="text-xs text-slate-500 font-mono">20 Hz – 20,000 Hz</span>
         </div>
         <div class="flex items-center space-x-4 text-xs font-mono text-slate-400">
@@ -154,7 +189,7 @@
           </div>
           <div class="flex items-center space-x-1.5">
             <span class="w-3 h-3 rounded bg-emerald-400 inline-block"></span>
-            <span>Hài âm Giọng hát (Harmonic Safe)</span>
+            <span>Hài âm tương thích âm nhạc</span>
           </div>
         </div>
       </div>
@@ -2448,9 +2483,15 @@
         try {
           const data = JSON.parse(event.data);
           if (data.type === 'TELEMETRY') {
+            const rtaSource = document.getElementById('rtaSourceInfo');
+            if (rtaSource && data.source) rtaSource.textContent = data.source.valid
+              ? `${data.source.simulated ? 'MÔ PHỎNG' : 'USB'} • Input ${data.source.spectrum_input} • ${data.source.sample_rate} Hz`
+              : 'Phổ không hợp lệ — chờ nguồn đo';
             rtaData = data.rta || [];
             drawRTA(rtaData, data.feedback_alerts || []);
+            window.cmPhysicalUnmapped = !!data.source && !data.source.simulated && !data.source.mapping_verified;
             updateMeters(data.meters || []);
+            window.ChurchMixMonitor?.update(data.analysis);
 
             if (data.feedback_alerts && data.feedback_alerts.length > 0) {
               updateFeedbackRadarUI(data.feedback_alerts);
@@ -2477,6 +2518,7 @@
       };
 
       ws.onclose = () => {
+        window.ChurchMixMonitor?.disconnected();
         setTimeout(initWebSocket, 2000);
       };
     }
@@ -2658,7 +2700,9 @@
         const fillEl = document.getElementById(`meter-fill-${m.channel}`);
         if (fillEl) {
           // -60dBFS to 0dBFS -> 0% to 100%
-          const pct = Math.max(0, Math.min(100, ((m.meter_dbfs + 60) / 60) * 100));
+          const usable = Number.isFinite(m.meter_dbfs) && (!window.cmPhysicalUnmapped);
+          const pct = usable ? Math.max(0, Math.min(100, ((m.meter_dbfs + 60) / 60) * 100)) : 0;
+          fillEl.title = usable ? `${m.meter_dbfs} dBFS` : 'Chưa có dữ liệu X32 đã ánh xạ';
           fillEl.style.height = `${pct}%`;
         }
       });
@@ -2982,9 +3026,18 @@
     async function loadStatus() {
       try {
         const res = await fetch('/api/v1/status');
+        if (!res.ok) throw new Error('Không đọc được trạng thái mixer');
         const data = await res.json();
         document.getElementById('snapshotHash').innerText = `SHA: ${data.sha256.substring(0, 12)}...`;
-      } catch (err) {}
+        document.getElementById('mixerStatus').innerText = data.connection?.is_simulator ? 'Mixer: MÔ PHỎNG' : 'Mixer: kết nối OSC';
+        const label = document.getElementById('dl16StatusLabel');
+        if (label) {
+          label.textContent = data.connection?.is_simulator ? 'DL16 #11: cấu hình mô phỏng' : 'DL16 #11: CHƯA XÁC MINH';
+          label.title = data.dl16_talkback_invariant?.message || 'Thiếu dữ liệu routing';
+        }
+      } catch (err) {
+        document.getElementById('mixerStatus').innerText = 'Mixer: chưa đọc được trạng thái';
+      }
     }
 
     // --- Trigger STOP AUTO Panic ---

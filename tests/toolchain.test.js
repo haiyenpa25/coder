@@ -34,7 +34,7 @@ test("detectTools finds node on this machine", { skip: process.platform !== "win
 });
 
 test("root launchers are CRLF + ASCII so cmd.exe parses them on any machine", () => {
-  for (const file of ["setup.bat", "start.bat", "pack.bat"]) {
+  for (const file of ["setup.bat", "start.bat", "pack.bat", "start_church_engineer.bat"]) {
     const bytes = fs.readFileSync(file);
     const text = bytes.toString("latin1");
     assert.ok(!/[^\r]\n/.test(text), `${file} has LF-only line endings`);

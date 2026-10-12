@@ -1,5 +1,9 @@
 # BẢN QUYỀN MÃ NGUỒN VÀ BẢNG KÊ THÀNH PHẦN (SBOM)
 
+## Bổ sung dashboard giám sát — 12/10/2026
+
+`apps/web/monitoring.js`, `apps/web/monitoring.css` và `packages/monitoring/` được viết mới trong dự án. Biểu đồ dùng Canvas API có sẵn của trình duyệt; xử lý mức tín hiệu dùng NumPy đã có. Không thêm thư viện biểu đồ, CDN, mã sao chép hoặc tham chiếu bên thứ ba trong phần bổ sung này. Giữ nguyên các giấy phép và ghi công của thành phần hiện có bên dưới.
+
 Hệ thống **X32 AI Sound Engineer** tôn trọng nghiêm ngặt bản quyền mã nguồn mở và quy định pháp lý của các thư viện tích hợp.
 
 ---

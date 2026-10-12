@@ -8,6 +8,7 @@ Core Audio DSP Engine for X32 Sound Engineer.
 
 from __future__ import annotations
 import math
+from functools import lru_cache
 from dataclasses import dataclass
 from typing import List, Dict, Tuple, Optional
 import numpy as np
@@ -93,6 +94,30 @@ def compute_welch_spectrum(
     return freqs, psd_dbfs
 
 
+@lru_cache(maxsize=16)
+def _rta_band_plan(freq_bytes: bytes, dtype: str, fraction: int, f_min: float, f_max: float):
+    """Cache only band geometry and bin selections, never measured levels."""
+    freqs = np.frombuffer(freq_bytes, dtype=np.dtype(dtype))
+    sorted_grid = bool(np.all(freqs[:-1] <= freqs[1:]))
+    ratio = 2.0 ** (1.0 / (2.0 * fraction))
+    k_min = math.floor(fraction * math.log2(f_min / 1000.0))
+    k_max = math.ceil(fraction * math.log2(f_max / 1000.0))
+    plan = []
+    for k in range(k_min, k_max + 1):
+        center = 1000.0 * (2.0 ** (k / fraction))
+        if not f_min <= center <= f_max:
+            continue
+        lower, upper = center / ratio, center * ratio
+        if sorted_grid:
+            start, stop = np.searchsorted(freqs, [lower, upper], side="left")
+            selection = slice(int(start), int(stop))
+        else:
+            selection = np.flatnonzero((freqs >= lower) & (freqs < upper))
+            selection.setflags(write=False)
+        plan.append((round(center, 1), round(lower, 1), round(upper, 1), selection))
+    return tuple(plan)
+
+
 def compute_fractional_octave_rta(
     freqs: np.ndarray,
     psd_dbfs: np.ndarray,
@@ -105,32 +130,16 @@ def compute_fractional_octave_rta(
     Center frequencies calculated via: f_c = 1000 * 2^(k / fraction).
     """
     bands: List[Dict[str, float]] = []
-    ratio = 2.0 ** (1.0 / (2.0 * fraction)) # Band edge ratio
-
-    # Determine range of indices k
-    k_min = math.floor(fraction * math.log2(f_min / 1000.0))
-    k_max = math.ceil(fraction * math.log2(f_max / 1000.0))
-
-    for k in range(k_min, k_max + 1):
-        f_center = 1000.0 * (2.0 ** (k / fraction))
-        if f_center < f_min or f_center > f_max:
-            continue
-
-        f_lower = f_center / ratio
-        f_upper = f_center * ratio
-
-        # Mask frequencies within band
-        mask = (freqs >= f_lower) & (freqs < f_upper)
-        if np.any(mask):
-            # Logarithmic average energy in band
-            band_level = float(np.max(psd_dbfs[mask]))
-        else:
-            band_level = -120.0
+    plan = _rta_band_plan(freqs.tobytes(), freqs.dtype.str, fraction, f_min, f_max)
+    for f_center, f_lower, f_upper, selection in plan:
+        values = psd_dbfs[selection]
+        # Preserve the existing peak-per-band display, including empty bands.
+        band_level = float(np.max(values)) if values.size else -120.0
 
         bands.append({
-            "center_freq": round(f_center, 1),
-            "lower_freq": round(f_lower, 1),
-            "upper_freq": round(f_upper, 1),
+            "center_freq": f_center,
+            "lower_freq": f_lower,
+            "upper_freq": f_upper,
             "level_dbfs": round(band_level, 2),
         })
 

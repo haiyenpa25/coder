@@ -16,7 +16,7 @@ import os
 import sys
 import time
 import math
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Literal
 from contextlib import asynccontextmanager
 import numpy as np
 
@@ -24,7 +24,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, stat
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Add repository root to Python path
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -113,6 +113,10 @@ from packages.ai_copilot import ChurchMixCopilot
 from apps.capture_agent.device_manager import AudioDeviceManager
 from apps.capture_agent.stream_worker import AudioStreamWorker
 from diagnose_system import run_all_diagnostics
+from packages.monitoring.analyzer import SignalMonitor, Thresholds
+from packages.monitoring.source import collect_signal
+import logging
+import json
 
 # --- Global State & Singletons ---
 mock_server: Optional[MockX32Server] = None
@@ -133,6 +137,8 @@ ai_copilot = ChurchMixCopilot()
 audio_device_mgr = AudioDeviceManager()
 audio_stream_worker: Optional[AudioStreamWorker] = None
 safety_mode_mgr = SafetyModeManager()
+signal_monitor = SignalMonitor()
+telemetry_logger = logging.getLogger("ChurchMix.Telemetry")
 
 active_websockets: List[WebSocket] = []
 active_feedback_alerts: List[Dict[str, Any]] = []
@@ -147,15 +153,16 @@ async def lifespan(app: FastAPI):
     global mock_server, x32_client, executor, audio_stream_worker, wizard_service
 
     # 1. Start Mock X32 on port 10023 if not running
-    mock_server = MockX32Server(host="127.0.0.1", port=10023)
+    mock_port = int(os.environ.get("CHURCHMIX_MOCK_PORT", "10023"))
+    mock_server = MockX32Server(host="127.0.0.1", port=mock_port)
     try:
         mock_server.start()
-        time.sleep(0.05)
+        await asyncio.sleep(0.05)
     except Exception as e:
-        print(f"Warning: Mock server could not bind (perhaps hardware X32 is present): {e}")
+        raise RuntimeError("Cannot start isolated mock X32; refusing to connect to an unknown listener.") from e
 
     # 2. Connect X32 Client in forced READ_ONLY_MODE
-    x32_client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True, timeout=1.0)
+    x32_client = X32Client(host="127.0.0.1", port=mock_port, read_only_mode=True, timeout=1.0)
     try:
         x32_client.connect()
         executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
@@ -174,6 +181,7 @@ async def lifespan(app: FastAPI):
 
     # Cleanup on shutdown
     telemetry_task.cancel()
+    await telemetry_task
     if audio_stream_worker and audio_stream_worker.is_running:
         audio_stream_worker.stop()
     if x32_client:
@@ -196,120 +204,103 @@ app.add_middleware(
 # --- Background Audio Telemetry & RTA Generator ---
 
 async def audio_telemetry_loop():
-    """Generates continuous 1/12-octave RTA and channel meters for WebSocket broadcast."""
+    """Observe sources continuously, even without a connected dashboard."""
     global active_feedback_alerts
-    t = 0.0
-
+    started = time.monotonic()
+    profiles = {}
+    refreshed = -math.inf
+    last_source = None
     while True:
         try:
-            if not active_websockets:
-                await asyncio.sleep(0.1)
-                continue
-
-            # Priority 1: Virtual Soundcheck Rehearsal Engine
-            if soundcheck_engine.is_active:
-                block_32 = soundcheck_engine.generate_audio_block(block_size=1024)
-                meters = []
-                for ch in range(1, 33):
-                    col = block_32[:, ch - 1]
-                    pk = float(np.max(np.abs(col)))
-                    pk_db = 20.0 * np.log10(max(1e-7, pk))
-                    meters.append({"channel": ch, "meter_dbfs": round(pk_db, 1)})
-                # Combine active lead channels for RTA spectrum
-                active_sum = np.sum(block_32[:, :10], axis=1) * 0.4
-                combined = active_sum.astype(np.float32)
-            # Priority 2: Physical/Simulated USB Audio Capture Agent
-            elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
-                buf = audio_stream_worker.latest_buffer
-                combined = buf[:, 0] if buf.ndim > 1 else buf
-                live_peaks = audio_stream_worker.latest_peak_dbfs
-                meters = []
-                for ch in range(1, 33):
-                    if ch - 1 < len(live_peaks):
-                        lvl = live_peaks[ch - 1]
-                    else:
-                        lvl = -60.0
-                    meters.append({"channel": ch, "meter_dbfs": round(lvl, 1)})
-            else:
-                # Generate synthetic channel signals
-                # Pastor on Ch 1, Lead Voc on Ch 3, Instruments...
-                vocal_audio = generate_vocal_note(fundamental_hz=440.0, duration_s=0.08)
-                pink = generate_pink_noise(duration_s=0.08, amplitude=0.08)
-                combined = vocal_audio + pink
-                meters = []
-                for ch in range(1, 33):
-                    if ch == 1:
-                        # Pastor active
-                        lvl = -18.0 + 6.0 * math.sin(t * 3.0)
-                    elif ch == 3:
-                        # Lead Voc
-                        lvl = -14.0 + 8.0 * math.sin(t * 4.0)
-                    elif ch in (6, 7, 9, 10):
-                        # Band
-                        lvl = -22.0 + 4.0 * math.sin(t * 2.5 + ch)
-                    elif ch == 11:
-                        # Talkback (occasional low whisper)
-                        lvl = -36.0 + 2.0 * math.sin(t * 1.0)
-                    else:
-                        lvl = -60.0
-                    meters.append({"channel": ch, "meter_dbfs": round(lvl, 1)})
-
-            # Analyze for feedback
-            frame = AudioFrame(samples=combined, channel_id=3, timestamp=t)
-            candidates = feedback_detector.process_frame(frame)
-
-            active_feedback_alerts = [
-                {
-                    "channel_id": c.channel_id,
-                    "freq_hz": c.freq_hz,
-                    "confidence": c.confidence,
-                    "severity": c.severity,
-                    "level_dbfs": c.level_dbfs,
-                    "evidence": c.evidence,
-                    "recommended_action": c.recommended_action,
-                }
-                for c in candidates
-            ]
-
-            # Compute RTA spectrum
-            freqs, psd = compute_welch_spectrum(combined, sample_rate=48000, nperseg=1024, noverlap=512)
-            rta_bars = compute_fractional_octave_rta(freqs, psd, fraction=12)
-
-            # Watchdog: monitor clipping and feedback alerts
-            has_clip = any(m.get("meter_dbfs", -60.0) >= -0.5 for m in meters)
-            has_feedback_spike = any(a.get("severity") in ("CRITICAL", "ALARM") for a in active_feedback_alerts)
-            safety_mode_mgr.record_telemetry_heartbeat(clip_detected=has_clip, feedback_spike=has_feedback_spike)
-
-            payload = {
-                "type": "TELEMETRY",
-                "timestamp": round(t, 2),
-                "rta": rta_bars,
-                "meters": meters,
-                "feedback_alerts": active_feedback_alerts,
+            now = time.monotonic()
+            if now - refreshed > 5:
+                profiles = {p["channel"]: p for p in church_profile_mgr.get_channels()}
+                refreshed = now
+            meters, samples, source = collect_signal(soundcheck_engine, audio_stream_worker, now - started, profiles)
+            if source["id"] != last_source or not source["dsp_valid"]:
+                feedback_detector.channel_history.clear()
+                last_source = source["id"]
+            candidates = []
+            if source["dsp_valid"]:
+                frame = AudioFrame(samples=samples, sample_rate=source["sample_rate"],
+                    channel_id=source["spectrum_input"], timestamp=now)
+                candidates = feedback_detector.process_frame(frame)
+            active_feedback_alerts = [{"channel_id": c.channel_id, "freq_hz": c.freq_hz,
+                "confidence": c.confidence, "severity": c.severity, "level_dbfs": c.level_dbfs,
+                "evidence": c.evidence, "recommended_action": c.recommended_action,
+                "simulated": source["simulated"]} for c in candidates]
+            rta_bars = []
+            if source["valid"]:
+                freqs, psd = compute_welch_spectrum(samples, sample_rate=source["sample_rate"], nperseg=1024, noverlap=512)
+                rta_bars = compute_fractional_octave_rta(freqs, psd, fraction=12)
+            has_clip = any(m["meter_dbfs"] is not None and m["meter_dbfs"] >= -0.5 for m in meters)
+            has_feedback = any(a["severity"] == "CRITICAL" for a in active_feedback_alerts)
+            if source["valid"]:
+                # Demo data must not stand in for hardware telemetry.
+                if not source["simulated"] or not x32_client or x32_client.host == "127.0.0.1":
+                    safety_mode_mgr.record_telemetry_heartbeat(clip_detected=has_clip, feedback_spike=has_feedback)
+            elif not source["simulated"]:
+                safety_mode_mgr.trigger_auto_disengage(DisengageReason.AUDIO_FAULT,
+                    "Dữ liệu capture không hợp lệ; đóng băng tự động.")
+                if x32_client:
+                    x32_client.read_only_mode = True
+            analysis = signal_monitor.ingest(meters, source, now=now)
+            analysis["events"] = analysis["events"][:30]
+            payload = {"type": "TELEMETRY", "timestamp": time.time(), "rta": rta_bars,
+                "meters": meters, "feedback_alerts": active_feedback_alerts,
                 "read_only_mode": x32_client.read_only_mode if x32_client else True,
-                "stop_auto": stop_auto_triggered,
-                "safety_mode": safety_mode_mgr.state.to_dict(),
-                "soundcheck": soundcheck_engine.get_status(),
-            }
-
-            # Broadcast to all connected clients
-            dead_ws = []
-            for ws in active_websockets:
+                "stop_auto": stop_auto_triggered, "safety_mode": safety_mode_mgr.state.to_dict(),
+                "soundcheck": soundcheck_engine.get_status(), "source": source, "analysis": analysis}
+            # A stalled browser cannot hold the broadcaster indefinitely.
+            message = json.dumps(payload, allow_nan=False, separators=(",", ":"))
+            clients = tuple(active_websockets)
+            async def send(ws):
                 try:
-                    await ws.send_json(payload)
+                    await asyncio.wait_for(ws.send_text(message), timeout=0.25)
                 except Exception:
-                    dead_ws.append(ws)
-
-            for d in dead_ws:
-                if d in active_websockets:
-                    active_websockets.remove(d)
-
-            t += 0.08
-            await asyncio.sleep(0.08) # ~12 fps update loop (lightweight and smooth)
+                    if ws in active_websockets:
+                        active_websockets.remove(ws)
+                    try:
+                        await asyncio.wait_for(ws.close(code=1013), timeout=0.1)
+                    except Exception:
+                        pass
+            await asyncio.gather(*(send(ws) for ws in clients))
+            await asyncio.sleep(0.08)
         except asyncio.CancelledError:
             break
-        except Exception as e:
+        except Exception:
+            telemetry_logger.exception("Telemetry update failed")
+            active_feedback_alerts = []
+            signal_monitor.ingest([], {"id": "error", "valid": False, "simulated": False,
+                "label": "Lỗi luồng đo", "reasons": ["Không xử lý được khung đo; kiểm tra log máy chủ"]})
+            safety_mode_mgr.trigger_auto_disengage(DisengageReason.AUDIO_FAULT, "Lỗi xử lý telemetry.")
+            if x32_client:
+                x32_client.read_only_mode = True
             await asyncio.sleep(0.1)
+
+
+@app.get("/api/v1/monitoring/analysis")
+def get_signal_analysis(channel: Optional[int] = None):
+    if channel is not None and not 1 <= channel <= 32:
+        raise HTTPException(status_code=400, detail="Input phải từ 1 đến 32")
+    return signal_monitor.snapshot(channel=channel)
+
+
+class MonitoringThresholdRequest(BaseModel):
+    warning_dbfs: float = Field(default=-12, ge=-60, le=0, allow_inf_nan=False)
+    critical_dbfs: float = Field(default=-6, ge=-60, le=0, allow_inf_nan=False)
+    clip_dbfs: float = Field(default=-0.5, ge=-60, le=0, allow_inf_nan=False)
+
+
+@app.put("/api/v1/monitoring/thresholds")
+def set_monitoring_thresholds(req: MonitoringThresholdRequest):
+    """Change diagnostic thresholds only. Never touch any mixer parameters."""
+    try:
+        thresholds = Thresholds(**req.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    signal_monitor.set_thresholds(thresholds)
+    return {"thresholds": req.model_dump(), "message": "Đã cập nhật ngưỡng biểu đồ; bắt đầu phiên thống kê mới."}
 
 
 # --- REST API Endpoints ---
@@ -322,9 +313,14 @@ def get_system_status():
     snapshot = x32_client.take_full_snapshot(max_channels=32)
     routing = RoutingGraph(snapshot.parameters)
     tb_ok, tb_msg = routing.verify_talkback_invariant()
+    is_simulator = bool(mock_server and mock_server.running and x32_client.host == "127.0.0.1" and x32_client.port == mock_server.port)
+    if not is_simulator:
+        tb_ok = False
+        tb_msg = "Chưa xác minh ánh xạ DL16 và đầy đủ đường FOH/Matrix trên phần cứng; không suy ra an toàn từ cấu hình mẫu."
 
     return {
         "status": "ONLINE",
+        "connection": {"is_simulator": is_simulator, "host": x32_client.host, "port": x32_client.port},
         "mixer": snapshot.mixer_info,
         "read_only_mode": x32_client.read_only_mode,
         "stop_auto": stop_auto_triggered,
@@ -333,6 +329,7 @@ def get_system_status():
         "dl16_talkback_invariant": {
             "safe": tb_ok,
             "message": tb_msg,
+            "scope": "SIMULATED_FIXED_MAP" if is_simulator else "UNVERIFIED_HARDWARE",
         },
     }
 
@@ -344,10 +341,11 @@ def get_channels():
 
     snapshot = x32_client.take_full_snapshot(max_channels=32)
     routing = RoutingGraph(snapshot.parameters)
+    profiles = {p["channel"]: p for p in church_profile_mgr.get_channels()}
 
     channels = []
     for ch in range(1, 33):
-        summary = x32_client.get_channel_summary(ch)
+        summary = x32_client.get_channel_summary(ch, snapshot=snapshot)
         is_foh, _ = routing.is_channel_routed_to_foh(ch)
         is_p16, p16_slots = routing.is_channel_routed_to_p16(ch)
 
@@ -355,7 +353,7 @@ def get_channels():
         summary["is_p16"] = is_p16
         summary["p16_slots"] = p16_slots
 
-        prof = church_profile_mgr.get_channel(ch)
+        prof = profiles.get(ch)
         if prof:
             summary["church_role"] = prof.get("role")
             if prof.get("name") and (not summary.get("name") or summary.get("name") == f"CH{ch:02d}"):
@@ -1635,9 +1633,9 @@ def run_feedback_ringout_endpoint(req: RingOutRequest):
 
 
 class HardwareConnectRequest(BaseModel):
-    mode: str = "SIMULATOR" # "SIMULATOR" or "REAL_HARDWARE"
+    mode: Literal["SIMULATOR", "REAL_HARDWARE"] = "SIMULATOR"
     ip: str = "127.0.0.1"
-    port: int = 10023
+    port: int = Field(default=10023, ge=1, le=65535)
 
 
 @app.post("/api/v1/hardware/connect")
@@ -1646,7 +1644,9 @@ def switch_hardware_target(req: HardwareConnectRequest):
     global x32_client, executor, wizard_service
 
     target_ip = "127.0.0.1" if req.mode == "SIMULATOR" else req.ip
-    target_port = req.port
+    target_port = mock_server.port if req.mode == "SIMULATOR" and mock_server else req.port
+    safety_mode_mgr.set_mode(OperatorMode.OBSERVE, operator="Operator")
+    active_proposals.clear()
 
     if x32_client:
         x32_client.close()
@@ -1655,7 +1655,7 @@ def switch_hardware_target(req: HardwareConnectRequest):
     try:
         connect_res = new_client.connect()
         x32_client = new_client
-        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy())
+        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
         wizard_service = WizardService(client=x32_client)
 
         if db:
@@ -1674,11 +1674,17 @@ def switch_hardware_target(req: HardwareConnectRequest):
             "mixer_info": connect_res["info"],
         }
     except Exception as e:
+        new_client.close()
         # Fall back to localhost
-        fallback = X32Client(host="127.0.0.1", port=10023, read_only_mode=True)
+        if not mock_server or not mock_server.running:
+            x32_client = None
+            executor = None
+            wizard_service = None
+            raise HTTPException(status_code=503, detail=f"Mixer connection failed; no isolated simulator available: {e}")
+        fallback = X32Client(host="127.0.0.1", port=mock_server.port, read_only_mode=True)
         fallback.connect()
         x32_client = fallback
-        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy())
+        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
         wizard_service = WizardService(client=x32_client)
         raise HTTPException(
             status_code=400,
@@ -1704,8 +1710,8 @@ def discover_hardware_endpoint(req: HardwareDiscoverRequest = HardwareDiscoverRe
 
 class AudioCaptureStartRequest(BaseModel):
     device_id: int = -1
-    channels: int = 2
-    sample_rate: int = 48000
+    channels: int = Field(default=2, ge=1, le=32)
+    sample_rate: int = Field(default=48000, ge=8000, le=192000)
 
 
 @app.get("/api/v1/audio/devices")

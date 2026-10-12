@@ -83,6 +83,7 @@ class FeedbackDetector:
             self.channel_history[ch].pop(0)
 
         candidates: List[FeedbackCandidate] = []
+        median_floor = float(np.median(sub_psd)) if current_frame_peaks else 0.0
 
         # 2. Evaluate each peak against multi-evidence criteria
         for peak_f, peak_lvl in current_frame_peaks:
@@ -90,7 +91,6 @@ class FeedbackDetector:
 
             # CRITERION 1: Narrowband Tonality
             # Prominence above local noise floor
-            median_floor = float(np.median(sub_psd))
             prominence = peak_lvl - median_floor
             tonality_score = min(1.0, max(0.0, (prominence - self.min_prominence_db) / 20.0))
             evidence.append(f"Tonality: Prominence is {prominence:.1f} dB above median noise floor")

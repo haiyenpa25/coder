@@ -1,10 +1,10 @@
 # ChurchMix — X32 AI Sound Engineer
 
-> **Hệ Thống Trợ Lý Kỹ Thuật Âm Thanh Nhà Thờ Thông Minh & An Toàn Tuyệt Đối**  
+> **Hệ Thống Trợ Lý Kỹ Thuật Âm Thanh Nhà Thờ — Giám Sát Tín Hiệu & Đề Xuất Có Kiểm Soát**
 > Dành cho mixer **Behringer X32 Compact / Midas M32**, stagebox **Midas DL16** và hệ thống monitor cá nhân **Ultranet P16**.
 
-[![Safety Verified](https://img.shields.io/badge/Safety-Invariant%20Guaranteed-success.svg)](#nguyên-tắc-bất-biến-sống-còn-hard-invariants)
-[![Tests Passing](https://img.shields.io/badge/Tests-63%2F63%20Passing-brightgreen.svg)](#kiểm-thử-tự-động)
+[![Mock Tested](https://img.shields.io/badge/Safety-Mock%20Tested-blue.svg)](docs/monitoring-dashboard.md)
+[![Tests Passing](https://img.shields.io/badge/Tests-201%20Python%20%2B%2023%20JS-brightgreen.svg)](#kiểm-thử-tự-động)
 [![OSC Read-Only First](https://img.shields.io/badge/Mode-READ__ONLY__MODE%20First-blue.svg)](#chế-độ-vận-hành)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](#yêu-cầu-môi-trường)
 
@@ -12,11 +12,11 @@
 
 ## 1. Giới Thiệu & Mục Tiêu
 
-**ChurchMix (X32 AI Sound Engineer)** được thiết kế chuyên biệt cho môi trường thờ phượng tại nhà thờ, giải quyết bài toán thiếu hụt nhân sự âm thanh chuyên nghiệp nhưng vẫn đảm bảo:
+**ChurchMix (X32 AI Sound Engineer)** được thiết kế chuyên biệt cho môi trường thờ phượng tại nhà thờ, hỗ trợ đội âm thanh theo dõi và cân chỉnh với các mục tiêu:
 * Giọng nói Mục sư rõ lời, tròn vành, không om bí, không mỏng gắt.
 * Ban nhạc và ca đoàn hòa quyện, âm trường sân khấu sống động.
-* **Không bao giờ xảy ra tiếng hú rít bất ngờ** trong thánh lễ.
-* **An toàn tuyệt đối:** Trợ lý AI chỉ đưa ra đề xuất âm học và giải thích bằng tiếng Việt; chỉ thực thi lệnh ghi sau khi kỹ thuật viên xác nhận.
+* **Giảm nguy cơ hú rít** bằng theo dõi tín hiệu và kỹ thuật micro phù hợp; vẫn có rủi ro feedback.
+* **Đề xuất có kiểm soát:** Trợ lý AI chỉ đưa ra đề xuất âm học và giải thích bằng tiếng Việt; chỉ thực thi lệnh ghi sau khi kỹ thuật viên xác nhận.
 
 ---
 
@@ -52,6 +52,12 @@
    * Phân tích dãy hài âm tự nhiên ($2f, 3f, 4f$) để loại trừ nốt ca sĩ ngân dài hoặc tiếng đàn organ, chỉ can thiệp notch hẹp ($Q \ge 6.0$, độ sâu giới hạn $-3\text{dB}$ đến $-4.5\text{dB}$) vào đúng tần số cộng hưởng hú thật.
 
 ---
+
+## Dashboard giám sát tín hiệu
+
+Dashboard có biểu đồ Peak 32 đầu vào, lịch sử Peak/RMS 2 phút, xếp hạng thời gian vượt ngưỡng, headroom, bảng phân tích và xuất CSV. Nguồn demo/USB mô phỏng được ghi rõ; USB thật chưa ánh xạ không bị gán nhầm thành kênh X32 hay cổng DL16.
+
+Xem [hướng dẫn đọc biểu đồ và rà soát toàn dự án](docs/monitoring-dashboard.md). Kiểm thử mock chưa chứng minh an toàn routing trên mọi scene thật. Công cụ Node.js tạo dự án cũ trong repository dùng `npm start`; để mở ChurchMix audio dashboard, dùng launcher Python bên dưới.
 
 ## 4. Khởi Động Nhanh (Quick Start)
 
@@ -101,14 +107,14 @@ Không cần máy tính trực tiếp trong giờ lễ, bạn có thể xuất t
 
 ## 7. Kiểm Thử Tự Động (Automated Testing)
 
-Toàn bộ hệ thống được bảo vệ bởi **56 bài kiểm thử tự động** chạy độc lập trên bộ giả lập UDP `MockX32Server`:
+Hệ thống có **201 bài kiểm thử Python** chạy với mock X32 hoặc fixture cô lập:
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
-* Thời gian chạy: **~5.2 giây**.
-* Kết quả: **63 / 63 tests PASSING (100%)**.
+* Thời gian chạy phụ thuộc máy và môi trường; khoảng 16 giây trong lần kiểm tra gần nhất.
+* Kết quả: **201 bài Python và 23 bài JavaScript đạt** (mock/fixture; JavaScript chạy bằng `npm test`).
 
 ---
 
@@ -134,7 +140,7 @@ ChurchMix/
 ├── configs/                    # Whitelist OSC, Phân quyền RBAC, Safety defaults
 ├── deploy/                     # Dockerfile, Docker Compose, Windows Service, Systemd
 ├── docs/                       # Toàn bộ 7 tài liệu kỹ thuật & quy chuẩn vận hành
-└── tests/                      # 11 bộ Unit & Integration test suites (63 tests)
+└── tests/                      # Unit, Integration và UI fixture tests
 ```
 
 ---
