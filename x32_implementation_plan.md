@@ -182,6 +182,7 @@ x32-ai-sound-engineer/
 | **B25**| Quản Lý Profile Kênh Nhà Thờ (32-Ch Profile Manager) & Báo Cáo Buổi Lễ In Ấn/PDF Chuẩn A4 |  Đã xong (Sprint 12) |
 | **B26**| Phòng Thí Nghiệm Kiểm Thử Hỗn Loạn, Fault-Injection & Khả Năng Chống Chịu Sự Cố (Chaos & Resilience Test Suite) |  Đã xong (Sprint 13) |
 | **B27**| Gói Trí Tuệ Nhân Tạo AI Copilot RAG (`packages/ai_copilot/`) & Truy Vấn Trực Tiếp Theo Thời Gian Thực |  Đã xong (Sprint 14) |
-| **Tổng**| **87 / 87 Automated Python Tests + 19 / 19 Node Tests PASSING (106 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 27 HẠNG MỤC** |
+| **B28**| Quản Lý Profile Phòng Nhóm & So Sánh Baseline Âm Học Hội Trường (Multi-Sanctuary Hall Profiles & Baseline Comparator) |  Đã xong (Sprint 15) |
+| **Tổng**| **93 / 93 Automated Python Tests + 19 / 19 Node Tests PASSING (112 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 28 HẠNG MỤC** |
 
 

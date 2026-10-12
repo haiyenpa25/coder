@@ -78,6 +78,7 @@ from packages.mix_assistant.leveler import (
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
 from packages.storage.church_profile import ChurchProfileManager
+from packages.storage.hall_profiles import HallProfileManager, HallProfile
 from packages.storage.report_generator import generate_printable_sunday_report_html
 from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_PRESETS
 from packages.ai_copilot import ChurchMixCopilot
@@ -95,6 +96,7 @@ speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 
 db = ChurchMixDatabase()
 church_profile_mgr = ChurchProfileManager()
+hall_profile_mgr = HallProfileManager()
 soundcheck_engine = VirtualSoundcheckEngine(sample_rate=48000)
 ai_copilot = ChurchMixCopilot()
 audio_device_mgr = AudioDeviceManager()
@@ -1183,6 +1185,97 @@ def get_sunday_service_report(
         events=events,
     )
     return HTMLResponse(content=html_content, status_code=200)
+
+
+# --- Multi-Hall Acoustic Profiles & Sanctuary Comparison Endpoints ---
+
+class HallProfileCreateRequest(BaseModel):
+    id: str
+    name: str
+    capacity_seats: int = 500
+    target_rt60_seconds: float = 1.5
+    nominal_delay_ms: float = 3.5
+    ambient_noise_dbfs: float = -60.0
+    speaker_system: str = "FOH Line Array"
+    target_curve_slope_db_per_oct: float = -1.0
+    safe_gain_limit_db: float = 4.0
+    notes: str = ""
+    baseline_curve: Optional[List[Dict[str, float]]] = None
+
+
+class HallCompareRequest(BaseModel):
+    delay_ms: float = 3.5
+    curve: Optional[List[Dict[str, Any]]] = None
+
+
+@app.get("/api/v1/halls")
+def get_sanctuary_halls():
+    """List all sanctuary acoustic hall profiles with active hall indicator."""
+    halls = hall_profile_mgr.get_all_halls()
+    active_hall = hall_profile_mgr.get_active_hall()
+    return {
+        "active_hall_id": active_hall.id,
+        "active_hall_name": active_hall.name,
+        "count": len(halls),
+        "halls": [h.to_dict() for h in halls],
+    }
+
+
+@app.get("/api/v1/halls/{hall_id}")
+def get_sanctuary_hall(hall_id: str):
+    """Retrieve details and acoustic baseline for a specific hall."""
+    hall = hall_profile_mgr.get_hall(hall_id)
+    if not hall:
+        raise HTTPException(status_code=404, detail=f"Hall '{hall_id}' not found.")
+    return hall.to_dict()
+
+
+@app.post("/api/v1/halls/{hall_id}/activate")
+def activate_sanctuary_hall(hall_id: str):
+    """Switch active sanctuary hall profile."""
+    try:
+        hall = hall_profile_mgr.set_active_hall(hall_id)
+        if db:
+            db.save_audit_event(
+                actor="Operator",
+                action="SWITCH_HALL_PROFILE",
+                status="COMMITTED",
+                details={"hall_id": hall.id, "hall_name": hall.name},
+            )
+        return {"status": "ACTIVATED", "active_hall": hall.to_dict()}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/v1/halls")
+def save_sanctuary_hall(req: HallProfileCreateRequest):
+    """Create or update a versioned hall acoustic profile."""
+    profile = HallProfile(
+        id=req.id,
+        name=req.name,
+        capacity_seats=req.capacity_seats,
+        target_rt60_seconds=req.target_rt60_seconds,
+        nominal_delay_ms=req.nominal_delay_ms,
+        ambient_noise_dbfs=req.ambient_noise_dbfs,
+        speaker_system=req.speaker_system,
+        target_curve_slope_db_per_oct=req.target_curve_slope_db_per_oct,
+        safe_gain_limit_db=req.safe_gain_limit_db,
+        notes=req.notes,
+        baseline_curve=req.baseline_curve,
+    )
+    saved = hall_profile_mgr.save_hall(profile)
+    return {"status": "SAVED", "hall": saved.to_dict()}
+
+
+@app.post("/api/v1/halls/{hall_id}/compare")
+def compare_hall_measurement(hall_id: str, req: HallCompareRequest):
+    """Compare a measurement curve against the hall's baseline target."""
+    diff = hall_profile_mgr.compare_measurement_against_baseline(
+        hall_id=hall_id,
+        measurement_curve=req.curve,
+        delay_ms=req.delay_ms,
+    )
+    return diff
 
 
 # Serve Static UI
