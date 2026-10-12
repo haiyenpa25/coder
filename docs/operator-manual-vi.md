@@ -162,4 +162,27 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Mọi thao tác Mute/Unmute đều được kiểm soát qua `SafetyGate` và ghi nhật ký Audit Trail.
    - Kênh 11 Talkback ban nhạc vẫn duy trì cách ly 100% khỏi loa chính FOH kể cả khi bật hay tắt Mute.
 
+---
+
+### 14. GIÁM SÁT ÂM LƯỢNG LIVESTREAM & BẢO VỆ PHÁT TRỰC TIẾP (LUFS & STREAMING GUARD)
+1. **Nút Giám Sát Trên Thanh Header:**
+   - Trên thanh điều khiển trên cùng có nút **`[Live: -xx.x LUFS]`** màu hồng.
+   - Nhãn hiển thị cập nhật thời gian thực chỉ số âm lượng ngắn hạn (Short-Term LUFS).
+   - Nếu phát hiện rò rỉ kênh Talkback DL16 #11 vào đường livestream, nút sẽ chuyển sang nhấp nháy đỏ báo động: **`Live: 🚨 LỘ TALKBACK!`**.
+2. **Mở Bảng Điều Khiển Livestream:**
+   - Bấm trực tiếp vào nút **`[Live: ...]`** trên Header để mở cửa sổ đo đạc chi tiết.
+3. **Các Chỉ Số Đo Chuẩn ITU-R BS.1770-4 / EBU R128:**
+   - **Momentary Loudness (M) (400ms):** Đo mức năng lượng tức thời của tín hiệu sau bộ lọc K-weighting.
+   - **Short-Term Loudness (S) (3.0s):** Chỉ số chính để đánh giá độ to khi phát trực tiếp lên mạng xã hội.
+   - **Integrated Loudness (I):** Độ to tích lũy cả chương trình lễ có bộ lọc cổng kép (Gate tuyệt đối $-70\text{ LUFS}$ và Gate tương đối $-10\text{ dB}$).
+   - **True Peak (dBTP):** Mức đỉnh siêu mẫu nội suy $4\times$ (Polyphase Oversampling) giúp phát hiện đỉnh tín hiệu tiềm ẩn, ngăn ngừa hiện tượng vỡ tiếng méo hài khi thuật toán nén AAC của YouTube/Facebook tái mã hóa âm thanh.
+4. **Các Hồ Sơ Phát Thanh Chuẩn:**
+   - **YouTube / Facebook Live:** Mục tiêu $-14.0\text{ LUFS}$ (±1.0 dB), True Peak $\le -1.0\text{ dBTP}$. Tránh bị thuật toán nén hạ âm lượng tự động (penalty compression).
+   - **Hội Trường / FOH Acoustic:** Mục tiêu $-18.0\text{ LUFS}$ (±1.5 dB), True Peak $\le -0.5\text{ dBTP}$. Duy trì dynamic range thoáng đãng cho dàn nhạc sống.
+   - **Truyền Hình EBU R128:** Mục tiêu $-23.0\text{ LUFS}$ (±0.5 dB), True Peak $\le -1.0\text{ dBTP}$. Tiêu chuẩn đài truyền hình chuẩn quốc tế.
+5. **Kiểm Soát Bất Biến Cách Ly Talkback Tuyệt Đối:**
+   - Banner an toàn ở đầu bảng điều khiển liên tục kiểm tra định tuyến của Kênh 11 (Band Talkback).
+   - Đảm bảo micro trao đổi nội bộ của ban nhạc chỉ đi vào hệ thống cá nhân Ultranet P16, tuyệt đối không bị gửi nhầm vào Bus Livestream (MixBus 05) hay Main Stereo Bus.
+
+
 

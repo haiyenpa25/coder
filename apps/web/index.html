@@ -84,6 +84,11 @@
         <span>Kho Lưu Trữ Scene</span>
       </button>
 
+      <button onclick="openLivestreamModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm" title="Giám sát âm lượng phát thanh trực tiếp & Bất biến Talkback">
+        <i class="fa-solid fa-tower-broadcast text-rose-400"></i>
+        <span id="headerLivestreamLabel">Live: Đang đo...</span>
+      </button>
+
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-file-invoice text-amber-400"></i>
         <span>In Báo Cáo</span>
@@ -1472,7 +1477,210 @@
   </div>
 
   <!-- ========================================== -->
+  <!-- MODAL: LIVESTREAM & BROADCAST LUFS MONITOR -->
+  <!-- ========================================== -->
+  <div id="livestreamModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-red-600 flex items-center justify-center text-white shadow-rose-500/20 shadow-md">
+            <i class="fa-solid fa-tower-broadcast text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-base font-bold text-white tracking-tight">GIÁM SÁT ÂM LƯỢNG LIVESTREAM & PHÁT TRỰC TIẾP</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 font-bold">ITU-R BS.1770-4 / EBU R128</span>
+            </div>
+            <p class="text-xs text-slate-400">Kiểm chuẩn Loudness K-weighting, True Peak 4x & Giám sát Bất biến Cách ly Talkback DL16 #11</p>
+          </div>
+        </div>
+        <button onclick="closeLivestreamModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Controls & Status Bar -->
+      <div class="p-4 bg-slate-950/50 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <!-- Target Profile Selector -->
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-400 font-semibold">Mục tiêu phát thanh:</span>
+          <select id="livestreamProfileSelect" onchange="onLivestreamProfileChange()" class="bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-rose-500 focus:outline-none font-medium">
+            <option value="YOUTUBE_STREAMING">YouTube / Facebook Live (-14.0 LUFS)</option>
+            <option value="SANCTUARY_FOH">Hội Trường / FOH (-18.0 LUFS)</option>
+            <option value="EBU_R128_TV">Truyền Hình EBU R128 (-23.0 LUFS)</option>
+          </select>
+        </div>
+
+        <!-- Livestream Bus Selector -->
+        <div class="flex items-center space-x-2">
+          <span class="text-xs text-slate-400 font-semibold">Bus Livestream:</span>
+          <select id="livestreamBusSelect" onchange="fetchLivestreamLoudness()" class="bg-slate-900 border border-slate-700 text-white text-xs rounded-xl px-3 py-1.5 focus:ring-1 focus:ring-rose-500 focus:outline-none font-mono">
+            <option value="5">MixBus 05 (Livestream Default)</option>
+            <option value="6">MixBus 06</option>
+            <option value="7">MixBus 07</option>
+            <option value="8">MixBus 08</option>
+          </select>
+        </div>
+
+        <!-- Refresh Button -->
+        <button onclick="fetchLivestreamLoudness()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold cursor-pointer">
+          <i class="fa-solid fa-rotate text-rose-400 text-xs"></i>
+          <span>Làm mới</span>
+        </button>
+      </div>
+
+      <!-- Scrollable Content -->
+      <div class="p-6 overflow-y-auto custom-scrollbar space-y-5 flex-1">
+        <!-- Hard Invariant Protection Banner -->
+        <div id="livestreamTalkbackBanner" class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <i id="livestreamTalkbackIcon" class="fa-solid fa-shield-halved text-emerald-400 text-2xl"></i>
+            <div>
+              <div id="livestreamTalkbackTitle" class="text-xs font-bold text-white uppercase tracking-wider">BẤT BIẾN AN TOÀN: DL16 IN 11 (TALKBACK) ĐƯỢC BẢO VỆ 100%</div>
+              <div id="livestreamTalkbackMsg" class="text-[11px] text-emerald-300/90 font-mono mt-0.5">Không phát hiện rò rỉ âm thanh Band Talkback vào Livestream MixBus hoặc Main LR FOH.</div>
+            </div>
+          </div>
+          <span id="livestreamTalkbackBadge" class="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-600">ISOLATED OK</span>
+        </div>
+
+        <!-- 4 Key Gauges Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <!-- Momentary (400ms) -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+              <span>Momentary (M)</span>
+              <span class="font-mono text-[10px] text-slate-500">400ms</span>
+            </div>
+            <div class="my-2">
+              <span id="meterMomentaryVal" class="text-2xl font-bold font-mono text-white">-14.5</span>
+              <span class="text-xs text-slate-400 ml-1">LUFS</span>
+            </div>
+            <!-- Bar -->
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="meterMomentaryBar" class="h-full bg-cyan-400 transition-all duration-300" style="width: 65%;"></div>
+            </div>
+          </div>
+
+          <!-- Short-Term (3s) -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+              <span>Short-Term (S)</span>
+              <span class="font-mono text-[10px] text-slate-500">3.0s</span>
+            </div>
+            <div class="my-2">
+              <span id="meterShortTermVal" class="text-2xl font-bold font-mono text-emerald-400">-14.0</span>
+              <span class="text-xs text-slate-400 ml-1">LUFS</span>
+            </div>
+            <!-- Bar -->
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="meterShortTermBar" class="h-full bg-emerald-400 transition-all duration-300" style="width: 70%;"></div>
+            </div>
+          </div>
+
+          <!-- Integrated (Gated) -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+              <span>Integrated (I)</span>
+              <span class="font-mono text-[10px] text-slate-500">Gated EBU</span>
+            </div>
+            <div class="my-2">
+              <span id="meterIntegratedVal" class="text-2xl font-bold font-mono text-indigo-400">-14.2</span>
+              <span class="text-xs text-slate-400 ml-1">LUFS</span>
+            </div>
+            <!-- Bar -->
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="meterIntegratedBar" class="h-full bg-indigo-400 transition-all duration-300" style="width: 68%;"></div>
+            </div>
+          </div>
+
+          <!-- True Peak (4x) -->
+          <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-xs font-semibold">
+              <span>True Peak</span>
+              <span class="font-mono text-[10px] text-slate-500">4x Oversampled</span>
+            </div>
+            <div class="my-2">
+              <span id="meterTruePeakVal" class="text-2xl font-bold font-mono text-amber-400">-1.2</span>
+              <span class="text-xs text-slate-400 ml-1">dBTP</span>
+            </div>
+            <!-- Bar -->
+            <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+              <div id="meterTruePeakBar" class="h-full bg-amber-400 transition-all duration-300" style="width: 60%;"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compliance & Tactical Guidance Box -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400 uppercase font-semibold">Trạng thái phát thanh:</span>
+              <span id="meterComplianceBadge" class="text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">OPTIMAL</span>
+            </div>
+            <div class="text-xs font-mono text-slate-400">
+              Chênh lệch mục tiêu: <span id="meterDeltaVal" class="font-bold text-white">0.0 dB</span>
+            </div>
+          </div>
+          <div class="p-3 rounded-lg bg-slate-900 border border-slate-800/80 text-xs text-slate-300 flex items-start space-x-2.5">
+            <i class="fa-solid fa-lightbulb text-amber-400 mt-0.5 text-sm flex-shrink-0"></i>
+            <span id="meterRecommendationText" class="leading-relaxed font-sans">
+              Đang phân tích tín hiệu âm thanh phát thanh...
+            </span>
+          </div>
+        </div>
+
+        <!-- Technical Standard Specs Reference -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">
+          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/70">
+            <div class="font-bold text-rose-300 flex items-center space-x-1.5 mb-1">
+              <i class="fa-brands fa-youtube"></i>
+              <span>YouTube / Facebook Live</span>
+            </div>
+            <div class="text-slate-400 leading-snug space-y-0.5">
+              <div>• Mục tiêu: <strong>-14.0 LUFS</strong> (±1 dB)</div>
+              <div>• True Peak tối đa: <strong>-1.0 dBTP</strong></div>
+              <div>• Tránh bị nén giảm âm lượng tự động (penalty compression).</div>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/70">
+            <div class="font-bold text-teal-300 flex items-center space-x-1.5 mb-1">
+              <i class="fa-solid fa-church"></i>
+              <span>Hội Trường / FOH Acoustic</span>
+            </div>
+            <div class="text-slate-400 leading-snug space-y-0.5">
+              <div>• Mục tiêu: <strong>-18.0 LUFS</strong> (±1.5 dB)</div>
+              <div>• True Peak tối đa: <strong>-0.5 dBTP</strong></div>
+              <div>• Giữ dynamic range thoáng cho ban nhạc sống.</div>
+            </div>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-950/70 border border-slate-800/70">
+            <div class="font-bold text-indigo-300 flex items-center space-x-1.5 mb-1">
+              <i class="fa-solid fa-tv"></i>
+              <span>EBU R128 Broadcasting</span>
+            </div>
+            <div class="text-slate-400 leading-snug space-y-0.5">
+              <div>• Mục tiêu: <strong>-23.0 LUFS</strong> (±0.5 dB)</div>
+              <div>• True Peak tối đa: <strong>-1.0 dBTP</strong></div>
+              <div>• Tiêu chuẩn truyền hình phát thanh quốc tế.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">Chuẩn K-weighting ITU-R BS.1770-4 & Bộ lọc kép Gate (-70 LUFS / -10 dB).</span>
+        <button onclick="closeLivestreamModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
   <!-- MODAL 4: CHANNEL DETAIL & MIXER EXPLORER   -->
+  <!-- ========================================== -->
   <!-- ========================================== -->
   <div id="channelDetailModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
     <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -3425,6 +3633,9 @@
         if (container) {
           container.innerHTML = `<div class="p-3 bg-red-950/50 border border-red-700 rounded-lg text-red-300 text-xs">Lỗi chạy chẩn đoán: ${e}</div>`;
         }
+      }
+    }
+
     // ========================================================
     // SCENE VAULT & SNAPSHOT ARCHIVE MANAGER
     // ========================================================
@@ -3662,6 +3873,140 @@
       }
     }
 
+    // ========================================================
+    // LIVESTREAM & BROADCAST LUFS CONTROLLER
+    // ========================================================
+    let livestreamInterval = null;
+
+    function openLivestreamModal() {
+      document.getElementById('livestreamModal').classList.remove('hidden');
+      fetchLivestreamLoudness();
+      if (!livestreamInterval) {
+        livestreamInterval = setInterval(fetchLivestreamLoudness, 2500);
+      }
+    }
+
+    function closeLivestreamModal() {
+      document.getElementById('livestreamModal').classList.add('hidden');
+      if (livestreamInterval) {
+        clearInterval(livestreamInterval);
+        livestreamInterval = null;
+      }
+    }
+
+    function onLivestreamProfileChange() {
+      fetchLivestreamLoudness();
+    }
+
+    async function fetchLivestreamLoudness() {
+      const profileSelect = document.getElementById('livestreamProfileSelect');
+      const busSelect = document.getElementById('livestreamBusSelect');
+      const profile = profileSelect ? profileSelect.value : 'YOUTUBE_STREAMING';
+      const bus = busSelect ? parseInt(busSelect.value, 10) : 5;
+
+      try {
+        const res = await fetch(`/api/v1/broadcast/loudness?target_profile=${profile}&livestream_bus=${bus}`);
+        if (!res.ok) return;
+        const report = await res.json();
+        updateLivestreamUI(report);
+      } catch (e) {
+        console.error("Error fetching broadcast loudness:", e);
+      }
+    }
+
+    function updateLivestreamUI(report) {
+      // 1. Update Header Button text
+      const headerLabel = document.getElementById('headerLivestreamLabel');
+      if (headerLabel) {
+        if (!report.talkback_isolated) {
+          headerLabel.innerText = "Live: 🚨 LỘ TALKBACK!";
+        } else {
+          headerLabel.innerText = `Live: ${report.short_term_lufs} LUFS`;
+        }
+      }
+
+      // 2. Numeric Gauges
+      const mVal = document.getElementById('meterMomentaryVal');
+      const sVal = document.getElementById('meterShortTermVal');
+      const iVal = document.getElementById('meterIntegratedVal');
+      const tpVal = document.getElementById('meterTruePeakVal');
+      const deltaVal = document.getElementById('meterDeltaVal');
+
+      if (mVal) mVal.innerText = report.momentary_lufs;
+      if (sVal) sVal.innerText = report.short_term_lufs;
+      if (iVal) iVal.innerText = report.integrated_lufs;
+      if (tpVal) tpVal.innerText = (report.true_peak_dbtp > 0 ? '+' : '') + report.true_peak_dbtp;
+      if (deltaVal) deltaVal.innerText = (report.delta_to_target_db > 0 ? '+' : '') + report.delta_to_target_db + ' dB';
+
+      // 3. Bars (normalized -40 LUFS to 0 LUFS => 0% to 100%)
+      const calcLufsPercent = (lufs) => Math.min(100, Math.max(0, ((lufs + 40) / 40) * 100));
+      // TP (-20 dBTP to +3 dBTP)
+      const calcTpPercent = (tp) => Math.min(100, Math.max(0, ((tp + 20) / 23) * 100));
+
+      const mBar = document.getElementById('meterMomentaryBar');
+      const sBar = document.getElementById('meterShortTermBar');
+      const iBar = document.getElementById('meterIntegratedBar');
+      const tpBar = document.getElementById('meterTruePeakBar');
+
+      if (mBar) mBar.style.width = `${calcLufsPercent(report.momentary_lufs)}%`;
+      if (sBar) sBar.style.width = `${calcLufsPercent(report.short_term_lufs)}%`;
+      if (iBar) iBar.style.width = `${calcLufsPercent(report.integrated_lufs)}%`;
+      if (tpBar) {
+        tpBar.style.width = `${calcTpPercent(report.true_peak_dbtp)}%`;
+        if (report.true_peak_dbtp > -1.0) {
+          tpBar.className = 'h-full bg-rose-500 transition-all duration-300';
+        } else {
+          tpBar.className = 'h-full bg-amber-400 transition-all duration-300';
+        }
+      }
+
+      // 4. Compliance status badge
+      const compBadge = document.getElementById('meterComplianceBadge');
+      if (compBadge) {
+        compBadge.innerText = report.compliance_status;
+        if (report.compliance_status === 'OPTIMAL') {
+          compBadge.className = 'text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+        } else if (report.compliance_status === 'TOO_QUIET') {
+          compBadge.className = 'text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800';
+        } else if (report.compliance_status === 'TOO_LOUD') {
+          compBadge.className = 'text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800';
+        } else {
+          compBadge.className = 'text-xs font-bold font-mono px-2.5 py-0.5 rounded bg-red-950 text-red-400 border border-red-700 animate-pulse';
+        }
+      }
+
+      // 5. Tactical recommendation text
+      const recText = document.getElementById('meterRecommendationText');
+      if (recText) recText.innerText = report.recommendation_vi;
+
+      // 6. Hard Invariant Banner
+      const tbBanner = document.getElementById('livestreamTalkbackBanner');
+      const tbTitle = document.getElementById('livestreamTalkbackTitle');
+      const tbMsg = document.getElementById('livestreamTalkbackMsg');
+      const tbBadge = document.getElementById('livestreamTalkbackBadge');
+      const tbIcon = document.getElementById('livestreamTalkbackIcon');
+
+      if (report.talkback_isolated) {
+        if (tbBanner) tbBanner.className = 'p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between';
+        if (tbTitle) tbTitle.innerText = 'BẤT BIẾN AN TOÀN: DL16 IN 11 (TALKBACK) ĐƯỢC BẢO VỆ 100%';
+        if (tbMsg) tbMsg.innerText = 'Không phát hiện rò rỉ âm thanh Band Talkback vào Livestream MixBus hoặc Main LR FOH.';
+        if (tbBadge) {
+          tbBadge.className = 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-600';
+          tbBadge.innerText = 'ISOLATED OK';
+        }
+        if (tbIcon) tbIcon.className = 'fa-solid fa-shield-halved text-emerald-400 text-2xl';
+      } else {
+        if (tbBanner) tbBanner.className = 'p-4 rounded-xl bg-red-950/60 border border-red-500 flex items-center justify-between animate-pulse';
+        if (tbTitle) tbTitle.innerText = '🚨 VI PHẠM BẤT BIẾN AN TOÀN CỰC KỲ NGUY HIỂM!';
+        if (tbMsg) tbMsg.innerText = report.talkback_warning || 'Kênh 11 (Talkback) đang truyền vào Bus Livestream!';
+        if (tbBadge) {
+          tbBadge.className = 'text-[10px] font-bold px-2.5 py-1 rounded-full bg-red-600 text-white font-mono animate-bounce';
+          tbBadge.innerText = 'LEAK DETECTED';
+        }
+        if (tbIcon) tbIcon.className = 'fa-solid fa-triangle-exclamation text-red-400 text-2xl';
+      }
+    }
+
     // --- Initialize ---
     window.addEventListener('load', () => {
       loadStatus();
@@ -3670,6 +4015,8 @@
       fetchSoundcheckStatus();
       fetchActiveHallInfo();
       runPreServiceDiagnosticsUI();
+      fetchLivestreamLoudness();
+      setInterval(fetchLivestreamLoudness, 5000);
       initWebSocket();
     });
   </script>

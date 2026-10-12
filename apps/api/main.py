@@ -70,10 +70,12 @@ from packages.acoustic_measurement.osm_importer import (
     export_osm_csv,
     parse_frd_file,
 )
-from packages.mix_assistant.leveler import (
+from packages.mix_assistant import (
     SpeechLeveler,
     VoiceActivityDetector,
     AntiClippingGuard,
+    BroadcastMixGuard,
+    LoudnessReport,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -780,6 +782,59 @@ def get_speech_assistant_status():
             "anti_clipping": "ARMED: Automatic downward protection when peak > -1.5 dBFS",
         }
     }
+
+
+# --- Broadcast & Livestream LUFS Loudness Endpoints ---
+
+class AnalyzeBroadcastRequest(BaseModel):
+    target_profile: str = "YOUTUBE_STREAMING"
+    livestream_bus: int = 5
+
+
+@app.get("/api/v1/broadcast/loudness")
+def get_broadcast_loudness(target_profile: str = "YOUTUBE_STREAMING", livestream_bus: int = 5):
+    """
+    Get live broadcast audio loudness metrics (ITU-R BS.1770 / EBU R128)
+    and verify Talkback isolation from the Livestream bus.
+    """
+    state_dict = None
+    if x32_client:
+        try:
+            snapshot = x32_client.take_full_snapshot(max_channels=32)
+            state_dict = snapshot.parameters
+        except Exception:
+            pass
+
+    # Obtain sample audio for analysis:
+    # Priority 1: Virtual Soundcheck if active
+    if soundcheck_engine.is_active:
+        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
+        audio_stream = np.mean(block_32[:, :8], axis=1).astype(np.float32)
+    # Priority 2: Audio capture agent buffer
+    elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
+        buf = audio_stream_worker.latest_buffer
+        audio_stream = buf[:, 0] if buf.ndim > 1 else buf
+    else:
+        # Standard church worship music + speech simulation
+        speech = generate_vocal_note(fundamental_hz=220.0, duration_s=0.5) * 0.35
+        music = generate_pink_noise(duration_s=0.5, amplitude=0.15)
+        audio_stream = (speech + music).astype(np.float32)
+
+    report = BroadcastMixGuard.evaluate_loudness(
+        signal=audio_stream,
+        sample_rate=48000,
+        target_profile=target_profile,
+        state_dict=state_dict,
+        livestream_bus=livestream_bus,
+    )
+
+    return report.to_dict()
+
+
+@app.post("/api/v1/broadcast/analyze")
+def analyze_broadcast_stream(req: AnalyzeBroadcastRequest):
+    """Analyze broadcast loudness with custom profile parameters."""
+    return get_broadcast_loudness(target_profile=req.target_profile, livestream_bus=req.livestream_bus)
 
 
 # --- Wizard Endpoints ---
