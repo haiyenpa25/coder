@@ -178,6 +178,9 @@ x32-ai-sound-engineer/
 | **B21**| Trợ Lý Trực Tiếp Buổi Lễ (W6 Live Service Assistant Tactical Dashboard & Key Channel Highlights) |  Đã xong (Sprint 10) |
 | **B22**| Cấu Hình Phân Quyền RBAC (`configs/roles-example.yaml`) & Triển Khai (`deploy/` Docker, Windows Service, Systemd) |  Đã xong (Sprint 10) |
 | **B23**| Mô Phỏng Vòng Đời Buổi Lễ Chúa Nhật Toàn Diện (Sprint 11 E2E Lifecycle Simulation & Invariant Integration) |  Đã xong (Sprint 11) |
-| **Tổng**| **63 / 63 Automated Unit & Integration Tests PASSING** |  **100% HOÀN TẤT TOÀN BỘ 23 HẠNG MỤC** |
+| **B24**| Virtual Soundcheck Rehearsal Engine (4 Sessions: Ballad, Uptempo, Preaching, Prayer) & DL16 #11 Whisper Isolation |  Đã xong (Sprint 12) |
+| **B25**| Quản Lý Profile Kênh Nhà Thờ (32-Ch Profile Manager) & Báo Cáo Buổi Lễ In Ấn/PDF Chuẩn A4 |  Đã xong (Sprint 12) |
+| **B26**| Phòng Thí Nghiệm Kiểm Thử Hỗn Loạn, Fault-Injection & Khả Năng Chống Chịu Sự Cố (Chaos & Resilience Test Suite) |  Đã xong (Sprint 13) |
+| **Tổng**| **79 / 79 Automated Python Tests + 19 / 19 Node Tests PASSING (98 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 26 HẠNG MỤC** |
 
 
