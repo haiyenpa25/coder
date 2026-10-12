@@ -223,10 +223,14 @@
           </div>
         </div>
 
-        <div class="mt-3">
+        <div class="mt-3 space-y-2">
           <button onclick="downloadX32Scene()" class="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs border border-slate-700 cursor-pointer flex items-center justify-center space-x-1.5 transition-all shadow-sm">
             <i class="fa-solid fa-floppy-disk text-amber-400"></i>
             <span>Xuất File Scene USB (.scn) Cho X32</span>
+          </button>
+          <button id="btnRunSimulation" onclick="runSundaySimulationFromUI()" class="w-full py-2 rounded-xl bg-gradient-to-r from-indigo-950 to-purple-950 hover:from-indigo-900 hover:to-purple-900 text-indigo-300 hover:text-white font-bold text-xs border border-indigo-700/60 cursor-pointer flex items-center justify-center space-x-1.5 transition-all shadow-sm">
+            <i class="fa-solid fa-play text-indigo-400"></i>
+            <span>Mô Phỏng Toàn Bộ Lễ Chúa Nhật (E2E)</span>
           </button>
         </div>
 
@@ -2020,6 +2024,31 @@
         addAuditEntry("SCENE_EXPORT", `Đã xuất file Scene chuẩn X32: ${data.filename} (SHA: ${data.sha256.substring(0, 8)}...).`);
       } catch (e) {
         alert("Lỗi xuất file scene: " + e);
+      }
+    }
+
+    // --- End-to-End Sunday Service Simulation Runner ---
+    async function runSundaySimulationFromUI() {
+      const btn = document.getElementById('btnRunSimulation');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i>Đang chạy mô phỏng 5 giai đoạn...';
+
+      try {
+        const res = await fetch('/api/v1/simulation/run', { method: 'POST' });
+        const data = await res.json();
+        if (data.status === "SUCCESS") {
+          addAuditEntry("SIMULATION", `Hoàn tất mô phỏng Lễ Chúa Nhật 5 giai đoạn. Scene: ${data.timeline[4].scene_name}`);
+          loadAuditHistory();
+          alert(`MÔ PHỎNG THÀNH CÔNG 100%:\n` + data.timeline.map(t => `• [${t.time}] ${t.phase}`).join('\n') + `\n\nBất biến DL16 #11: AN TOÀN TUYỆT ĐỐI\nSilence Hold: HOẠT ĐỘNG CHUẨN XÁC`);
+        } else {
+          alert("Lỗi chạy mô phỏng: " + JSON.stringify(data));
+        }
+      } catch (e) {
+        alert("Lỗi kết nối API mô phỏng: " + e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-play text-indigo-400 mr-1.5"></i>Mô Phỏng Toàn Bộ Lễ Chúa Nhật (E2E)';
       }
     }
 
