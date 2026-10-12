@@ -191,5 +191,26 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Banner an toàn ở đầu bảng điều khiển liên tục kiểm tra định tuyến của Kênh 11 (Band Talkback).
    - Đảm bảo micro trao đổi nội bộ của ban nhạc chỉ đi vào hệ thống cá nhân Ultranet P16, tuyệt đối không bị gửi nhầm vào Bus Livestream (MixBus 05) hay Main Stereo Bus.
 
+---
+
+### 15. CÂN CHỈNH HEADROOM & GAIN STAGING CHUẨN NHÀ THỜ (DIGITAL TRIM CALIBRATOR)
+1. **Nguyên Tắc Headroom Trên Mixer Kỹ Thuật Số (Digital Headroom):**
+   - Khác với mixer analog (có thể chớm đỏ $+3\text{ dB}$ mà vẫn nghe ấm), mixer kỹ thuật số như Behringer X32/M32 bị **vỡ tiếng tuyệt đối (Harsh Digital Clipping)** khi tín hiệu chạm $0\text{ dBFS}$.
+   - Chuẩn âm thanh nhà thờ quy định mức dự trữ an toàn (Headroom):
+     - **Micro Mục Sư / Lời Nói / Cầu Nguyện:** Đỉnh danh định **$-18.0\text{ dBFS}$** (Dự trữ sạch $18\text{ dB}$ cho những đoạn giảng cao trào hoặc nhấn giọng).
+     - **Ca Đoàn / Đơn Ca Hát Thờ Phượng:** Đỉnh danh định **$-14.0\text{ dBFS}$**.
+     - **Ban Nhạc / Trống / Bass:** Đỉnh danh định **$-12.0\text{ dBFS}$**.
+2. **Ưu Tiên Sử Dụng Digital Trim Thay Vì Preamp Analog Gain:**
+   - Khi thay đổi Gain cơ học của Preamp trên hộp DL16, tín hiệu gửi sang tai nghe in-ear **Ultranet P16** của ban nhạc sẽ bị to/nhỏ đột ngột, gây giật mình cho nhạc công.
+   - Tính năng **Digital Trim Calibrator** sử dụng bộ chiết áp số (`/ch/xx/preamp/trim`, phạm vi $\pm 18\text{ dB}$) độc lập trên từng kênh. Nhạc công P16 vẫn nghe ổn định trong khi kỹ thuật viên FOH có thể làm chủ headroom hoàn toàn.
+3. **Thao Tác Cân Chỉnh Trong Giờ Lễ & Tập Dượt:**
+   - Bấm vào bất kỳ dải kênh nào trên màn hình chính để mở **Cửa Sổ Chi Tiết Kênh**.
+   - Mục **`Cân Chỉnh Headroom & Gain Staging`** sẽ đo đạc thời gian thực các chỉ số: Peak dBFS, RMS dBFS, Crest Factor và mức Headroom hiện có.
+   - Nếu tín hiệu vào quá nhỏ hoặc có nguy cơ vỡ tiếng, hệ thống sẽ đưa ra khuyến nghị $\Delta\text{ dB}$ cụ thể.
+   - Bấm nút **`[Tạo Đề Xuất Cân Bằng Trim]`**: Hệ thống tạo một đề xuất an toàn, kiểm tra Whitelist và nạp vào khung duyệt Proposal để kỹ thuật viên phê duyệt áp dụng.
+4. **Bảo Lưu Bất Biến Silence Hold:**
+   - Khi micro không có người nói hoặc ca sĩ nghỉ hát, hệ thống **tuyệt đối không tự động tăng Gain/Trim** nhằm tránh kéo tiếng xì xào và tiếng ồn nền của hội trường.
+
+
 
 

@@ -21,6 +21,12 @@ from .broadcast_meter import (
     LoudnessReport,
     BroadcastMixGuard,
 )
+from .gain_staging import (
+    GainStagingAdvisor,
+    GainStagingReport,
+    trim_to_x32,
+    x32_to_trim,
+)
 
 __all__ = [
     "VoiceActivityState",
@@ -35,4 +41,9 @@ __all__ = [
     "compute_true_peak_dbtp",
     "LoudnessReport",
     "BroadcastMixGuard",
+    "GainStagingAdvisor",
+    "GainStagingReport",
+    "trim_to_x32",
+    "x32_to_trim",
 ]
+

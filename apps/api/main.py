@@ -76,6 +76,10 @@ from packages.mix_assistant import (
     AntiClippingGuard,
     BroadcastMixGuard,
     LoudnessReport,
+    GainStagingAdvisor,
+    GainStagingReport,
+    trim_to_x32,
+    x32_to_trim,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -836,6 +840,96 @@ def get_broadcast_loudness(target_profile: str = "YOUTUBE_STREAMING", livestream
 def analyze_broadcast_stream(req: AnalyzeBroadcastRequest):
     """Analyze broadcast loudness with custom profile parameters."""
     return get_broadcast_loudness(target_profile=req.target_profile, livestream_bus=req.livestream_bus)
+
+
+# --- Gain Staging & Headroom Calibration Endpoints ---
+
+@app.get("/api/v1/gain-staging/{channel_id}")
+def get_channel_gain_staging(channel_id: int, role: Optional[str] = None):
+    """
+    Analyze digital headroom, peak level, RMS, and SNR for a church channel.
+    Returns recommended digital trim adjustment to achieve church standard headroom (-18 to -12 dBFS).
+    """
+    if channel_id < 1 or channel_id > 32:
+        raise HTTPException(status_code=400, detail="Channel ID must be between 1 and 32.")
+
+    # 1. Resolve channel metadata
+    ch_profile = church_profile_mgr.get_channel(channel_id)
+    ch_name = ch_profile.get("name", f"Ch {channel_id:02d}") if ch_profile else f"Ch {channel_id:02d}"
+    ch_role = role or (ch_profile.get("role", "PASTOR") if ch_profile else "PASTOR")
+
+    # 2. Get current trim from mixer snapshot if connected
+    current_trim_float = 0.5
+    if x32_client:
+        try:
+            snapshot = x32_client.take_full_snapshot(max_channels=32)
+            current_trim_float = float(snapshot.parameters.get(f"/ch/{channel_id:02d}/preamp/trim", 0.5))
+        except Exception:
+            pass
+
+    # 3. Audio sampling
+    if soundcheck_engine.is_active:
+        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
+        audio_stream = block_32[:, channel_id - 1].astype(np.float32)
+    elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
+        buf = audio_stream_worker.latest_buffer
+        if buf.ndim > 1 and buf.shape[1] >= channel_id:
+            audio_stream = buf[:, channel_id - 1]
+        else:
+            audio_stream = buf[:, 0] if buf.ndim > 1 else buf
+    else:
+        # Synthesized audio based on role
+        if ch_role in ("PASTOR", "SERMON", "PRAYER"):
+            audio_stream = generate_vocal_note(fundamental_hz=160.0, duration_s=0.5) * 0.15
+        elif ch_role in ("FEMALE_LEAD", "MALE_LEAD", "CHOIR"):
+            audio_stream = generate_vocal_note(fundamental_hz=440.0, duration_s=0.5) * 0.22
+        elif ch_role in ("DRUMS", "BASS"):
+            audio_stream = generate_pink_noise(duration_s=0.5, amplitude=0.30)
+        else:
+            audio_stream = generate_sine_wave(freq_hz=440.0, duration_s=0.5, amplitude=0.18)
+
+    report = GainStagingAdvisor.analyze_headroom(
+        signal=audio_stream,
+        channel_id=channel_id,
+        channel_name=ch_name,
+        role=ch_role,
+        current_trim_float=current_trim_float,
+    )
+    return report.to_dict()
+
+
+@app.post("/api/v1/gain-staging/{channel_id}/propose-trim")
+def propose_channel_trim(channel_id: int, role: Optional[str] = None):
+    """
+    Generate a formal Proposal for channel Digital Trim adjustment and register it in active_proposals.
+    Requires explicit operator approval via /api/v1/proposals/apply to execute.
+    """
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    rep_dict = get_channel_gain_staging(channel_id=channel_id, role=role)
+    report = GainStagingReport(**rep_dict)
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    current_trim_float = float(snapshot.parameters.get(f"/ch/{channel_id:02d}/preamp/trim", 0.5))
+
+    proposal = GainStagingAdvisor.generate_trim_proposal(
+        report=report,
+        current_sha256=snapshot.sha256,
+        current_trim_float=current_trim_float,
+    )
+
+    active_proposals[proposal.proposal_id] = proposal
+
+    return {
+        "proposal_id": proposal.proposal_id,
+        "target_channel": proposal.target_channel,
+        "hypothesis": proposal.hypothesis,
+        "confidence": proposal.confidence,
+        "changes": proposal.changes,
+        "expected_sha256": proposal.expected_sha256,
+        "report": report.to_dict(),
+    }
 
 
 # --- Wizard Endpoints ---

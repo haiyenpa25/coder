@@ -82,13 +82,14 @@ class SafetyPolicy:
                 )
 
             # 3. Whitelist check for allowed channel parameters:
-            # EQ, HPF, limited fader, or channel mute (mix/on)
+            # EQ, HPF, limited fader, channel mute (mix/on), or digital trim (preamp/trim)
             is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
             is_mute = param == f"{ch_str}/mix/on"
+            is_trim = param == f"{ch_str}/preamp/trim"
 
-            if not (is_eq or is_hpf or is_fader or is_mute):
+            if not (is_eq or is_hpf or is_fader or is_mute or is_trim):
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )
@@ -99,6 +100,13 @@ class SafetyPolicy:
                     raise ProposalRejectedError(
                         f"SAFETY LIMIT: Fader delta {abs(to_val - from_val):.3f} exceeds maximum safe limit {self.max_fader_delta}."
                     )
+
+            if is_trim and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):
+                if abs(to_val - from_val) > 0.20:
+                    raise ProposalRejectedError(
+                        f"SAFETY LIMIT: Trim delta {abs(to_val - from_val):.3f} exceeds maximum safe limit 0.20 (~7.2 dB)."
+                    )
+
 
 
 class TransactionExecutor:

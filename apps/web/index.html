@@ -1802,6 +1802,44 @@
           </div>
         </div>
 
+        <!-- Headroom & Digital Trim Gain Staging Box -->
+        <div class="p-3.5 bg-slate-950/80 rounded-xl border border-teal-500/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-teal-300 flex items-center">
+              <i class="fa-solid fa-gauge-high mr-1.5 text-teal-400"></i>Cân Chỉnh Headroom & Gain Staging (Chuẩn Nhà Thờ):
+            </span>
+            <span id="cdmHeadroomStatusBadge" class="text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-800">ĐANG ĐO...</span>
+          </div>
+
+          <!-- Headroom Meter Bar -->
+          <div class="space-y-1">
+            <div class="flex items-center justify-between text-[10px] font-mono text-slate-400">
+              <span>Peak: <strong id="cdmPeakVal" class="text-white">-18.0 dBFS</strong></span>
+              <span>RMS: <strong id="cdmRmsVal" class="text-slate-300">-26.5 dBFS</strong></span>
+              <span>Dự Trữ Headroom: <strong id="cdmHeadroomVal" class="text-teal-400">18.0 dB</strong></span>
+            </div>
+            <div class="w-full bg-slate-900 h-2.5 rounded-full overflow-hidden flex border border-slate-800">
+              <div id="cdmHeadroomBar" class="h-full bg-gradient-to-r from-emerald-500 via-yellow-400 to-rose-500 transition-all duration-300" style="width: 55%;"></div>
+            </div>
+          </div>
+
+          <!-- Advice & Proposal Button -->
+          <div class="p-2 rounded-lg bg-slate-900 border border-slate-800/80 text-[11px] text-slate-300 leading-snug flex items-start space-x-2">
+            <i class="fa-solid fa-circle-info text-teal-400 mt-0.5 text-xs flex-shrink-0"></i>
+            <span id="cdmHeadroomAdvice">Đang phân tích tín hiệu âm thanh và tỷ số tín hiệu/nhiễu...</span>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <div class="text-[10px] font-mono text-slate-400">
+              Trim: <span id="cdmCurrentTrimDb" class="text-white font-bold">0.0 dB</span> -> Đề xuất: <span id="cdmProposedTrimDb" class="text-amber-400 font-bold">0.0 dB</span>
+            </div>
+            <button onclick="proposeGainStagingTrimFromModal()" id="btnCdmProposeTrim" class="px-3 py-1.5 rounded-lg bg-teal-600/30 hover:bg-teal-600/50 text-teal-200 border border-teal-500/40 font-bold text-xs shadow-sm cursor-pointer whitespace-nowrap flex items-center space-x-1">
+              <i class="fa-solid fa-sliders text-teal-400 text-[11px]"></i>
+              <span>Tạo Đề Xuất Cân Bằng Trim</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Shortcut Action Buttons -->
         <div class="space-y-2">
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thao Tác Nhanh Theo Quy Trình (Wizards):</div>
@@ -2197,11 +2235,94 @@
           sel.value = ch.channel;
         }
       };
+
+      // Load Real-time Gain Staging & Headroom for this channel
+      fetchChannelGainStaging(ch.channel);
     }
 
     function closeChannelDetailModal() {
       document.getElementById('channelDetailModal').classList.add('hidden');
     }
+
+    // --- Gain Staging & Headroom Calibration ---
+    async function fetchChannelGainStaging(chId) {
+      const badge = document.getElementById('cdmHeadroomStatusBadge');
+      const peakVal = document.getElementById('cdmPeakVal');
+      const rmsVal = document.getElementById('cdmRmsVal');
+      const hdVal = document.getElementById('cdmHeadroomVal');
+      const bar = document.getElementById('cdmHeadroomBar');
+      const advice = document.getElementById('cdmHeadroomAdvice');
+      const curTrim = document.getElementById('cdmCurrentTrimDb');
+      const propTrim = document.getElementById('cdmProposedTrimDb');
+
+      if (badge) {
+        badge.innerText = "ĐANG ĐO...";
+        badge.className = "text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+      }
+
+      try {
+        const res = await fetch(`/api/v1/gain-staging/${chId}`);
+        if (!res.ok) return;
+        const report = await res.json();
+
+        if (peakVal) peakVal.innerText = `${report.peak_dbfs > 0 ? '+' : ''}${report.peak_dbfs} dBFS`;
+        if (rmsVal) rmsVal.innerText = `${report.rms_dbfs > 0 ? '+' : ''}${report.rms_dbfs} dBFS`;
+        if (hdVal) hdVal.innerText = `${report.headroom_db} dB`;
+        if (advice) advice.innerText = report.advice_vi;
+        if (curTrim) curTrim.innerText = `${report.current_trim_db > 0 ? '+' : ''}${report.current_trim_db} dB`;
+        if (propTrim) propTrim.innerText = `${report.proposed_trim_db > 0 ? '+' : ''}${report.proposed_trim_db} dB`;
+
+        // Bar percentage: map peak_dbfs (-40 dBFS to 0 dBFS => 0% to 100%)
+        const pct = Math.min(100, Math.max(0, ((report.peak_dbfs + 40) / 40) * 100));
+        if (bar) {
+          bar.style.width = `${pct}%`;
+          if (report.health_status === 'CLIPPING_DETECTED') {
+            bar.className = 'h-full bg-rose-600 transition-all duration-300 animate-pulse';
+          } else if (report.health_status === 'HIGH_GAIN') {
+            bar.className = 'h-full bg-amber-400 transition-all duration-300';
+          } else if (report.health_status === 'LOW_GAIN') {
+            bar.className = 'h-full bg-cyan-400 transition-all duration-300';
+          } else {
+            bar.className = 'h-full bg-emerald-400 transition-all duration-300';
+          }
+        }
+
+        if (badge) {
+          badge.innerText = report.health_status;
+          if (report.health_status === 'OPTIMAL') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+          } else if (report.health_status === 'LOW_GAIN') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800';
+          } else if (report.health_status === 'HIGH_GAIN') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800';
+          } else {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-700 animate-pulse';
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching gain staging:", e);
+      }
+    }
+
+    async function proposeGainStagingTrimFromModal() {
+      const ch = currentModalChannel;
+      try {
+        const res = await fetch(`/api/v1/gain-staging/${ch}/propose-trim`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi tạo đề xuất Gain Staging: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const data = await res.json();
+        closeChannelDetailModal();
+        displayProposal(data);
+        addAuditEntry("GAIN_STAGING", `Tạo đề xuất cân chỉnh Digital Trim Kênh ${ch} (${data.report.recommended_trim_delta_db > 0 ? '+' : ''}${data.report.recommended_trim_delta_db} dB).`);
+      } catch (e) {
+        alert(`Lỗi mạng: ${e}`);
+      }
+    }
+
 
     // --- Load Status & Snapshot ---
     async function loadStatus() {

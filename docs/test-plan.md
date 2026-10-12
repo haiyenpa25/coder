@@ -40,15 +40,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint18_feedback_suppressor_and_channel_control.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint18_feedback_suppressor_and_channel_control.py) | **5** | Giao Thức Phản Ứng Dò Hú Thời Gian Thực (Feedback Radar HUD), Đề Xuất Bộ Lọc Notch Cực Hẹp Phẫu Thuật (Rule 9: $Q \ge 6.0$, Depth $\le -4.5\text{ dB}$), Bật/Tắt Mute Kênh Qua SafetyGate Whitelist & Bất Biến Silence Hold. | **PASS** |
 | [tests/test_sprint19_broadcast_lufs_and_streaming_guard.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint19_broadcast_lufs_and_streaming_guard.py) | **7** | Giám Sát Âm Lượng Phát Thanh Livestream Chuẩn ITU-R BS.1770-4 / EBU R128 (Bộ lọc K-weighting, Momentary/Short-Term/Integrated Gated LUFS, True Peak 4x Polyphase Oversampling dBTP), Bảo Vệ Bất Biến Cách Ly Talkback DL16 #11 Khỏi Bus Livestream & REST API. | **PASS** |
 | [tests/test_sprint20_scn_importer_and_safety_validator.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint20_scn_importer_and_safety_validator.py) | **6** | Bộ Nạp File Scene Behringer X32 (.scn) Từ USB, Thẩm Định Tiền Kiểm Tra Pre-Flight Safety Audit, Quét Lỗ Hổng Rò Rỉ Talkback DL16 #11, Tự Động Vá Lỗi Invariant (Auto-Sanitize) & Lưu Trữ Vault. | **PASS** |
-| **TỔNG CỘNG PYTHON** | **123** | **Bao phủ 100% 20 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS và nạp file USB .scn** | **100% PASS** |
+| [tests/test_sprint21_gain_staging_and_headroom.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint21_gain_staging_and_headroom.py) | **6** | Cân Chỉnh Headroom & Gain Staging Chuẩn Nhà Thờ (Phân tích Peak/RMS/Crest Factor, Digital Trim Whitelist /ch/xx/preamp/trim, Bảo Vệ Headroom Lời Giảng -18 dBFS & Âm Nhạc -12 dBFS, Đề Xuất Proposal An Toàn). | **PASS** |
+| **TỔNG CỘNG PYTHON** | **129** | **Bao phủ 100% 21 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn và gain staging** | **100% PASS** |
 | **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **142** | **142 / 142 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **148** | **148 / 148 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 123 bài kiểm thử Python:
+Để thực thi toàn bộ 129 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
@@ -57,7 +58,7 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 ```powershell
 npm test
 ```
-Thời gian thực thi trung bình: **~18.0 giây (Python) + ~2.0 giây (Node)**.
+Thời gian thực thi trung bình: **~19.0 giây (Python) + ~2.0 giây (Node)**.
 
 
 
