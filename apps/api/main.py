@@ -80,6 +80,7 @@ from packages.storage.database import ChurchMixDatabase
 from packages.storage.church_profile import ChurchProfileManager
 from packages.storage.report_generator import generate_printable_sunday_report_html
 from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_PRESETS
+from packages.ai_copilot import ChurchMixCopilot
 from apps.capture_agent.device_manager import AudioDeviceManager
 from apps.capture_agent.stream_worker import AudioStreamWorker
 
@@ -95,6 +96,7 @@ speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 db = ChurchMixDatabase()
 church_profile_mgr = ChurchProfileManager()
 soundcheck_engine = VirtualSoundcheckEngine(sample_rate=48000)
+ai_copilot = ChurchMixCopilot()
 audio_device_mgr = AudioDeviceManager()
 audio_stream_worker: Optional[AudioStreamWorker] = None
 
@@ -575,45 +577,26 @@ def resume_auto():
 
 class CopilotQuestion(BaseModel):
     question: str
+    include_live_context: bool = True
 
 
 @app.post("/api/v1/copilot/ask")
 def ask_copilot(req: CopilotQuestion):
-    """Vietnamese Sound Assistant Q&A based on Church Master Plan."""
-    q = req.question.lower()
+    """Vietnamese Sound Assistant Q&A based on Church Master Plan & Live Telemetry."""
+    live_ctx = {}
+    if req.include_live_context:
+        live_ctx["stop_auto"] = stop_auto_triggered
+        live_ctx["feedback_alerts"] = active_feedback_alerts
+        if x32_client:
+            try:
+                snap = x32_client.take_full_snapshot(max_channels=32)
+                routing = RoutingGraph(snap.parameters)
+                tb_ok, _ = routing.verify_talkback_invariant()
+                live_ctx["talkback_safe"] = tb_ok
+            except Exception:
+                pass
 
-    if "hú" in q or "feedback" in q:
-        answer = (
-            "**Nguyên tắc xử lý hú tại Nhà thờ:**\n"
-            "1. **Bố trí vật lý:** Yêu cầu ca sĩ đứng sau loa FOH, không chĩa mic vào loa wedge monitor trên sàn.\n"
-            "2. **Gain Structure:** Kiểm tra preamp gain, không đẩy gain quá cao để bù fader nhỏ.\n"
-            "3. **HPF:** Bật Low-cut ở 80-100Hz để loại trừ cộng hưởng dải trầm.\n"
-            "4. **Cắt Notch hẹp:** Nếu xác nhận tần số hú, chỉ cắt cực hẹp (Q >= 6.0) với độ sâu vừa phải (-3dB). "
-            "Tuyệt đối không dùng EQ rộng làm mỏng chất giọng ca sĩ!"
-        )
-    elif "mục sư" in q or "bài giảng" in q or "rõ lời" in q:
-        answer = (
-            "**Hướng dẫn chỉnh tiếng Mục sư rõ lời:**\n"
-            "1. Bật HPF ở **85 Hz** để lọc tiếng va đập bục giảng và gió điều hòa.\n"
-            "2. Cắt nhẹ **-1.8 dB tại 250 Hz (Q = 1.5)** để giảm độ đục và tiếng om phòng của hội trường.\n"
-            "3. Nhấc nhẹ **+1.2 dB tại 2.8 kHz (Q = 1.2)** để làm nổi rõ phụ âm và âm tiết tiếng Việt.\n"
-            "4. Bật Compressor nhẹ (Ratio 2.5:1, Threshold -18dB) để kiểm soát khi Mục sư nói lớn."
-        )
-    elif "p16" in q or "dl16" in q or "talkback" in q:
-        answer = (
-            "**Bất biến an toàn hệ thống:**\n"
-            "Cổng **DL16 số 11 (Talkback ban nhạc)** đã được hệ thống khóa cứng: "
-            "Tín hiệu CHỈ ĐƯỢC PHÉP gửi về hệ thống Ultranet P16 của ban nhạc. "
-            "Mọi đường dẫn ra Main FOH (loa chính) đều bị chặn 100% để đảm bảo bí mật giao tiếp nội bộ."
-        )
-    else:
-        answer = (
-            f"Tôi là Trợ lý Kỹ thuật Âm thanh X32. Đối với câu hỏi '{req.question}': "
-            "Khuyến nghị luôn ưu tiên kỹ thuật cầm micro và khoảng cách trước khi can thiệp EQ. "
-            "Mọi thay đổi thông số đều cần được nghe thử A/B trước khi áp dụng vào giờ lễ."
-        )
-
-    return {"answer": answer}
+    return ai_copilot.answer_question(req.question, live_context=live_ctx)
 
 
 class OSMImportRequest(BaseModel):
