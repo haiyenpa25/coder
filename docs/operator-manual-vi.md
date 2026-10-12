@@ -235,6 +235,34 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Bàn mixer X32 / M32 tích hợp sẵn 8 kênh xử lý Automix DSP phần cứng không độ trễ (Zero Latency) trên Kênh 1 đến Kênh 8.
    - Bấm nút **`[Áp Dụng AutoMix Vào Phần Cứng X32]`**: Hệ thống tự động tạo 4 đề xuất thiết lập Native AutoMix (`/ch/xx/automix/group` và `/ch/xx/automix/weight`), chuyển sang Bảng Đề Xuất để kỹ thuật viên xem xét và duyệt nạp an toàn xuống mixer.
 
+---
+
+### 17. THẨM ĐỊNH THÍNH GIÁC MÙ A/B & BỘ 7 TIÊU CHÍ CHẤM ĐIỂM CHUẨN NHÀ THỜ (ITU-R BS.1284 / MP 3.4)
+1. **Nguyên Lý Bù Trừ Âm Lượng Đồng Nhất (Equal-Loudness Normalization):**
+   - Theo hiệu ứng tâm lý âm học Fletcher-Munson, tai người luôn có xu hướng đánh giá một tín hiệu "to hơn" là "hay hơn". Để đánh giá khách quan một bản cân chỉnh EQ/Dynamics, hệ thống tự động đo RMS của tín hiệu gốc (Dry) và tín hiệu đề xuất (Tuning), sau đó áp dụng mức bù trừ âm lượng ($\Delta\text{ dB}$) chính xác.
+   - Khi chuyển đổi qua lại giữa Lựa chọn A và Lựa chọn B, âm lượng giữ nguyên mức tuyệt đối, giúp kỹ thuật viên chỉ tập trung lắng nghe chất âm thật.
+2. **Quy Trình Kiểm Thử Mù Kép (Double-Blind Protocol):**
+   - Hệ thống hoán đổi ngẫu nhiên vị trí của bản Gốc (Dry) và bản Đề Xuất (Tuning) vào Lựa chọn A hoặc B.
+   - Kỹ thuật viên không thể biết trước A hay B là bản nào, loại bỏ hoàn toàn định kiến tâm lý xác nhận (confirmation bias).
+   - Nút **`[Mở Khóa Danh Tính Thực (Reveal)]`** chỉ được bấm sau khi kỹ thuật viên đã hoàn tất quá trình nghe thử để đối chiếu kết quả.
+3. **Bộ 7 Tiêu Chí Đánh Giá Âm Học Chuẩn Nhà Thờ (Trọng số 100%):**
+   - **1. Độ Rõ Lời (Speech Intelligibility) [20%]:** Từng phụ âm, từ ngữ phát ra rõ ràng, sáng sủa và dễ hiểu cho toàn bộ tín hữu.
+   - **2. Độ Tự Nhiên Chất Giọng (Natural Timbre) [20%]:** Giữ trọn vẹn bản sắc giọng mộc của Mục sư hoặc ca sĩ, không bị bóp méo hay nhân tạo.
+   - **3. Độ Ấm & Thân Giọng (Warmth & Body) [15%]:** Bảo tồn đầy đặn dải low-mid (200 - 400 Hz), không bị gọt quá tay làm mỏng hoặc rỗng giọng.
+   - **4. Kiểm Soát Chói Gắt & Âm Xì (Harshness & Sibilance Control) [15%]:** Khử triệt để tiếng xì xào khó chịu (5 - 8 kHz) và hiện tượng chát tai khi hát nốt cao.
+   - **5. Hòa Quyện Với Ban Nhạc (Band Balance) [10%]:** Giọng hát nổi bật trên nền nhạc sống nhưng không đè bẹp các nhạc cụ khác.
+   - **6. Độ Phủ Đều Hội Trường (Hall Coverage Uniformity) [10%]:** Chất âm đồng đều giữa các hàng ghế đầu, giữa và cuối nhà thờ.
+   - **7. Biên Độ Dự Trữ Chống Hú (Feedback Safety Margin) [10%]:** Khoảng cách an toàn trước ngưỡng phát sinh hú (Gain-Before-Feedback).
+4. **Quy Tắc Phủ Quyết An Toàn (Safety Veto Rule):**
+   - Nếu bất kỳ tiêu chí cốt lõi nào (Độ rõ lời, Độ tự nhiên, hoặc Biên độ chống hú) bị chấm dưới **$2.5 / 5.0$**, hệ thống lập tức ra khuyến nghị **`REJECT_OR_REFINE`**, bất kể điểm trung bình MOS tổng thể cao đến đâu.
+   - Đảm bảo không bao giờ commit một bản EQ có nguy cơ phá vỡ sự tôn nghiêm hoặc gây hú micro trong giờ lễ.
+5. **Thao Tác Trên Web Console:**
+   - Bấm nút **`[A/B Listening (7 Tiêu Chí)]`** màu tím trên thanh Header để mở cửa sổ thẩm định.
+   - Bấm chuyển đổi giữa **LỰA CHỌN A** và **LỰA CHỌN B** để nghe so sánh.
+   - Kéo 7 thanh trượt để chấm điểm trực quan (1.0 đến 5.0). Chỉ số MOS và lời khuyên chiến thuật sẽ cập nhật thời gian thực.
+   - Bấm **`[Lưu & Duyệt Áp Dụng Proposal]`** để vừa lưu hồ sơ thẩm định vào cơ sở dữ liệu SQLite vừa gửi lệnh an toàn xuống mixer X32 qua SafetyGate.
+
+
 
 
 

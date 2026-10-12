@@ -83,6 +83,10 @@ from packages.mix_assistant import (
     DuganSpeechAutomixer,
     AutomixerReport,
     ChannelAutomixState,
+    ListeningTestCriteria,
+    ListeningEvaluation,
+    BlindABSession,
+    ListeningTestEngine,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -1033,6 +1037,112 @@ def propose_automixer_setup(req: AutomixSetupRequest):
             for p in proposals
         ],
     }
+
+
+# --- Subjective A/B Listening Test Endpoints (Master Plan Section 3.4) ---
+
+class ListeningEvaluationRequest(BaseModel):
+    target_channel: int = 1
+    channel_name: str = "Pastor Mic"
+    operator: str = "SoundTech"
+    proposal_id: Optional[str] = None
+    intelligibility: float = 4.5
+    timbre_naturalness: float = 4.5
+    warmth_body: float = 4.0
+    harshness_control: float = 4.0
+    band_balance: float = 4.0
+    hall_coverage: float = 4.0
+    feedback_margin: float = 4.5
+    loudness_compensation_db: float = 0.0
+    is_blind_test: bool = False
+
+
+class CreateBlindSessionRequest(BaseModel):
+    target_channel: int = 1
+    channel_name: str = "Pastor Mic"
+    proposal_id: Optional[str] = None
+
+
+@app.get("/api/v1/listening-test/templates")
+def get_listening_templates():
+    """Get the 7 benchmark criteria with weights and descriptions."""
+    return {
+        "criteria": [
+            {"id": "intelligibility", "name_vi": "Độ rõ lời", "weight": 0.20, "description_vi": "Phát âm rõ ràng từng phụ âm, từ ngữ sáng và dễ hiểu"},
+            {"id": "timbre_naturalness", "name_vi": "Độ tự nhiên chất giọng", "weight": 0.20, "description_vi": "Giữ trọn bản sắc giọng thật của người nói/ca sĩ, không bị bóp méo"},
+            {"id": "warmth_body", "name_vi": "Độ ấm & thân giọng", "weight": 0.15, "description_vi": "Đầy đặn vùng low-mid (200-400Hz), không bị mỏng hay rỗng giọng"},
+            {"id": "harshness_control", "name_vi": "Kiểm soát gắt & chói", "weight": 0.15, "description_vi": "Khử âm xì (sibilance 5-8kHz) và tiếng gắt chát tai"},
+            {"id": "band_balance", "name_vi": "Hòa quyện với ban nhạc", "weight": 0.10, "description_vi": "Nổi bật trên nền nhạc sống mà không đè lấn nhạc cụ khác"},
+            {"id": "hall_coverage", "name_vi": "Độ phủ đều hội trường", "weight": 0.10, "description_vi": "Âm thanh đồng đều từ hàng ghế đầu đến cuối nhà thờ"},
+            {"id": "feedback_margin", "name_vi": "Dự trữ chống hú", "weight": 0.10, "description_vi": "Khoảng cách an toàn trước ngưỡng hú (Gain-Before-Feedback margin)"},
+        ]
+    }
+
+
+@app.post("/api/v1/listening-test/evaluate")
+def evaluate_listening_test(req: ListeningEvaluationRequest):
+    """Submit a subjective 7-criteria listening evaluation and persist to database."""
+    crit = ListeningTestCriteria(
+        intelligibility=req.intelligibility,
+        timbre_naturalness=req.timbre_naturalness,
+        warmth_body=req.warmth_body,
+        harshness_control=req.harshness_control,
+        band_balance=req.band_balance,
+        hall_coverage=req.hall_coverage,
+        feedback_margin=req.feedback_margin,
+    )
+    evaluation = ListeningTestEngine.evaluate_listening(
+        target_channel=req.target_channel,
+        channel_name=req.channel_name,
+        operator=req.operator,
+        criteria=crit,
+        proposal_id=req.proposal_id,
+        loudness_compensation_db=req.loudness_compensation_db,
+        is_blind_test=req.is_blind_test,
+    )
+    if db:
+        db.save_listening_test(evaluation.to_dict())
+        db.save_audit_event(
+            actor=req.operator,
+            action="LISTENING_EVALUATION",
+            proposal_id=req.proposal_id,
+            status=evaluation.recommendation,
+            details={
+                "target_channel": req.target_channel,
+                "overall_mos": evaluation.overall_mos,
+                "recommendation": evaluation.recommendation,
+            }
+        )
+    return evaluation.to_dict()
+
+
+@app.get("/api/v1/listening-test/history")
+def get_listening_history(limit: int = 20):
+    """Retrieve history of past listening evaluations from SQLite."""
+    if not db:
+        return {"evaluations": []}
+    return {"evaluations": db.list_listening_tests(limit=limit)}
+
+
+@app.post("/api/v1/listening-test/blind-session")
+def create_blind_session(req: CreateBlindSessionRequest):
+    """Create a new double-blind randomized A/B session with loudness compensation."""
+    session = ListeningTestEngine.create_blind_ab_session(
+        target_channel=req.target_channel,
+        channel_name=req.channel_name,
+        proposal_id=req.proposal_id,
+    )
+    return session.to_dict(reveal_identity=False)
+
+
+@app.post("/api/v1/listening-test/blind-session/{session_id}/reveal")
+def reveal_blind_session(session_id: str):
+    """Reveal the actual identity of Option A and Option B."""
+    try:
+        session = ListeningTestEngine.reveal_blind_ab_session(session_id)
+        return session.to_dict(reveal_identity=True)
+    except KeyError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # --- Wizard Endpoints ---

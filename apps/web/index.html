@@ -94,6 +94,11 @@
         <span id="headerAutomixLabel">AutoMix: NOM=1</span>
       </button>
 
+      <button onclick="openListeningTestModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 border border-violet-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm" title="Kiểm Thử Thính Giác Mù A/B & Chấm Điểm 7 Tiêu Chí Âm Học">
+        <i class="fa-solid fa-headphones-simple text-violet-400"></i>
+        <span id="headerListeningLabel">A/B Listening (7 Tiêu Chí)</span>
+      </button>
+
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-file-invoice text-amber-400"></i>
         <span>In Báo Cáo</span>
@@ -1798,6 +1803,205 @@
             <span>Áp Dụng AutoMix Vào Phần Cứng X32</span>
           </button>
           <button onclick="closeAutomixModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Đóng
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: DOUBLE-BLIND A/B LISTENING TEST & 7-CRITERIA MOS  -->
+  <!-- ======================================================== -->
+  <div id="listeningTestModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-white shadow-violet-500/20 shadow-md">
+            <i class="fa-solid fa-headphones-simple text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-base font-bold text-white tracking-tight">THẨM ĐỊNH THÍNH GIÁC MÙ A/B & CHẤM ĐIỂM 7 TIÊU CHÍ</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-violet-950 text-violet-300 border border-violet-800 font-bold">ITU-R BS.1284 / MP 3.4</span>
+            </div>
+            <p class="text-xs text-slate-400">Kiểm thử nghe chuẩn mực khoa học, bù trừ âm lượng đồng nhất (Equal-Loudness) để loại trừ thiên kiến</p>
+          </div>
+        </div>
+        <button onclick="closeListeningTestModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Blind A/B Player & Loudness Compensation Console -->
+      <div class="p-4 bg-slate-950/60 border-b border-slate-800 space-y-3">
+        <div class="flex items-center justify-between text-xs">
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400">Kênh Đang Đánh Giá:</span>
+            <select id="listeningChannelSelect" onchange="onListeningChannelChange()" class="bg-slate-900 border border-slate-700 text-cyan-300 font-bold px-2.5 py-1 rounded-lg text-xs outline-none">
+              <option value="1">CH 01: Mục Sư (Pastor Mic)</option>
+              <option value="2">CH 02: Hướng Dẫn (Worship Lead)</option>
+              <option value="3">CH 03: Ca Đoàn Nữ (Vocal Alto)</option>
+              <option value="4">CH 04: Bục Giảng (Podium Mic)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center space-x-2 font-mono text-[11px]">
+            <span class="text-slate-400">Bù Trừ Âm Lượng (Equal-Loudness):</span>
+            <span id="listeningLoudnessComp" class="text-amber-400 font-bold bg-amber-950/50 border border-amber-800 px-2 py-0.5 rounded">-1.50 dB</span>
+          </div>
+        </div>
+
+        <!-- 2 Large Blind Toggle Buttons -->
+        <div class="grid grid-cols-2 gap-3">
+          <button id="btnOptionA" onclick="switchBlindOption('A')" class="p-3.5 rounded-xl border-2 border-violet-500 bg-violet-950/40 text-left transition-all cursor-pointer relative overflow-hidden group shadow-lg shadow-violet-500/10">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-sm text-white flex items-center space-x-2">
+                <i class="fa-solid fa-play text-violet-400 text-xs" id="iconOptionA"></i>
+                <span>LỰA CHỌN A</span>
+              </span>
+              <span id="badgeOptionA" class="text-[9px] font-mono px-2 py-0.5 rounded bg-violet-900 text-violet-200 border border-violet-700 font-bold">ĐANG NGHE</span>
+            </div>
+            <div id="descOptionA" class="text-[11px] text-slate-300 font-sans">
+              Âm thanh được ẩn danh tính theo quy chuẩn kiểm thử mù kép (Double-Blind).
+            </div>
+          </button>
+
+          <button id="btnOptionB" onclick="switchBlindOption('B')" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950 text-left transition-all cursor-pointer relative overflow-hidden group hover:border-slate-700">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-sm text-white flex items-center space-x-2">
+                <i class="fa-solid fa-play text-slate-500 text-xs" id="iconOptionB"></i>
+                <span>LỰA CHỌN B</span>
+              </span>
+              <span id="badgeOptionB" class="text-[9px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-bold">BẤM ĐỂ CHUYỂN</span>
+            </div>
+            <div id="descOptionB" class="text-[11px] text-slate-400 font-sans">
+              Âm thanh được ẩn danh tính theo quy chuẩn kiểm thử mù kép (Double-Blind).
+            </div>
+          </button>
+        </div>
+
+        <div class="flex items-center justify-between text-xs pt-1">
+          <div class="flex items-center space-x-1.5 text-slate-400 text-[11px]">
+            <i class="fa-solid fa-circle-info text-cyan-400"></i>
+            <span>Độ to đã được cân bằng chính xác theo đường cong cảm giác âm Fletcher-Munson.</span>
+          </div>
+          <button onclick="revealBlindSessionUI()" id="btnRevealIdentity" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-[11px] font-semibold border border-slate-700 flex items-center space-x-1.5 cursor-pointer transition-all">
+            <i class="fa-solid fa-eye text-[10px]"></i>
+            <span>Mở Khóa Danh Tính Thực (Reveal)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Main Sliders & Scoring Area -->
+      <div class="p-5 overflow-y-auto custom-scrollbar space-y-4 flex-1 text-xs">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-white text-xs uppercase tracking-wider">CHẤM ĐIỂM 7 TIÊU CHÍ ÂM HỌC (THANG ĐIỂM 1.0 - 5.0):</span>
+          <span class="text-[11px] text-slate-400 font-mono">Điểm an toàn tối thiểu: &ge; 2.5 / tiêu chí</span>
+        </div>
+
+        <!-- Grid of 7 Sliders -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          <!-- 1. Intelligibility -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">1. Độ Rõ Lời (Intelligibility) <span class="text-violet-400 text-[10px]">[20%]</span></span>
+              <span id="valIntelligibility" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.5</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Phát âm rõ ràng từng phụ âm, từ ngữ sáng và dễ hiểu</p>
+            <input type="range" id="sliderIntelligibility" min="1.0" max="5.0" step="0.1" value="4.5" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 2. Natural Timbre -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">2. Độ Tự Nhiên Chất Giọng (Timbre) <span class="text-violet-400 text-[10px]">[20%]</span></span>
+              <span id="valTimbre" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.5</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Giữ trọn bản sắc giọng thật người nói/ca sĩ, không méo</p>
+            <input type="range" id="sliderTimbre" min="1.0" max="5.0" step="0.1" value="4.5" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 3. Warmth & Body -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">3. Độ Ấm & Thân Giọng (Warmth/Body) <span class="text-violet-400 text-[10px]">[15%]</span></span>
+              <span id="valWarmth" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.0</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Đầy đặn vùng 200-400Hz, không bị mỏng hay rỗng giọng</p>
+            <input type="range" id="sliderWarmth" min="1.0" max="5.0" step="0.1" value="4.0" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 4. Harshness Control -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">4. Kiểm Soát Gắt & Chói (Harshness) <span class="text-violet-400 text-[10px]">[15%]</span></span>
+              <span id="valHarshness" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.0</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Khử âm xì (sibilance 5-8kHz) và tiếng gắt chát tai</p>
+            <input type="range" id="sliderHarshness" min="1.0" max="5.0" step="0.1" value="4.0" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 5. Band Balance -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">5. Hòa Quyện Ban Nhạc (Band Balance) <span class="text-violet-400 text-[10px]">[10%]</span></span>
+              <span id="valBand" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.0</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Nổi bật trên nền nhạc mà không lấn át nhạc cụ khác</p>
+            <input type="range" id="sliderBand" min="1.0" max="5.0" step="0.1" value="4.0" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 6. Hall Coverage -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">6. Độ Phủ Đều Hội Trường (Coverage) <span class="text-violet-400 text-[10px]">[10%]</span></span>
+              <span id="valCoverage" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.0</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Âm thanh phủ đồng đều giữa hàng ghế đầu và cuối</p>
+            <input type="range" id="sliderCoverage" min="1.0" max="5.0" step="0.1" value="4.0" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+
+          <!-- 7. Feedback Margin -->
+          <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 space-y-1.5 md:col-span-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-slate-200">7. Biên Độ Dự Trữ Chống Hú (Feedback Margin) <span class="text-violet-400 text-[10px]">[10%]</span></span>
+              <span id="valFeedback" class="font-mono font-bold text-violet-400 bg-violet-950 px-2 py-0.5 rounded border border-violet-800">4.5</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Khoảng cách an toàn trước ngưỡng phát sinh vòng phản hồi âm học (Gain-Before-Feedback)</p>
+            <input type="range" id="sliderFeedback" min="1.0" max="5.0" step="0.1" value="4.5" oninput="onCriteriaSliderChange()" class="w-full accent-violet-500 cursor-pointer">
+          </div>
+        </div>
+
+        <!-- Live Score Summary Card -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <div class="space-y-1">
+            <div class="flex items-center space-x-2">
+              <span class="text-[11px] text-slate-400 uppercase font-semibold">Chỉ Số Chất Lượng Trung Bình (MOS):</span>
+              <span id="listeningMosScore" class="text-xl font-bold font-mono text-emerald-400">4.30 / 5.0</span>
+              <span id="listeningRecBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold">RECOMMENDED FOR COMMIT</span>
+            </div>
+            <p id="listeningAdviceText" class="text-[11px] text-slate-300 font-sans leading-relaxed">
+              Bản cân chỉnh đạt chuẩn chất lượng xuất sắc. Đảm bảo giọng trung thực, rõ lời và an toàn feedback. Khuyến nghị áp dụng chính thức cho buổi lễ.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">Quy tắc 7: Một đề xuất không bao giờ là mệnh lệnh cho đến khi được kỹ thuật viên phê duyệt.</span>
+        <div class="flex items-center space-x-2">
+          <button onclick="submitListeningEvaluation(true)" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5 transition-all">
+            <i class="fa-solid fa-check-double"></i>
+            <span>Lưu & Duyệt Áp Dụng Proposal</span>
+          </button>
+          <button onclick="submitListeningEvaluation(false)" class="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5 transition-all">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Lưu Đánh Giá</span>
+          </button>
+          <button onclick="closeListeningTestModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
             Đóng
           </button>
         </div>
@@ -4576,6 +4780,221 @@
         addAuditEntry("AUTOMIX_PROPOSE", `Đã tạo ${data.proposals_count} đề xuất cấu hình Native AutoMix cho X32.`);
       } catch (e) {
         alert("Lỗi kết nối API AutoMix: " + e);
+      }
+    }
+
+    // ========================================================
+    // DOUBLE-BLIND A/B LISTENING TEST & 7-CRITERIA MOS
+    // ========================================================
+    let currentBlindOption = 'A';
+    let currentBlindSession = null;
+
+    function openListeningTestModal(channelId = 1) {
+      document.getElementById('listeningTestModal').classList.remove('hidden');
+      const sel = document.getElementById('listeningChannelSelect');
+      if (sel) sel.value = channelId.toString();
+      startNewBlindSession(channelId);
+      onCriteriaSliderChange();
+    }
+
+    function closeListeningTestModal() {
+      document.getElementById('listeningTestModal').classList.add('hidden');
+    }
+
+    function onListeningChannelChange() {
+      const ch = parseInt(document.getElementById('listeningChannelSelect').value, 10) || 1;
+      startNewBlindSession(ch);
+    }
+
+    async function startNewBlindSession(channelId) {
+      const chNames = { 1: "Pastor Mic", 2: "Worship Lead", 3: "Vocal Alto", 4: "Podium Mic" };
+      const name = chNames[channelId] || `Channel ${channelId}`;
+      try {
+        const res = await fetch('/api/v1/listening-test/blind-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_channel: channelId,
+            channel_name: name,
+            proposal_id: activeProposalId,
+          })
+        });
+        if (res.ok) {
+          currentBlindSession = await res.json();
+          document.getElementById('listeningLoudnessComp').innerText = `${currentBlindSession.loudness_compensation_db > 0 ? '+' : ''}${currentBlindSession.loudness_compensation_db} dB`;
+          resetBlindABButtons();
+        }
+      } catch (e) {
+        console.error("Error creating blind session:", e);
+      }
+    }
+
+    function resetBlindABButtons() {
+      switchBlindOption('A');
+      const btnReveal = document.getElementById('btnRevealIdentity');
+      if (btnReveal) {
+        btnReveal.disabled = false;
+        btnReveal.innerHTML = '<i class="fa-solid fa-eye text-[10px]"></i><span>Mở Khóa Danh Tính Thực (Reveal)</span>';
+      }
+      document.getElementById('descOptionA').innerText = 'Âm thanh được ẩn danh tính theo quy chuẩn kiểm thử mù kép (Double-Blind).';
+      document.getElementById('descOptionB').innerText = 'Âm thanh được ẩn danh tính theo quy chuẩn kiểm thử mù kép (Double-Blind).';
+    }
+
+    function switchBlindOption(opt) {
+      currentBlindOption = opt;
+      const btnA = document.getElementById('btnOptionA');
+      const btnB = document.getElementById('btnOptionB');
+      const badgeA = document.getElementById('badgeOptionA');
+      const badgeB = document.getElementById('badgeOptionB');
+      const iconA = document.getElementById('iconOptionA');
+      const iconB = document.getElementById('iconOptionB');
+
+      if (opt === 'A') {
+        btnA.className = "p-3.5 rounded-xl border-2 border-violet-500 bg-violet-950/40 text-left transition-all cursor-pointer relative overflow-hidden group shadow-lg shadow-violet-500/10";
+        badgeA.className = "text-[9px] font-mono px-2 py-0.5 rounded bg-violet-900 text-violet-200 border border-violet-700 font-bold";
+        badgeA.innerText = "ĐANG NGHE";
+        iconA.className = "fa-solid fa-volume-high text-violet-400 text-xs animate-pulse";
+
+        btnB.className = "p-3.5 rounded-xl border border-slate-800 bg-slate-950 text-left transition-all cursor-pointer relative overflow-hidden group hover:border-slate-700";
+        badgeB.className = "text-[9px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-bold";
+        badgeB.innerText = "BẤM ĐỂ CHUYỂN";
+        iconB.className = "fa-solid fa-play text-slate-500 text-xs";
+      } else {
+        btnB.className = "p-3.5 rounded-xl border-2 border-violet-500 bg-violet-950/40 text-left transition-all cursor-pointer relative overflow-hidden group shadow-lg shadow-violet-500/10";
+        badgeB.className = "text-[9px] font-mono px-2 py-0.5 rounded bg-violet-900 text-violet-200 border border-violet-700 font-bold";
+        badgeB.innerText = "ĐANG NGHE";
+        iconB.className = "fa-solid fa-volume-high text-violet-400 text-xs animate-pulse";
+
+        btnA.className = "p-3.5 rounded-xl border border-slate-800 bg-slate-950 text-left transition-all cursor-pointer relative overflow-hidden group hover:border-slate-700";
+        badgeA.className = "text-[9px] font-mono px-2 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800 font-bold";
+        badgeA.innerText = "BẤM ĐỂ CHUYỂN";
+        iconA.className = "fa-solid fa-play text-slate-500 text-xs";
+      }
+    }
+
+    async function revealBlindSessionUI() {
+      if (!currentBlindSession) return;
+      try {
+        const res = await fetch(`/api/v1/listening-test/blind-session/${currentBlindSession.session_id}/reveal`, { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          const descA = document.getElementById('descOptionA');
+          const descB = document.getElementById('descOptionB');
+          const isATuning = data.option_a_identity === 'TUNING_PROPOSAL';
+
+          if (isATuning) {
+            descA.innerHTML = '<strong class="text-cyan-400">✨ BẢN TUNING (PEQ ĐỀ XUẤT):</strong> Đã qua bộ lọc phẫu thuật và nén âm lượng.';
+            descB.innerHTML = '<strong class="text-slate-300">⚪ BẢN GỐC (DRY/BYPASS):</strong> Tín hiệu mộc gốc trước khi cân chỉnh.';
+          } else {
+            descA.innerHTML = '<strong class="text-slate-300">⚪ BẢN GỐC (DRY/BYPASS):</strong> Tín hiệu mộc gốc trước khi cân chỉnh.';
+            descB.innerHTML = '<strong class="text-cyan-400">✨ BẢN TUNING (PEQ ĐỀ XUẤT):</strong> Đã qua bộ lọc phẫu thuật và nén âm lượng.';
+          }
+
+          const btnReveal = document.getElementById('btnRevealIdentity');
+          btnReveal.disabled = true;
+          btnReveal.innerHTML = '<i class="fa-solid fa-check text-[10px] text-emerald-400"></i><span>Đã Mở Khóa Danh Tính</span>';
+        }
+      } catch (e) {
+        alert("Lỗi mở khóa danh tính: " + e);
+      }
+    }
+
+    function onCriteriaSliderChange() {
+      const getVal = (id) => parseFloat(document.getElementById(id).value) || 4.0;
+
+      const sIntel = getVal('sliderIntelligibility');
+      const sTimbre = getVal('sliderTimbre');
+      const sWarmth = getVal('sliderWarmth');
+      const sHarsh = getVal('sliderHarshness');
+      const sBand = getVal('sliderBand');
+      const sCov = getVal('sliderCoverage');
+      const sFeed = getVal('sliderFeedback');
+
+      document.getElementById('valIntelligibility').innerText = sIntel.toFixed(1);
+      document.getElementById('valTimbre').innerText = sTimbre.toFixed(1);
+      document.getElementById('valWarmth').innerText = sWarmth.toFixed(1);
+      document.getElementById('valHarshness').innerText = sHarsh.toFixed(1);
+      document.getElementById('valBand').innerText = sBand.toFixed(1);
+      document.getElementById('valCoverage').innerText = sCov.toFixed(1);
+      document.getElementById('valFeedback').innerText = sFeed.toFixed(1);
+
+      // Weighted MOS calculation
+      const mos = (
+        sIntel * 0.20 +
+        sTimbre * 0.20 +
+        sWarmth * 0.15 +
+        sHarsh * 0.15 +
+        sBand * 0.10 +
+        sCov * 0.10 +
+        sFeed * 0.10
+      );
+
+      document.getElementById('listeningMosScore').innerText = `${mos.toFixed(2)} / 5.0`;
+
+      const badge = document.getElementById('listeningRecBadge');
+      const advice = document.getElementById('listeningAdviceText');
+      const hasCriticalFail = (sIntel < 2.5 || sTimbre < 2.5 || sFeed < 2.5);
+
+      if (mos >= 4.0 && !hasCriticalFail) {
+        badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-bold";
+        badge.innerText = "RECOMMENDED FOR COMMIT";
+        advice.innerText = "Bản cân chỉnh đạt chuẩn chất lượng xuất sắc. Đảm bảo giọng trung thực, rõ lời và an toàn feedback. Khuyến nghị áp dụng chính thức cho buổi lễ.";
+      } else if (mos >= 3.2 && !hasCriticalFail) {
+        badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 font-bold";
+        badge.innerText = "ACCEPTABLE WITH MONITORING";
+        advice.innerText = "Bản cân chỉnh ở mức chấp nhận được. Kỹ thuật viên nên theo dõi thêm trong quá trình diễn ra buổi lễ.";
+      } else {
+        badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-700 font-bold animate-pulse";
+        badge.innerText = "REJECT OR REFINE";
+        advice.innerText = "CẢNH BÁO: Điểm thẩm định dưới ngưỡng an toàn. Giọng có thể bị mỏng, gắt hoặc thiếu biên độ chống hú. Hãy hiệu chỉnh lại EQ trước khi commit.";
+      }
+    }
+
+    async function submitListeningEvaluation(andApply = false) {
+      const ch = parseInt(document.getElementById('listeningChannelSelect').value, 10) || 1;
+      const getVal = (id) => parseFloat(document.getElementById(id).value) || 4.0;
+
+      const payload = {
+        target_channel: ch,
+        channel_name: document.getElementById('listeningChannelSelect').options[document.getElementById('listeningChannelSelect').selectedIndex].text,
+        operator: "SoundTech_Chinh",
+        proposal_id: activeProposalId,
+        intelligibility: getVal('sliderIntelligibility'),
+        timbre_naturalness: getVal('sliderTimbre'),
+        warmth_body: getVal('sliderWarmth'),
+        harshness_control: getVal('sliderHarshness'),
+        band_balance: getVal('sliderBand'),
+        hall_coverage: getVal('sliderCoverage'),
+        feedback_margin: getVal('sliderFeedback'),
+        loudness_compensation_db: currentBlindSession ? currentBlindSession.loudness_compensation_db : 0.0,
+        is_blind_test: true,
+      };
+
+      try {
+        const res = await fetch('/api/v1/listening-test/evaluate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert("Lỗi lưu thẩm định: " + (err.detail || res.statusText));
+          return;
+        }
+
+        const data = await res.json();
+        addAuditEntry("LISTENING_TEST", `Thẩm định thính giác A/B Kênh ${ch}: MOS ${data.overall_mos}/5.0 -> ${data.recommendation}.`);
+
+        if (andApply && activeProposalId) {
+          closeListeningTestModal();
+          await applyActiveProposal();
+        } else {
+          alert(`✅ ĐÃ LƯU KẾT QUẢ THẨM ĐỊNH THÀNH CÔNG:\n• Điểm chất lượng MOS: ${data.overall_mos}/5.0\n• Đánh giá: ${data.recommendation}\n• Lời khuyên: ${data.advice_vi}`);
+          closeListeningTestModal();
+        }
+      } catch (e) {
+        alert("Lỗi kết nối API: " + e);
       }
     }
 

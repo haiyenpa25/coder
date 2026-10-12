@@ -75,6 +75,27 @@ class ChurchMixDatabase:
                     result_json TEXT NOT NULL
                 )
             """)
+
+            # 4. Subjective A/B Listening Tests Table (Master Plan Section 3.4)
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS listening_tests (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp REAL NOT NULL,
+                    iso_time TEXT NOT NULL,
+                    operator TEXT NOT NULL,
+                    proposal_id TEXT,
+                    target_channel INTEGER NOT NULL,
+                    channel_name TEXT NOT NULL,
+                    overall_mos REAL NOT NULL,
+                    recommendation TEXT NOT NULL,
+                    criteria_json TEXT NOT NULL,
+                    strengths_json TEXT NOT NULL,
+                    weaknesses_json TEXT NOT NULL,
+                    advice_vi TEXT NOT NULL,
+                    loudness_compensation_db REAL NOT NULL,
+                    is_blind_test INTEGER NOT NULL
+                )
+            """)
             conn.commit()
 
     def save_snapshot(
@@ -259,3 +280,65 @@ class ChurchMixDatabase:
                     "rule_enforced": r["rule_enforced"],
                 })
             return items
+
+    def save_listening_test(
+        self,
+        evaluation_data: Dict[str, Any],
+    ) -> int:
+        """Persist a subjective A/B listening evaluation into SQLite."""
+        now = evaluation_data.get("created_at", time.time())
+        iso = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                INSERT INTO listening_tests
+                (timestamp, iso_time, operator, proposal_id, target_channel, channel_name,
+                 overall_mos, recommendation, criteria_json, strengths_json, weaknesses_json,
+                 advice_vi, loudness_compensation_db, is_blind_test)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                now,
+                iso,
+                evaluation_data.get("operator", "Operator"),
+                evaluation_data.get("proposal_id"),
+                evaluation_data.get("target_channel", 1),
+                evaluation_data.get("channel_name", "Channel"),
+                float(evaluation_data.get("overall_mos", 0.0)),
+                evaluation_data.get("recommendation", "UNKNOWN"),
+                json.dumps(evaluation_data.get("criteria", {})),
+                json.dumps(evaluation_data.get("strengths_vi", [])),
+                json.dumps(evaluation_data.get("weaknesses_vi", [])),
+                evaluation_data.get("advice_vi", ""),
+                float(evaluation_data.get("loudness_compensation_db", 0.0)),
+                1 if evaluation_data.get("is_blind_test") else 0,
+            ))
+            conn.commit()
+            return cursor.lastrowid
+
+    def list_listening_tests(self, limit: int = 20) -> List[Dict[str, Any]]:
+        """List recent subjective A/B listening evaluations."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM listening_tests ORDER BY id DESC LIMIT ?", (limit,))
+            rows = cursor.fetchall()
+            items = []
+            for r in rows:
+                items.append({
+                    "id": r["id"],
+                    "timestamp": r["timestamp"],
+                    "iso_time": r["iso_time"],
+                    "operator": r["operator"],
+                    "proposal_id": r["proposal_id"],
+                    "target_channel": r["target_channel"],
+                    "channel_name": r["channel_name"],
+                    "overall_mos": r["overall_mos"],
+                    "recommendation": r["recommendation"],
+                    "criteria": json.loads(r["criteria_json"]),
+                    "strengths_vi": json.loads(r["strengths_json"]),
+                    "weaknesses_vi": json.loads(r["weaknesses_json"]),
+                    "advice_vi": r["advice_vi"],
+                    "loudness_compensation_db": r["loudness_compensation_db"],
+                    "is_blind_test": bool(r["is_blind_test"]),
+                })
+            return items
+

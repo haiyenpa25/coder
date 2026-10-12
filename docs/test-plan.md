@@ -42,15 +42,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint20_scn_importer_and_safety_validator.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint20_scn_importer_and_safety_validator.py) | **6** | Bộ Nạp File Scene Behringer X32 (.scn) Từ USB, Thẩm Định Tiền Kiểm Tra Pre-Flight Safety Audit, Quét Lỗ Hổng Rò Rỉ Talkback DL16 #11, Tự Động Vá Lỗi Invariant (Auto-Sanitize) & Lưu Trữ Vault. | **PASS** |
 | [tests/test_sprint21_gain_staging_and_headroom.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint21_gain_staging_and_headroom.py) | **6** | Cân Chỉnh Headroom & Gain Staging Chuẩn Nhà Thờ (Phân tích Peak/RMS/Crest Factor, Digital Trim Whitelist /ch/xx/preamp/trim, Bảo Vệ Headroom Lời Giảng -18 dBFS & Âm Nhạc -12 dBFS, Đề Xuất Proposal An Toàn). | **PASS** |
 | [tests/test_sprint22_speech_automixer.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint22_speech_automixer.py) | **7** | Dugan Speech Automixer & NOM=1 Gain Sharing Controller, Bất Biến Giữ Mức Tăng Ích Tổng Thể NOM=1 (<= 0.0 dB), Tiết Kiệm Ồn Nền SNR, Bất Biến Silence Hold Khóa Gain Khi Im Lặng, Cách Ly Tuyệt Đối Mic Talkback Kênh 11, Đề Xuất Cấu Hình X32 Native Automix DSP & REST API. | **PASS** |
-| **TỔNG CỘNG PYTHON** | **136** | **Bao phủ 100% 22 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging và Dugan Speech Automixer** | **100% PASS** |
+| [tests/test_sprint23_listening_test_benchmark.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint23_listening_test_benchmark.py) | **7** | Thẩm Định Thính Giác Mù A/B Chuẩn Quốc Tế ITU-R BS.1284, Bù Trừ Âm Lượng Equal-Loudness Fletcher-Munson, Ma Trận 7 Tiêu Chí Âm Học Nhà Thờ (Master Plan 3.4), Tính Điểm Trung Bình Trọng Số MOS (1.0-5.0), Quy Tắc Phủ Quyết An Toàn (Veto Rule), Lưu Trữ SQLite & REST API. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **143** | **Bao phủ 100% 23 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer và Thẩm định thính giác mù A/B** | **100% PASS** |
 | **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **155** | **155 / 155 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **162** | **162 / 162 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 136 bài kiểm thử Python:
+Để thực thi toàn bộ 143 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```

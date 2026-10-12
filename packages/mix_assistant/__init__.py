@@ -32,6 +32,12 @@ from .automixer import (
     AutomixerReport,
     ChannelAutomixState,
 )
+from .listening_test import (
+    ListeningTestCriteria,
+    ListeningEvaluation,
+    BlindABSession,
+    ListeningTestEngine,
+)
 
 __all__ = [
     "VoiceActivityState",
@@ -53,6 +59,10 @@ __all__ = [
     "DuganSpeechAutomixer",
     "AutomixerReport",
     "ChannelAutomixState",
+    "ListeningTestCriteria",
+    "ListeningEvaluation",
+    "BlindABSession",
+    "ListeningTestEngine",
 ]
 
 
