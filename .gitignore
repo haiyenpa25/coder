@@ -7,6 +7,7 @@ __pycache__/
 
 # Local machine settings & temporary project data
 data/*.db
+data/*.scn
 data/settings.json
 data/*.tmp
 *.tmp
