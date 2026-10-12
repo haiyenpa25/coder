@@ -13,6 +13,7 @@ Provides:
 from __future__ import annotations
 import asyncio
 import os
+import re
 import sys
 import time
 import math
@@ -21,10 +22,14 @@ from contextlib import asynccontextmanager
 import numpy as np
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Local mock/simulator OSC port. Override with CHURCHMIX_X32_PORT so tests never
+# collide with a ChurchMix instance (and its mock) already running on 10023.
+X32_LOCAL_PORT = int(os.environ.get("CHURCHMIX_X32_PORT", "10023"))
 
 # Add repository root to Python path
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
@@ -33,7 +38,7 @@ sys.path.insert(0, ROOT_DIR)
 from packages.x32_osc_adapter.client import X32Client, Snapshot
 from packages.x32_osc_adapter.scene_exporter import SceneExporter
 from packages.mock_x32.server import MockX32Server
-from packages.safety_controller.routing import RoutingGraph, InvariantViolationError
+from packages.safety_controller.routing import RoutingGraph, InvariantViolationError, get_talkback_channel
 from packages.safety_controller.transaction import (
     TransactionExecutor,
     SafetyPolicy,
@@ -141,8 +146,8 @@ last_acoustic_measurement: Optional[Dict[str, Any]] = None
 async def lifespan(app: FastAPI):
     global mock_server, x32_client, executor, audio_stream_worker, wizard_service
 
-    # 1. Start Mock X32 on port 10023 if not running
-    mock_server = MockX32Server(host="127.0.0.1", port=10023)
+    # 1. Start Mock X32 on X32_LOCAL_PORT (default 10023) if not running
+    mock_server = MockX32Server(host="127.0.0.1", port=X32_LOCAL_PORT)
     try:
         mock_server.start()
         time.sleep(0.05)
@@ -150,7 +155,7 @@ async def lifespan(app: FastAPI):
         print(f"Warning: Mock server could not bind (perhaps hardware X32 is present): {e}")
 
     # 2. Connect X32 Client in forced READ_ONLY_MODE
-    x32_client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True, timeout=1.0)
+    x32_client = X32Client(host="127.0.0.1", port=X32_LOCAL_PORT, read_only_mode=True, timeout=1.0)
     try:
         x32_client.connect()
         executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
@@ -179,10 +184,47 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="X32 AI Sound Engineer API", version="1.0.0", lifespan=lifespan)
 
+# --- Origin Guard ---
+# Any web page open on the operator laptop could otherwise POST to this API and
+# apply proposals / mute channels on the mixer. Only the dashboard itself (same
+# origin), localhost, or origins listed in CHURCHMIX_ALLOWED_ORIGINS
+# (comma-separated, e.g. a church-LAN tablet) may send mutating requests.
+LOCAL_ORIGIN_REGEX = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+EXTRA_ALLOWED_ORIGINS = [
+    o.strip().rstrip("/") for o in os.environ.get("CHURCHMIX_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
+MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def is_origin_allowed(origin: str, host_header: Optional[str]) -> bool:
+    origin = origin.rstrip("/")
+    if re.match(LOCAL_ORIGIN_REGEX, origin) or origin in EXTRA_ALLOWED_ORIGINS:
+        return True
+    # Same-origin: dashboard served by this server, e.g. http://192.168.1.20:8080
+    netloc = origin.split("://", 1)[-1]
+    return bool(host_header) and netloc == host_header
+
+
+@app.middleware("http")
+async def origin_guard(request, call_next):
+    origin = request.headers.get("origin")
+    if (
+        request.method in MUTATING_METHODS
+        and origin
+        and not is_origin_allowed(origin, request.headers.get("host"))
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"detail": f"Cross-origin request from '{origin}' is not allowed to modify the mixer."},
+        )
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=EXTRA_ALLOWED_ORIGINS,
+    allow_origin_regex=LOCAL_ORIGIN_REGEX,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -1128,7 +1170,7 @@ def propose_automixer_setup(req: AutomixSetupRequest):
     if not x32_client:
         raise HTTPException(status_code=503, detail="X32 Client not initialized")
 
-    if 11 in req.channels:
+    if get_talkback_channel() in req.channels:
         raise HTTPException(
             status_code=400,
             detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) tuyệt đối không được phép đưa vào nhóm AutoMix!",
@@ -1277,7 +1319,7 @@ def analyze_channel_bleed(channel_id: int):
     Analyze acoustic stage bleed and cross-talk into a specific vocal/speech channel.
     Enforces Hard Safety Invariant: Channel 11 (Band Talkback) is strictly prohibited.
     """
-    if channel_id == 11:
+    if channel_id == get_talkback_channel():
         raise HTTPException(
             status_code=400,
             detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) được bảo vệ cách ly tuyệt đối, không phân tích FOH!",
@@ -1325,7 +1367,7 @@ def propose_expander_setup(channel_id: int):
     Generate hardware proposals for X32 Downward Expander (/ch/{ch}/gate/*).
     Enforces Hard Safety Invariant: Channel 11 (Band Talkback) is strictly prohibited.
     """
-    if channel_id == 11:
+    if channel_id == get_talkback_channel():
         raise HTTPException(
             status_code=400,
             detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) tuyệt đối không tạo đề xuất expander cho FOH!",
@@ -1575,7 +1617,7 @@ def switch_hardware_target(req: HardwareConnectRequest):
         }
     except Exception as e:
         # Fall back to localhost
-        fallback = X32Client(host="127.0.0.1", port=10023, read_only_mode=True)
+        fallback = X32Client(host="127.0.0.1", port=X32_LOCAL_PORT, read_only_mode=True)
         fallback.connect()
         x32_client = fallback
         executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy())

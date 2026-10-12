@@ -12,11 +12,33 @@ Implements:
 from __future__ import annotations
 import time
 import math
+import threading
 from dataclasses import dataclass, field
 from typing import Dict, Any, List, Optional, Tuple
 
 from packages.x32_osc_adapter.client import X32Client, Snapshot
-from .routing import RoutingGraph, InvariantViolationError
+from .routing import RoutingGraph, InvariantViolationError, get_talkback_channel
+
+WRITE_PACING_S = 0.02  # 20ms minimum between OSC writes (AGENTS.md rule #11)
+
+# One lock per X32Client: the read-only flag lives on the shared client, so two
+# transactions (or a transaction and another writer) must never overlap.
+_client_locks: Dict[int, threading.Lock] = {}
+_client_locks_guard = threading.Lock()
+
+
+def _transaction_lock_for(client: X32Client) -> threading.Lock:
+    with _client_locks_guard:
+        return _client_locks.setdefault(id(client), threading.Lock())
+
+
+def _values_match(expected: Any, actual: Any) -> bool:
+    if isinstance(expected, float) or isinstance(actual, float):
+        try:
+            return math.isclose(float(actual), float(expected), abs_tol=0.01)
+        except (TypeError, ValueError):
+            return False
+    return actual == expected
 from .modes import SafetyModeManager, OperatorMode, DisengageReason
 
 
@@ -92,15 +114,16 @@ class SafetyPolicy:
             is_automix = f"{ch_str}/automix/" in param
             is_gate = f"{ch_str}/gate/" in param
 
-            # Hard Invariant: Channel 11 (Band Talkback) must NEVER be in Automix or Gate
-            if ch == 11 and is_automix:
+            # Hard Invariant: the Band Talkback channel must NEVER be in Automix or Gate
+            tb_ch = get_talkback_channel()
+            if ch == tb_ch and is_automix:
                 raise ProposalRejectedError(
-                    "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER be assigned to Automix groups."
+                    f"SAFETY INVARIANT DENIAL: Channel {tb_ch} (Band Talkback) must NEVER be assigned to Automix groups."
                 )
 
-            if ch == 11 and is_gate:
+            if ch == tb_ch and is_gate:
                 raise ProposalRejectedError(
-                    "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER have gate/expander modified for FOH."
+                    f"SAFETY INVARIANT DENIAL: Channel {tb_ch} (Band Talkback) must NEVER have gate/expander modified for FOH."
                 )
 
             if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix or is_gate):
@@ -113,6 +136,14 @@ class SafetyPolicy:
                 if abs(to_val - from_val) > self.max_fader_delta:
                     raise ProposalRejectedError(
                         f"SAFETY LIMIT: Fader delta {abs(to_val - from_val):.3f} exceeds maximum safe limit {self.max_fader_delta}."
+                    )
+
+            is_eq_gain = param.startswith(f"{ch_str}/eq/") and param.endswith("/g")
+            if is_eq_gain and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):
+                if abs(to_val - from_val) > self.max_eq_gain_delta + 1e-9:
+                    raise ProposalRejectedError(
+                        f"SAFETY LIMIT: EQ gain delta {abs(to_val - from_val):.3f} exceeds maximum safe limit "
+                        f"{self.max_eq_gain_delta} (~{self.max_eq_gain_delta * 30:.1f} dB)."
                     )
 
             if is_trim and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):
@@ -169,6 +200,12 @@ class TransactionExecutor:
         # Stage 2: Policy validation
         self.policy.validate_proposal(proposal)
 
+        # Stages 3-6 run under a per-client lock so the read-only flag and the
+        # snapshot/write/readback sequence can never interleave with another writer.
+        with _transaction_lock_for(self.client):
+            return self._execute_locked(proposal, operator_id)
+
+    def _execute_locked(self, proposal: Proposal, operator_id: str) -> Dict[str, Any]:
         # Stage 3: Snapshot & Optimistic lock check
         current_snapshot = self.client.take_full_snapshot(max_channels=32)
         if current_snapshot.sha256 != proposal.expected_sha256:
@@ -177,20 +214,31 @@ class TransactionExecutor:
                 f"Expected SHA: {proposal.expected_sha256[:8]}, Current SHA: {current_snapshot.sha256[:8]}."
             )
 
-        # Stage 4: Invariant check (Routing & DL16 Talkback isolation)
-        routing_graph = RoutingGraph(current_snapshot.parameters)
+        # Stage 4: Invariant check (Routing & DL16 Talkback isolation).
+        # require_complete: a snapshot missing any routing path freezes writes.
+        routing_graph = RoutingGraph(current_snapshot.parameters, require_complete=True)
         ok, msg = routing_graph.verify_talkback_invariant()
         if not ok:
             raise InvariantViolationError(f"HARD INVARIANT ABORT: {msg}")
 
-        # Stage 5 & 6: Transaction execution with rollback support
-        executed_writes: List[Tuple[str, Any]] = []
+        # Capture original values for rollback. Parameters outside the snapshot
+        # (trim, gate, automix, sends...) are read directly; if one cannot be read,
+        # the transaction is refused because it could not be rolled back.
         original_values: Dict[str, Any] = {}
-
-        # Save original values for rollback
         for change in proposal.changes:
             param = change["parameter"]
-            original_values[param] = current_snapshot.parameters.get(param)
+            if param in current_snapshot.parameters:
+                original_values[param] = current_snapshot.parameters[param]
+                continue
+            try:
+                original_values[param] = self.client.query(param)[0]
+            except Exception as exc:
+                raise ProposalRejectedError(
+                    f"REJECTED: Cannot read current value of '{param}' ({exc}); rollback would be impossible."
+                )
+
+        # Stage 5 & 6: Transaction execution with rollback support
+        executed_writes: List[Tuple[str, Any]] = []
 
         # Temporarily enable writes for this verified transaction
         self.client.read_only_mode = False
@@ -202,24 +250,18 @@ class TransactionExecutor:
                 # Send write
                 self.client.send_write(param, [to_val])
                 executed_writes.append((param, to_val))
-                time.sleep(0.02) # 20ms rate-limit pacing
+                time.sleep(WRITE_PACING_S)
 
                 # Readback verification
                 echo_val = self.client.query(param)[0]
-                if isinstance(to_val, float):
-                    if not math.isclose(echo_val, to_val, abs_tol=0.01):
-                        raise TransactionFailedError(
-                            f"Readback mismatch on '{param}': expected {to_val}, got {echo_val}"
-                        )
-                else:
-                    if echo_val != to_val:
-                        raise TransactionFailedError(
-                            f"Readback mismatch on '{param}': expected {to_val}, got {echo_val}"
-                        )
+                if not _values_match(to_val, echo_val):
+                    raise TransactionFailedError(
+                        f"Readback mismatch on '{param}': expected {to_val}, got {echo_val}"
+                    )
 
             # Post-execution Invariant check
             post_snapshot = self.client.take_full_snapshot(max_channels=32)
-            post_routing = RoutingGraph(post_snapshot.parameters)
+            post_routing = RoutingGraph(post_snapshot.parameters, require_complete=True)
             post_ok, post_msg = post_routing.verify_talkback_invariant()
             if not post_ok:
                 raise InvariantViolationError(f"Post-apply invariant failure: {post_msg}")
@@ -239,24 +281,19 @@ class TransactionExecutor:
             return {
                 "status": "SUCCESS",
                 "proposal_id": proposal.proposal_id,
+                "sha256": post_snapshot.sha256,
                 "audit": audit_entry,
             }
 
         except Exception as exc:
-            # ROLLBACK IMMEDIATELY
-            rollback_errors = []
-            for param, orig_val in original_values.items():
-                if orig_val is not None:
-                    try:
-                        self.client.send_write(param, [orig_val])
-                    except Exception as rb_exc:
-                        rollback_errors.append(f"Failed to rollback {param}: {rb_exc}")
+            # ROLLBACK IMMEDIATELY, in reverse order, paced and verified by readback
+            rollback_errors = self._rollback(original_values, executed_writes)
 
             audit_entry = {
                 "timestamp": time.time(),
                 "proposal_id": proposal.proposal_id,
                 "operator": operator_id,
-                "status": "ROLLED_BACK",
+                "status": "ROLLED_BACK" if not rollback_errors else "ROLLBACK_FAILED",
                 "reason": str(exc),
                 "rollback_errors": rollback_errors,
             }
@@ -277,3 +314,33 @@ class TransactionExecutor:
         finally:
             # Always restore strict read-only mode after transaction
             self.client.read_only_mode = self.mode_manager.is_read_only() if self.mode_manager else True
+
+    def _rollback(self, original_values: Dict[str, Any], executed_writes: List[Tuple[str, Any]]) -> List[str]:
+        """
+        Restore every parameter that was (or may have been) written.
+        The write that raised is included: it may have reached the mixer.
+        Returns a list of errors; empty means every value was restored and verified.
+        """
+        errors: List[str] = []
+        attempted = [p for p, _ in executed_writes]
+        # A write can fail after the packet left the socket, so also restore the
+        # parameter that was in flight when the exception happened.
+        for param in original_values:
+            if param not in attempted:
+                attempted.append(param)
+                break
+
+        for param in reversed(attempted):
+            orig_val = original_values.get(param)
+            if orig_val is None:
+                errors.append(f"No original value recorded for {param}; manual check required.")
+                continue
+            try:
+                self.client.send_write(param, [orig_val])
+                time.sleep(WRITE_PACING_S)
+                echo_val = self.client.query(param)[0]
+                if not _values_match(orig_val, echo_val):
+                    errors.append(f"Rollback readback mismatch on {param}: expected {orig_val}, got {echo_val}")
+            except Exception as rb_exc:
+                errors.append(f"Failed to rollback {param}: {rb_exc}")
+        return errors

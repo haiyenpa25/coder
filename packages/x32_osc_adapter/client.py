@@ -247,8 +247,16 @@ class X32Client:
         # 4. Routing & Ultranet P16 checks
         params["/config/routing/IN"] = self.query("/config/routing/IN")[0]
         params["/config/routing/AES50A"] = self.query("/config/routing/AES50A")[0]
-        params["/outputs/p16/11/src"] = self.query("/outputs/p16/11/src")[0]
         params["/outputs/p16/11/tap"] = self.query("/outputs/p16/11/tap")[0]
+
+        # 5. Every path the talkback invariant needs (sends, bus -> Main/Mono/Matrix, P16 slots).
+        # Without these the invariant checker would only see defaults and could not detect a leak.
+        # Imported lazily: safety_controller imports this module.
+        from packages.safety_controller.routing import get_talkback_channel, talkback_routing_paths
+        tb_ch = get_talkback_channel()
+        params[f"/ch/{tb_ch:02d}/config/name"] = self.query(f"/ch/{tb_ch:02d}/config/name")[0]
+        for path in talkback_routing_paths(tb_ch):
+            params[path] = self.query(path)[0]
 
         # Compute SHA-256 of sorted canonical JSON
         canonical_str = json.dumps(params, sort_keys=True)

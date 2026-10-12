@@ -17,6 +17,8 @@ import math
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
+
+from packages.safety_controller.routing import get_talkback_channel
 from scipy.signal import lfilter, resample_poly
 
 
@@ -188,13 +190,13 @@ class BroadcastMixGuard:
         Hard Invariant: Channel 11 (Band Talkback) must NEVER send audio to the Livestream Broadcast Bus/Matrix.
         """
         # 1. Check send to Livestream MixBus
-        bus_str = f"/ch/11/mix/{livestream_bus:02d}/on"
+        bus_str = f"/ch/{get_talkback_channel():02d}/mix/{livestream_bus:02d}/on"
         bus_send = int(state_dict.get(bus_str, 0))
         if bus_send == 1:
             return False, f"CRITICAL INVARIANT VIOLATION: DL16 In 11 (Talkback) is actively feeding Livestream Bus {livestream_bus:02d}!"
 
         # 2. Check stereo main LR send
-        st_send = int(state_dict.get("/ch/11/mix/st", 0))
+        st_send = int(state_dict.get(f"/ch/{get_talkback_channel():02d}/mix/st", 0))
         if st_send == 1:
             return False, "CRITICAL INVARIANT VIOLATION: DL16 In 11 (Talkback) is actively unmuted to Main Stereo Bus (which feeds broadcast stream)!"
 

@@ -87,9 +87,40 @@ class MockX32Server:
                 self.state[f"{prefix}/eq/{band}/q"] = 0.50 # Medium Q
 
             # Mixbus sends (1-16)
+            # Talkback (ch 11) feeds the band only through P16 direct outs: no mix-bus sends.
             for bus in range(1, 17):
-                self.state[f"{prefix}/mix/{bus:02d}/level"] = 0.75 if bus <= 6 else 0.0
-                self.state[f"{prefix}/mix/{bus:02d}/on"] = 1
+                if ch == 11:
+                    self.state[f"{prefix}/mix/{bus:02d}/level"] = 0.0
+                    self.state[f"{prefix}/mix/{bus:02d}/on"] = 0
+                else:
+                    self.state[f"{prefix}/mix/{bus:02d}/level"] = 0.75 if bus <= 6 else 0.0
+                    self.state[f"{prefix}/mix/{bus:02d}/on"] = 1
+
+            # Mono/Center send (off for every channel by default)
+            self.state[f"{prefix}/mix/mono"] = 0
+
+            # Digital trim, gate/expander and automix (needed for rollback pre-reads)
+            self.state[f"{prefix}/preamp/trim"] = 0.5  # 0 dB
+            self.state[f"{prefix}/gate/on"] = 0
+            self.state[f"{prefix}/gate/mode"] = 3      # EXP2
+            self.state[f"{prefix}/gate/thr"] = 0.0
+            self.state[f"{prefix}/gate/range"] = 0.0
+            self.state[f"{prefix}/gate/filter/on"] = 0
+            self.state[f"{prefix}/gate/filter/f"] = 0.5
+            self.state[f"{prefix}/automix/group"] = 0  # OFF
+            self.state[f"{prefix}/automix/weight"] = 0.5
+
+        # 3b. Mix buses 1-16 are monitor/aux buses: not summed to Main, Mono or Matrix
+        for bus in range(1, 17):
+            b_prefix = f"/bus/{bus:02d}"
+            self.state[f"{b_prefix}/config/name"] = f"MixBus {bus:02d}"
+            self.state[f"{b_prefix}/mix/on"] = 1
+            self.state[f"{b_prefix}/mix/fader"] = 0.75
+            self.state[f"{b_prefix}/mix/st"] = 0
+            self.state[f"{b_prefix}/mix/mono"] = 0
+            for mtx in range(1, 7):
+                self.state[f"{b_prefix}/mix/{mtx:02d}/on"] = 0
+                self.state[f"{b_prefix}/mix/{mtx:02d}/level"] = 0.0
 
         # 4. Routing Architecture
         self.state['/config/routing/IN'] = 'AES50A 1-16'

@@ -66,7 +66,7 @@ class TestSprint7Wizards(unittest.TestCase):
         res = self.client.post("/api/v1/hardware/connect", json={
             "mode": "SIMULATOR",
             "ip": "127.0.0.1",
-            "port": 10023,
+            "port": int(os.environ.get("CHURCHMIX_X32_PORT", "10023")),
         })
         self.assertEqual(res.status_code, 200)
         data = res.json()
