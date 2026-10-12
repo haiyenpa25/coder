@@ -63,6 +63,11 @@
         <span id="headerSoundcheckLabel">Soundcheck Ảo</span>
       </button>
 
+      <button onclick="openHallModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
+        <i class="fa-solid fa-church text-teal-400"></i>
+        <span id="headerHallLabel">Phòng: Đang tải...</span>
+      </button>
+
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-file-invoice text-amber-400"></i>
         <span>In Báo Cáo</span>
@@ -559,6 +564,43 @@
             <span class="text-xs font-mono px-3 py-1 rounded-full bg-cyan-600/20 text-cyan-300 border border-cyan-500/40 font-bold">ACOUSTIC H1</span>
           </div>
 
+          <!-- Active Hall Acoustic Profile Banner -->
+          <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-2">
+                <i class="fa-solid fa-church text-teal-400"></i>
+                <span class="text-xs font-bold text-teal-300 uppercase tracking-wider">Hồ Sơ Hội Trường Đang Chọn:</span>
+                <span id="w4ActiveHallName" class="text-xs font-bold text-white font-mono">Đang tải...</span>
+              </div>
+              <div class="flex items-center space-x-2">
+                <button onclick="openHallModal()" class="px-3 py-1 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold cursor-pointer">
+                  <i class="fa-solid fa-building-circle-check mr-1"></i>Hồ Sơ Phòng
+                </button>
+                <button onclick="checkActiveHallBaselineUI()" class="px-3 py-1 rounded-lg bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-[11px] font-semibold cursor-pointer">
+                  <i class="fa-solid fa-chart-line mr-1"></i>So Sánh Baseline
+                </button>
+              </div>
+            </div>
+            <div class="grid grid-cols-4 gap-2.5 text-center font-mono text-[11px]">
+              <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-[10px] text-slate-500">Mục Tiêu RT60</div>
+                <div id="w4TargetRt60" class="text-white font-bold mt-0.5">-- s</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-[10px] text-slate-500">Delay Chuẩn FOH</div>
+                <div id="w4NominalDelay" class="text-cyan-400 font-bold mt-0.5">-- ms</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-[10px] text-slate-500">Target Slope</div>
+                <div id="w4TargetSlope" class="text-indigo-300 font-bold mt-0.5">-- dB/oct</div>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                <div class="text-[10px] text-slate-500">So Sánh Baseline</div>
+                <div id="w4BaselineStatusBadge" class="text-emerald-400 font-bold mt-0.5">CHƯA KIỂM TRA</div>
+              </div>
+            </div>
+          </div>
+
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs">
             <div>
               <label class="font-bold text-slate-300 block mb-1.5">Vị Trí Đo Âm Học (Mic Position):</label>
@@ -1037,6 +1079,118 @@
           </button>
         </div>
         <button onclick="closeSoundcheckModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3.8: MULTI-SANCTUARY HALL PROFILES       -->
+  <!-- ============================================== -->
+  <div id="hallProfileModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-teal-600/30 border border-teal-500/40 flex items-center justify-center text-teal-400 text-lg">
+            <i class="fa-solid fa-church"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Hồ Sơ Âm Học Hội Trường & Phòng Nhóm (Multi-Sanctuary Profiles)</h3>
+            <p class="text-[11px] text-slate-400">Quản lý và kích hoạt preset âm học theo từng không gian sinh hoạt & thờ phượng</p>
+          </div>
+        </div>
+        <button onclick="closeHallModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Active Hall Card -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-teal-500/30 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-teal-400 animate-pulse"></span>
+              <span class="font-bold text-white uppercase tracking-wider" id="hallModalActiveName">Hội Trường Lớn (Main Sanctuary)</span>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-teal-900/60 text-teal-300 font-bold" id="hallModalActiveBadge">ĐANG HOẠT ĐỘNG</span>
+            </div>
+            <button onclick="checkActiveHallBaselineUI()" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-[11px] shadow-sm cursor-pointer flex items-center space-x-1.5">
+              <i class="fa-solid fa-gauge-high"></i>
+              <span>Kiểm Tra Lệch Baseline</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-center font-mono text-[11px]">
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Mục Tiêu RT60</div>
+              <div id="hallModalActiveRt60" class="text-white font-bold mt-0.5">1.60 s</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Delay Chuẩn FOH</div>
+              <div id="hallModalActiveDelay" class="text-cyan-400 font-bold mt-0.5">3.5 ms</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Độ Ồn Nền (Noise)</div>
+              <div id="hallModalActiveNoise" class="text-indigo-300 font-bold mt-0.5">-62.0 dBFS</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Sức Chứa</div>
+              <div id="hallModalActiveSeats" class="text-amber-300 font-bold mt-0.5">800 chỗ</div>
+            </div>
+          </div>
+
+          <div class="text-[11px] text-slate-400">
+            <span class="text-slate-500 font-semibold">Hệ thống loa:</span> <span id="hallModalActiveSpeakers" class="text-slate-300">Line Array FOH Treo + Front Fills Bục Giảng</span>
+          </div>
+          <div class="text-[11px] text-slate-400">
+            <span class="text-slate-500 font-semibold">Ghi chú âm học:</span> <span id="hallModalActiveNotes" class="text-slate-300 italic">Hội trường thánh đường chính, vòm gỗ ấm áp.</span>
+          </div>
+        </div>
+
+        <!-- Baseline Comparison Results Box (Dynamically Populated) -->
+        <div id="hallBaselineResultBox" class="hidden p-4 rounded-xl bg-slate-950 border border-cyan-500/40 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-chart-simple text-cyan-400"></i>
+              <span class="font-bold text-white">Kết Quả So Sánh Baseline Âm Học</span>
+            </div>
+            <span id="hallBaselineStatusTag" class="text-[10px] font-mono px-2 py-0.5 rounded font-bold">HEALTHY</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5 text-center font-mono text-[11px]">
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Độ Lệch RMS Toàn Dải</div>
+              <div id="hallBaselineRms" class="text-cyan-400 font-bold mt-0.5">0.30 dB</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Lệch Delay Thời Gian</div>
+              <div id="hallBaselineDelayDrift" class="text-white font-bold mt-0.5">0.00 ms</div>
+            </div>
+            <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500">Bất Biến Bảo Vệ</div>
+              <div class="text-emerald-400 font-bold mt-0.5">NO-BOOST-IN-NULLS</div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5">
+            <div class="text-[10px] text-slate-400 uppercase font-semibold">Khuyến Nghị Kỹ Thuật (Tactical Recommendations):</div>
+            <div id="hallBaselineRecs" class="text-[11px] font-mono text-slate-300 space-y-1 bg-slate-900 p-2.5 rounded-lg border border-slate-800"></div>
+          </div>
+        </div>
+
+        <!-- Available Hall Presets List -->
+        <div>
+          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">Chọn Không Gian Để Kích Hoạt:</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="hallPresetsGrid"></div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">Bảo lưu bất biến an toàn khi chuyển đổi phòng.</span>
+        <button onclick="closeHallModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
           Đóng
         </button>
       </div>
@@ -2465,12 +2619,184 @@
       }
     }
 
+    // ========================================================
+    // SANCTUARY HALL ACOUSTIC PROFILES & BASELINE COMPARISON
+    // ========================================================
+    let cachedHallsData = null;
+    let activeHallProfile = null;
+
+    function openHallModal() {
+      document.getElementById('hallProfileModal').classList.remove('hidden');
+      fetchActiveHallInfo();
+    }
+
+    function closeHallModal() {
+      document.getElementById('hallProfileModal').classList.add('hidden');
+    }
+
+    async function fetchActiveHallInfo() {
+      try {
+        const res = await fetch('/api/v1/halls');
+        const data = await res.json();
+        cachedHallsData = data;
+        const activeId = data.active_hall_id;
+        const activeHall = data.halls.find(h => h.id === activeId) || data.halls[0];
+        activeHallProfile = activeHall;
+
+        // Update Header Button
+        const headerBtn = document.getElementById('headerHallLabel');
+        if (headerBtn && activeHall) {
+          headerBtn.innerText = `Phòng: ${activeHall.name.split(' (')[0]}`;
+        }
+
+        // Update Wizard 4 Card
+        const w4Name = document.getElementById('w4ActiveHallName');
+        const w4Rt60 = document.getElementById('w4TargetRt60');
+        const w4Delay = document.getElementById('w4NominalDelay');
+        const w4Slope = document.getElementById('w4TargetSlope');
+        if (w4Name) w4Name.innerText = activeHall.name;
+        if (w4Rt60) w4Rt60.innerText = `${activeHall.target_rt60_seconds}s`;
+        if (w4Delay) w4Delay.innerText = `${activeHall.nominal_delay_ms} ms`;
+        if (w4Slope) w4Slope.innerText = `${activeHall.target_curve_slope_db_per_oct} dB/oct`;
+
+        // Update Modal Active Section
+        const mName = document.getElementById('hallModalActiveName');
+        const mRt60 = document.getElementById('hallModalActiveRt60');
+        const mDelay = document.getElementById('hallModalActiveDelay');
+        const mNoise = document.getElementById('hallModalActiveNoise');
+        const mSeats = document.getElementById('hallModalActiveSeats');
+        const mSpeakers = document.getElementById('hallModalActiveSpeakers');
+        const mNotes = document.getElementById('hallModalActiveNotes');
+        if (mName) mName.innerText = activeHall.name;
+        if (mRt60) mRt60.innerText = `${activeHall.target_rt60_seconds} s`;
+        if (mDelay) mDelay.innerText = `${activeHall.nominal_delay_ms} ms`;
+        if (mNoise) mNoise.innerText = `${activeHall.ambient_noise_dbfs} dBFS`;
+        if (mSeats) mSeats.innerText = `${activeHall.capacity_seats} chỗ`;
+        if (mSpeakers) mSpeakers.innerText = activeHall.speaker_system;
+        if (mNotes) mNotes.innerText = activeHall.notes || "Không có ghi chú thêm.";
+
+        // Render Presets Grid
+        renderHallPresetsGrid(data.halls, activeId);
+      } catch (e) {
+        console.error("Error fetching hall profiles:", e);
+      }
+    }
+
+    function renderHallPresetsGrid(halls, activeId) {
+      const grid = document.getElementById('hallPresetsGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      halls.forEach(hall => {
+        const isActive = hall.id === activeId;
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-xl border transition-all ${
+          isActive
+            ? 'border-teal-500 bg-teal-950/40 shadow-lg shadow-teal-500/10'
+            : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="font-bold text-white text-xs">${hall.name}</span>
+            <span class="text-[10px] font-mono px-2 py-0.5 rounded ${
+              isActive ? 'bg-teal-900/80 text-teal-300 font-bold' : 'bg-slate-900 text-slate-400'
+            }">${isActive ? 'ĐANG CHỌN' : `${hall.capacity_seats} Chỗ`}</span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-tight mb-2.5">${hall.notes || ''}</p>
+          <div class="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-300 mb-3 bg-slate-900/80 p-2 rounded-lg">
+            <div>RT60: <span class="text-teal-400 font-bold">${hall.target_rt60_seconds}s</span></div>
+            <div>Delay: <span class="text-cyan-400 font-bold">${hall.nominal_delay_ms}ms</span></div>
+            <div class="col-span-2 truncate">Loa: <span class="text-slate-400">${hall.speaker_system}</span></div>
+          </div>
+          <button onclick="activateHallProfile('${hall.id}')" ${isActive ? 'disabled' : ''} class="w-full py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            isActive
+              ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+              : 'bg-teal-600 hover:bg-teal-500 text-white shadow-md'
+          }">
+            ${isActive ? '✓ Đang Hoạt Động' : 'Kích Hoạt Phòng Này'}
+          </button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    async function activateHallProfile(hallId) {
+      try {
+        const res = await fetch(`/api/v1/halls/${hallId}/activate`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          addAuditEntry("HALL_PROFILE", `Đã kích hoạt hồ sơ phòng: ${data.active_hall.name}`);
+          fetchActiveHallInfo();
+          alert(`✅ ĐÃ KÍCH HOẠT THÀNH CÔNG:\n${data.active_hall.name}\n• Mục tiêu RT60: ${data.active_hall.target_rt60_seconds}s\n• Delay FOH: ${data.active_hall.nominal_delay_ms}ms`);
+        } else {
+          alert("Lỗi kích hoạt phòng: " + data.detail);
+        }
+      } catch (e) {
+        alert("Lỗi kết nối API: " + e);
+      }
+    }
+
+    async function checkActiveHallBaselineUI() {
+      const box = document.getElementById('hallBaselineResultBox');
+      if (box) box.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/v1/halls/active/compare');
+        const diff = await res.json();
+
+        // Update W4 Badge
+        const w4Badge = document.getElementById('w4BaselineStatusBadge');
+        if (w4Badge) {
+          if (diff.status === 'HEALTHY') {
+            w4Badge.className = 'text-emerald-400 font-bold mt-0.5';
+            w4Badge.innerText = 'HEALTHY (TỐT)';
+          } else {
+            w4Badge.className = 'text-amber-400 font-bold mt-0.5';
+            w4Badge.innerText = 'LỆCH BASELINE';
+          }
+        }
+
+        // Update Modal elements
+        const statusTag = document.getElementById('hallBaselineStatusTag');
+        const rmsEl = document.getElementById('hallBaselineRms');
+        const delayEl = document.getElementById('hallBaselineDelayDrift');
+        const recsBox = document.getElementById('hallBaselineRecs');
+
+        if (statusTag) {
+          if (diff.status === 'HEALTHY') {
+            statusTag.className = 'text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-emerald-950 text-emerald-300 border border-emerald-800';
+            statusTag.innerText = 'CHUẨN BASELINE (HEALTHY)';
+          } else {
+            statusTag.className = 'text-[10px] font-mono px-2 py-0.5 rounded font-bold bg-amber-950 text-amber-300 border border-amber-800';
+            statusTag.innerText = 'CÓ ĐỘ LỆCH (DEVIATED)';
+          }
+        }
+        if (rmsEl) rmsEl.innerText = `${diff.rms_deviation_db.toFixed(2)} dB`;
+        if (delayEl) delayEl.innerText = `${diff.delay_drift_ms > 0 ? '+' : ''}${diff.delay_drift_ms.toFixed(2)} ms`;
+        if (recsBox) {
+          recsBox.innerHTML = '';
+          (diff.recommendations_vi || []).forEach(r => {
+            const item = document.createElement('div');
+            item.className = 'flex items-start space-x-1.5';
+            item.innerHTML = `<i class="fa-solid fa-circle-info text-cyan-400 text-[10px] mt-0.5"></i><span>${r}</span>`;
+            recsBox.appendChild(item);
+          });
+        }
+
+        addAuditEntry("BASELINE_CHECK", `So sánh baseline phòng: Status=${diff.status}, RMS Delta=${diff.rms_deviation_db.toFixed(2)}dB.`);
+      } catch (e) {
+        alert("Lỗi kiểm tra baseline: " + e);
+      }
+    }
+
     // --- Initialize ---
     window.addEventListener('load', () => {
       loadStatus();
       loadChannels();
       loadAuditHistory();
       fetchSoundcheckStatus();
+      fetchActiveHallInfo();
       initWebSocket();
     });
   </script>

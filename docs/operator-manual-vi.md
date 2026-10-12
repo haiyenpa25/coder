@@ -63,3 +63,50 @@
 ### 5. KẾT THÚC BUỔI LỄ (WIZARD 7)
 1. Nhấn nút **`[Wizards Quy Trình]`** $\rightarrow$ Chọn tab **`W7: Báo Cáo Buổi Lễ`**.
 2. Nhấn nút **`Xuất Báo Cáo (.md)`** để tải về nhật ký vận hành buổi lễ lưu trữ cho ban kỹ thuật.
+
+---
+
+### 6. TẬP LỄ ẢO KỸ THUẬT SỐ (VIRTUAL SOUNDCHECK)
+Khi ban nhạc và ca đoàn chưa có mặt đủ hoặc kỹ thuật viên cần cân chỉnh trước:
+1. Nhấn nút **`[Soundcheck Ảo]`** màu xanh dương trên thanh Header.
+2. Chọn 1 trong 4 phiên tập multitrack 32 track mẫu:
+   - **Thờ Phượng Êm Dịu (Ballad):** Piano, Acoustic Guitar, Nữ đơn ca.
+   - **Ngợi Khen Sôi Động (Uptempo):** Trống cajon/kick, Bass, Guitar, Nam đơn ca.
+   - **Bài Giảng Mục Sư (Preaching):** Giọng nói Mục sư kiểm tra Silence Hold & Leveler.
+   - **Cầu Nguyện Chung (Prayer):** Tiếng cầu nguyện kết hợp piano êm dịu.
+3. Bấm **`Bắt Đầu Phát Đa Kênh`** để đưa luồng âm thanh vào hệ thống phân tích RTA và cân chỉnh EQ.
+4. Bất biến an toàn DL16 #11 tự động kích hoạt bảo vệ: tín hiệu Talkback luôn bị cách ly ở mức an toàn -55dBFS, tuyệt đối không lọt ra Main FOH.
+
+---
+
+### 7. CHỌN HỒ SƠ PHÒNG & SO SÁNH BASELINE ÂM HỌC (MULTI-SANCTUARY)
+Khi làm lễ ở các hội trường hoặc phòng nhóm khác nhau:
+1. Nhấn nút **`[Phòng: ...]`** màu xanh ngọc trên thanh Header.
+2. Chọn không gian phục vụ:
+   - **Hội Trường Lớn (Main Sanctuary):** Sức chứa 800 chỗ, RT60 mục tiêu 1.60s, Line Array FOH.
+   - **Phòng Giới Trẻ (Youth Chapel):** Sức chứa 150 chỗ, RT60 0.85s, Point Source.
+   - **Hội Trường Thông Công (Fellowship Hall):** Sức chứa 300 chỗ, RT60 1.95s, Bê tông & kính.
+   - **Sân Khấu Ngoài Trời (Outdoor Campus):** Sức chứa 1200 chỗ, RT60 0.25s, Không gian mở.
+3. Nhấn **`Kích Hoạt Phòng Này`** để nạp cấu hình âm học tương ứng.
+4. Nhấn **`Kiểm Tra Lệch Baseline`** để hệ thống so sánh đáp tuyến thực tế với baseline chuẩn, đưa ra khuyến nghị kỹ thuật (kiểm tra độ lệch delay, dải tần cộng hưởng phòng hoặc khóa No-Boost-in-Nulls).
+
+---
+
+### 8. HỎI ĐÁP VỚI TRỢ LÝ AI COPILOT TIẾNG VIỆT
+1. Ở góc dưới bên phải giao diện chính, nhập câu hỏi vào ô **"Hỏi Trợ Lý Âm Học AI..."**
+2. Trợ lý tích hợp cơ sở tri thức âm học nhà thờ chuẩn và ngữ cảnh thời gian thực của mixer X32:
+   - *"Micro mục sư bị um ở dải trầm thì xử lý thế nào?"*
+   - *"Quy tắc cách ly kênh 11 Talkback ban nhạc là gì?"*
+   - *"Hệ thống có đang gặp nguy cơ hú không?"*
+3. Bấm **`Gửi`** để nhận câu trả lời chi tiết bằng tiếng Việt có cấu trúc rõ ràng.
+
+---
+
+### 9. IN BÁO CÁO BUỔI LỄ CHỦ NHẬT (PRINTABLE REPORT)
+1. Bấm nút **`[In Báo Cáo]`** trên thanh Header.
+2. Trình duyệt mở trang `/api/v1/reports/sunday-service` chuẩn HTML/CSS sẵn sàng in ấn A4:
+   - Bảng điểm an toàn hệ thống (100% DL16 In 11 Isolation).
+   - Danh sách phân bổ kênh 1-32.
+   - Nhật ký điều chỉnh và can thiệp fader.
+   - Khuyến nghị âm học cho buổi lễ kế tiếp.
+3. Nhấn `Ctrl + P` để in ra giấy hoặc lưu thành file PDF nộp cho Ban Trị Sự / Mục Sư.

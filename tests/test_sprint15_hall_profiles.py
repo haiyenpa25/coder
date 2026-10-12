@@ -176,6 +176,17 @@ class TestSprint15HallProfiles(unittest.TestCase):
         self.assertIn("rms_deviation_db", res.json())
         self.assertIn("status", res.json())
 
+        # 5. Get active hall directly
+        res = self.client.get("/api/v1/halls/active")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()["id"], "YOUTH_CHAPEL")
+
+        # 6. Compare active hall baseline directly
+        res = self.client.get("/api/v1/halls/active/compare")
+        self.assertEqual(res.status_code, 200)
+        self.assertIn("status", res.json())
+        self.assertIn("recommendations_vi", res.json())
+
 
 if __name__ == "__main__":
     unittest.main()

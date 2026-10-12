@@ -31,15 +31,26 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint9_scene_export.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint9_scene_export.py) | **2** | Trích xuất file Scene Behringer X32 (`.scn`), Khóa cứng kênh 11 `/ch/11/mix/lr OFF` và định tuyến Ultranet `/outputs/p16/11/src 11` trên file cắm USB. | **PASS** |
 | [tests/test_sprint10_database_and_discovery.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint10_database_and_discovery.py) | **5** | SQLite Database persistence (Snapshot SHA-256, Audit Event bất biến với cryptographic hash, Phiên đo âm học H1), Tự động quét tìm bàn trộn X32 qua UDP OSC broadcast (`/info`), Wizard 6 Live Service Tactical Assistant. | **PASS** |
 | [tests/test_sprint11_e2e_service.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint11_e2e_service.py) | **4** | Kịch bản mô phỏng toàn diện buổi lễ Chúa Nhật (End-to-End Sunday Service Lifecycle): Boot & Invariant verification, Line Check 32 kênh, Vocal Tuning & Harmonic Rejection, Live Tactical Monitoring & Silence Hold & USB Scene export. | **PASS** |
-| **TỔNG CỘNG** | **63** | **Bao phủ 100% các chức năng cốt lõi và bất biến an toàn** | **100% PASS** |
+| [tests/test_sprint12_soundcheck_and_profile.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint12_soundcheck_and_profile.py) | **8** | Virtual Soundcheck Player Engine (4 phiên multitrack 32 kênh), Church Profile Manager (bảo lưu kênh 11 Talkback cách ly), Bộ tạo báo cáo in ấn Chủ Nhật (Printable Sunday Report HTML). | **PASS** |
+| [tests/test_sprint13_chaos_and_resilience.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint13_chaos_and_resilience.py) | **6** | Chaos, Fault-Injection & Safety Gate Resilience: Chặn tiêm rò rỉ Talkback FOH, Chặn can thiệp trái phép path cấm, Chặn tấn công đa kênh chéo, Chặn bước nhảy fader quá nhanh, Chống xung đột revision lock SHA-256, Tự động Rollback khi readback sai khác. | **PASS** |
+| [tests/test_sprint14_ai_copilot_rag.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint14_ai_copilot_rag.py) | **10** | Trợ lý âm học AI Copilot RAG: Khử dấu tiếng Việt tìm kiếm ngữ nghĩa, 7 bài viết tài liệu âm học nhà thờ, Tiêm ngữ cảnh thời gian thực (trạng thái STOP AUTO, Talkback Invariant, Rủi ro hú), Tích hợp REST API `/api/v1/copilot/ask`. | **PASS** |
+| [tests/test_sprint15_hall_profiles.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint15_hall_profiles.py) | **6** | Quản lý Hồ sơ Âm học Hội trường Đa không gian (Multi-Sanctuary Profiles: Main Sanctuary, Youth Chapel, Fellowship Hall, Outdoor Campus), So sánh độ lệch Baseline, Cảnh báo triệt tiêu pha No-Boost-in-Nulls, REST API chuyển đổi và đối soát baseline. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **93** | **Bao phủ 100% 15 Sprints, mọi bất biến an toàn và quy trình âm học** | **100% PASS** |
+| **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **112** | **112 / 112 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 63 bài test:
+Để thực thi toàn bộ 93 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
-Thời gian thực thi trung bình: **~18.3 giây**.
+
+Để thực thi 19 bài kiểm thử Node.js:
+```powershell
+npm test
+```
+Thời gian thực thi trung bình: **~11.5 giây (Python) + ~2.5 giây (Node)**.
 

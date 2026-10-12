@@ -107,6 +107,7 @@ active_feedback_alerts: List[Dict[str, Any]] = []
 active_proposals: Dict[str, Proposal] = {}
 
 stop_auto_triggered = False
+last_acoustic_measurement: Optional[Dict[str, Any]] = None
 
 
 @asynccontextmanager
@@ -659,6 +660,9 @@ def run_hall_acoustic_measurement(position: str = "Center Hall"):
         "curve": curve,
         "rule_enforced": "NO-BOOST-IN-NULLS: All acoustic phase cancellation dips clamped to <= 0.0 dB",
     }
+
+    global last_acoustic_measurement
+    last_acoustic_measurement = res
 
     if db:
         db.save_measurement(
@@ -1219,6 +1223,40 @@ def get_sanctuary_halls():
         "count": len(halls),
         "halls": [h.to_dict() for h in halls],
     }
+
+
+@app.get("/api/v1/halls/active")
+def get_active_sanctuary_hall():
+    """Retrieve details of the currently active sanctuary hall."""
+    hall = hall_profile_mgr.get_active_hall()
+    return hall.to_dict()
+
+
+@app.get("/api/v1/halls/active/compare")
+def compare_active_hall_baseline():
+    """Compare active hall baseline against latest or simulated measurement."""
+    active_hall = hall_profile_mgr.get_active_hall()
+    if last_acoustic_measurement and "curve" in last_acoustic_measurement:
+        curve = last_acoustic_measurement["curve"]
+        delay_ms = last_acoustic_measurement.get("delay_ms", active_hall.nominal_delay_ms)
+    else:
+        # Initial baseline comparison simulation
+        curve = [
+            {
+                "freq": pt["freq"],
+                "magnitude_db": pt.get("target_db", pt.get("magnitude_db", 0.0)) + 0.3,
+                "coherence": pt.get("coherence", 0.92),
+            }
+            for pt in (active_hall.baseline_curve or [])
+        ]
+        delay_ms = active_hall.nominal_delay_ms
+
+    diff = hall_profile_mgr.compare_measurement_against_baseline(
+        hall_id=active_hall.id,
+        measurement_curve=curve,
+        delay_ms=delay_ms,
+    )
+    return diff
 
 
 @app.get("/api/v1/halls/{hall_id}")
