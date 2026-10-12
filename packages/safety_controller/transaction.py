@@ -82,14 +82,21 @@ class SafetyPolicy:
                 )
 
             # 3. Whitelist check for allowed channel parameters:
-            # EQ, HPF, limited fader, channel mute (mix/on), or digital trim (preamp/trim)
+            # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), or automix
             is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
             is_mute = param == f"{ch_str}/mix/on"
             is_trim = param == f"{ch_str}/preamp/trim"
+            is_automix = f"{ch_str}/automix/" in param
 
-            if not (is_eq or is_hpf or is_fader or is_mute or is_trim):
+            # Hard Invariant: Channel 11 (Band Talkback) must NEVER be in Automix
+            if ch == 11 and is_automix:
+                raise ProposalRejectedError(
+                    "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER be assigned to Automix groups."
+                )
+
+            if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix):
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )

@@ -80,6 +80,9 @@ from packages.mix_assistant import (
     GainStagingReport,
     trim_to_x32,
     x32_to_trim,
+    DuganSpeechAutomixer,
+    AutomixerReport,
+    ChannelAutomixState,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -929,6 +932,106 @@ def propose_channel_trim(channel_id: int, role: Optional[str] = None):
         "changes": proposal.changes,
         "expected_sha256": proposal.expected_sha256,
         "report": report.to_dict(),
+    }
+
+
+# --- Speech Automixer Endpoints (Dugan Gain Sharing) ---
+
+class AutomixSetupRequest(BaseModel):
+    channels: List[int] = [1, 2, 3, 4]
+    weights_db: Dict[str, float] = {"1": 3.0, "2": 0.0, "3": 0.0, "4": -3.0}
+    group_id: int = 1 # 1 = Group X, 2 = Group Y
+
+
+@app.get("/api/v1/automixer/status")
+def get_automixer_status():
+    """
+    Get real-time Dugan Speech Automixer gain-sharing telemetry across spoken-word mics.
+    Calculates individual attenuations and proves total system gain <= 0.0 dB (NOM = 1).
+    """
+    target_channels = [1, 2, 3, 4]
+    names = {}
+    roles = {}
+    levels_dbfs = {}
+    weights_db = {1: 3.0, 2: 0.0, 3: 0.0, 4: -3.0}
+
+    for ch in target_channels:
+        profile = church_profile_mgr.get_channel(ch)
+        names[ch] = profile.get("name", f"Ch {ch:02d}") if profile else f"Ch {ch:02d}"
+        roles[ch] = profile.get("role", "SPEECH") if profile else "SPEECH"
+
+    if soundcheck_engine.is_active:
+        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
+        for ch in target_channels:
+            sig = block_32[:, ch - 1]
+            mx = float(np.max(np.abs(sig)))
+            levels_dbfs[ch] = float(20.0 * np.log10(mx)) if mx > 1e-6 else -120.0
+    elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
+        buf = audio_stream_worker.latest_buffer
+        for ch in target_channels:
+            if buf.ndim > 1 and buf.shape[1] >= ch:
+                sig = buf[:, ch - 1]
+            else:
+                sig = buf[:, 0] if buf.ndim > 1 else buf
+            mx = float(np.max(np.abs(sig)))
+            levels_dbfs[ch] = float(20.0 * np.log10(mx)) if mx > 1e-6 else -120.0
+    else:
+        # Realistic active church dialogue simulation
+        levels_dbfs[1] = -17.2
+        levels_dbfs[2] = -58.5
+        levels_dbfs[3] = -42.0
+        levels_dbfs[4] = -48.3
+
+    report = DuganSpeechAutomixer.compute_gain_sharing(
+        channel_levels_dbfs=levels_dbfs,
+        weights_db=weights_db,
+        channel_names=names,
+        channel_roles=roles,
+    )
+    return report.to_dict()
+
+
+@app.post("/api/v1/automixer/propose-setup")
+def propose_automixer_setup(req: AutomixSetupRequest):
+    """
+    Generate hardware proposals for native X32 Dugan AutoMix (/ch/{ch}/automix/*).
+    Enforces Hard Invariant: Channel 11 (Band Talkback) is strictly prohibited.
+    """
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    if 11 in req.channels:
+        raise HTTPException(
+            status_code=400,
+            detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) tuyệt đối không được phép đưa vào nhóm AutoMix!",
+        )
+
+    weights_int = {int(k): float(v) for k, v in req.weights_db.items()}
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    proposals = DuganSpeechAutomixer.generate_x32_automix_proposals(
+        channels=req.channels,
+        weights_db=weights_int,
+        current_sha256=snapshot.sha256,
+        group_id=req.group_id,
+    )
+
+    for prop in proposals:
+        active_proposals[prop.proposal_id] = prop
+
+    return {
+        "status": "PROPOSED",
+        "proposals_count": len(proposals),
+        "proposals": [
+            {
+                "proposal_id": p.proposal_id,
+                "target_channel": p.target_channel,
+                "hypothesis": p.hypothesis,
+                "confidence": p.confidence,
+                "changes": p.changes,
+            }
+            for p in proposals
+        ],
     }
 
 

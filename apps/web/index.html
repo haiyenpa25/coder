@@ -89,6 +89,11 @@
         <span id="headerLivestreamLabel">Live: Đang đo...</span>
       </button>
 
+      <button onclick="openAutomixModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-cyan-600/20 hover:bg-cyan-600/30 text-cyan-300 border border-cyan-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm" title="Quản lý Dugan Speech Automixer & Chia sẻ Gain tự động">
+        <i class="fa-solid fa-microphone-lines text-cyan-400"></i>
+        <span id="headerAutomixLabel">AutoMix: NOM=1</span>
+      </button>
+
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-file-invoice text-amber-400"></i>
         <span>In Báo Cáo</span>
@@ -1697,6 +1702,105 @@
         <button onclick="closeLivestreamModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
           Đóng
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL: DUGAN SPEECH AUTOMIXER & GAIN SHARING   -->
+  <!-- ============================================== -->
+  <div id="automixModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-cyan-500/20 shadow-md">
+            <i class="fa-solid fa-microphone-lines text-lg"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-base font-bold text-white tracking-tight">DUGAN SPEECH AUTOMIXER & BỘ CHIA SẺ GAIN</h3>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800 font-bold">NOM = 1 Invariant</span>
+            </div>
+            <p class="text-xs text-slate-400">Triệt tiêu ồn nền, loại trừ comb-filtering và chống hú khi mở nhiều micro phát biểu cùng lúc</p>
+          </div>
+        </div>
+        <button onclick="closeAutomixModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer transition-all">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Overview Stats Grid -->
+      <div class="p-4 bg-slate-950/50 border-b border-slate-800 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="text-[10px] text-slate-400 uppercase font-semibold">Tổng Gain Âm Học</div>
+          <div class="text-lg font-bold font-mono text-emerald-400 mt-0.5" id="automixTotalGain">0.0 dB (NOM=1)</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Không tăng âm lượng tổng thể</div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="text-[10px] text-slate-400 uppercase font-semibold">Tiết Kiệm Ồn Nền</div>
+          <div class="text-lg font-bold font-mono text-cyan-400 mt-0.5" id="automixSavings">+6.0 dB SNR</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Giảm vang vọng hội trường</div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="text-[10px] text-slate-400 uppercase font-semibold">Người Đang Nói Chính</div>
+          <div class="text-sm font-bold text-white mt-1 truncate" id="automixPrimarySpeaker">Mục Sư (CH 1)</div>
+          <div class="text-[10px] text-emerald-400 mt-0.5" id="automixActiveCount">1 micro hoạt động</div>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="text-[10px] text-slate-400 uppercase font-semibold">Trạng Thái Silence Hold</div>
+          <div class="text-sm font-bold font-mono text-amber-400 mt-1" id="automixSilenceHold">SẴN SÀNG</div>
+          <div class="text-[10px] text-slate-500 mt-0.5">Khóa gain khi tất cả im lặng</div>
+        </div>
+      </div>
+
+      <!-- Content -->
+      <div class="p-6 overflow-y-auto custom-scrollbar space-y-4 flex-1 text-xs">
+        <!-- Invariant Banner -->
+        <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between">
+          <div class="flex items-center space-x-2.5">
+            <i class="fa-solid fa-shield-halved text-emerald-400 text-lg"></i>
+            <div>
+              <span class="font-bold text-white text-xs">BẢO VỆ BẤT BIẾN AN TOÀN:</span>
+              <span class="text-emerald-300/90 text-xs ml-1">Kênh 11 (Band Talkback) tuyệt đối được cách ly 100%, không bao giờ tham gia nhóm Automixer.</span>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300 border border-emerald-600 font-bold">ISOLATED OK</span>
+        </div>
+
+        <!-- Channels Table -->
+        <div class="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
+          <div class="p-3 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
+            <span class="font-bold text-slate-200">Các Micro Trong Nhóm Chia Sẻ Gain (Speech Group X):</span>
+            <span class="text-[11px] text-slate-400 font-mono">Dugan Gain Sharing Formula: g_k = P_k / sum(P)</span>
+          </div>
+
+          <div id="automixChannelsList" class="p-3 space-y-3">
+            <!-- Dynamic channel strips -->
+          </div>
+        </div>
+
+        <!-- Advice Box -->
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start space-x-2.5">
+          <i class="fa-solid fa-lightbulb text-amber-400 mt-0.5 text-sm flex-shrink-0"></i>
+          <span id="automixAdviceText" class="text-slate-300 leading-relaxed font-sans">
+            Đang phân tích hoạt động nói và phân bổ mức gain...
+          </span>
+        </div>
+      </div>
+
+      <!-- Footer Actions -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">X32 Native Hardware AutoMix DSP hỗ trợ tối đa 8 kênh (Ch 1-8).</span>
+        <div class="flex items-center space-x-2">
+          <button onclick="proposeNativeAutomixHardwareUI()" class="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5 transition-all">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            <span>Áp Dụng AutoMix Vào Phần Cứng X32</span>
+          </button>
+          <button onclick="closeAutomixModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+            Đóng
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -4300,6 +4404,181 @@
       }
     }
 
+    // ========================================================
+    // DUGAN SPEECH AUTOMIXER & GAIN SHARING CONTROLLER
+    // ========================================================
+    let automixInterval = null;
+
+    function openAutomixModal() {
+      document.getElementById('automixModal').classList.remove('hidden');
+      fetchAutomixerStatus();
+      if (!automixInterval) {
+        automixInterval = setInterval(fetchAutomixerStatus, 2000);
+      }
+    }
+
+    function closeAutomixModal() {
+      document.getElementById('automixModal').classList.add('hidden');
+      if (automixInterval) {
+        clearInterval(automixInterval);
+        automixInterval = null;
+      }
+    }
+
+    async function fetchAutomixerStatus() {
+      try {
+        const res = await fetch('/api/v1/automixer/status');
+        if (!res.ok) return;
+        const data = await res.json();
+        updateAutomixerUI(data);
+      } catch (e) {
+        console.error("Error fetching automixer status:", e);
+      }
+    }
+
+    function updateAutomixerUI(report) {
+      if (!report) return;
+
+      // 1. Header label
+      const headerLabel = document.getElementById('headerAutomixLabel');
+      if (headerLabel) {
+        if (!report.talkback_safe) {
+          headerLabel.innerText = "AutoMix: 🚨 TALKBACK!";
+        } else if (report.silence_hold_engaged) {
+          headerLabel.innerText = "AutoMix: SILENCE HOLD";
+        } else {
+          headerLabel.innerText = `AutoMix: NOM=1 (${report.channels ? report.channels.length : 0}ch)`;
+        }
+      }
+
+      // 2. Overview Stats
+      const gainEl = document.getElementById('automixTotalGain');
+      const savEl = document.getElementById('automixSavings');
+      const spkEl = document.getElementById('automixPrimarySpeaker');
+      const actEl = document.getElementById('automixActiveCount');
+      const holdEl = document.getElementById('automixSilenceHold');
+      const advEl = document.getElementById('automixAdviceText');
+
+      if (gainEl) gainEl.innerText = `${report.total_system_gain_db.toFixed(1)} dB (NOM=1)`;
+      if (savEl) savEl.innerText = `+${report.noise_reduction_savings_db.toFixed(1)} dB SNR`;
+      if (spkEl) {
+        if (report.primary_speaker_id) {
+          const primCh = (report.channels || []).find(c => c.channel_id === report.primary_speaker_id);
+          spkEl.innerText = primCh ? `${primCh.channel_name} (CH ${primCh.channel_id})` : `CH ${report.primary_speaker_id}`;
+        } else {
+          spkEl.innerText = "Không ai nói (Yên lặng)";
+        }
+      }
+      if (actEl) actEl.innerText = `${report.active_speakers_count} micro đang phát biểu`;
+      if (holdEl) {
+        if (report.silence_hold_engaged) {
+          holdEl.className = "text-sm font-bold font-mono text-cyan-400 mt-1";
+          holdEl.innerText = "ĐANG KHÓA (SILENCE HOLD)";
+        } else {
+          holdEl.className = "text-sm font-bold font-mono text-emerald-400 mt-1";
+          holdEl.innerText = "HOẠT ĐỘNG (ACTIVE)";
+        }
+      }
+      if (advEl && report.advice_vi) advEl.innerText = report.advice_vi;
+
+      // 3. Render Channels Strips
+      const list = document.getElementById('automixChannelsList');
+      if (list && report.channels) {
+        list.innerHTML = '';
+        report.channels.forEach(ch => {
+          const isPrimary = ch.channel_id === report.primary_speaker_id;
+          const isSpeaking = ch.is_speaking;
+          // Attenuation percentage (0 dB -> 100%, -18 dB -> 0%)
+          const attnPercent = Math.max(0, Math.min(100, ((ch.gain_sharing_attenuation_db + 18) / 18) * 100));
+
+          const card = document.createElement('div');
+          card.className = `p-3 rounded-xl border transition-all ${
+            isPrimary
+              ? 'bg-cyan-950/40 border-cyan-500/60 shadow-md shadow-cyan-500/10'
+              : (isSpeaking ? 'bg-slate-900 border-slate-700' : 'bg-slate-950 border-slate-800')
+          }`;
+
+          card.innerHTML = `
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center space-x-2.5">
+                <span class="w-2.5 h-2.5 rounded-full ${isSpeaking ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}"></span>
+                <span class="font-bold text-white text-xs">CH ${ch.channel_id < 10 ? '0' : ''}${ch.channel_id}: ${ch.channel_name}</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 font-mono">${ch.role}</span>
+                ${isPrimary ? '<span class="text-[9px] px-2 py-0.5 rounded bg-cyan-900/80 text-cyan-200 border border-cyan-700 font-bold uppercase">Ưu Tiên Số 1</span>' : ''}
+              </div>
+              <div class="flex items-center space-x-3 text-[11px] font-mono">
+                <span class="text-slate-400">Đầu vào: <strong class="text-slate-200">${ch.level_dbfs} dBFS</strong></span>
+                <span class="text-slate-400">Trọng số: <strong class="text-indigo-300">${ch.weight_db > 0 ? '+' : ''}${ch.weight_db} dB</strong></span>
+                <span class="text-cyan-300 font-bold">Phân bổ: ${ch.gain_sharing_attenuation_db > 0 ? '+' : ''}${ch.gain_sharing_attenuation_db} dB</span>
+              </div>
+            </div>
+            <!-- Gain Allocation Visual Bar -->
+            <div class="w-full bg-slate-950 rounded-full h-2.5 border border-slate-800 overflow-hidden relative">
+              <div class="h-full transition-all duration-300 ${isPrimary ? 'bg-gradient-to-r from-cyan-500 to-emerald-400' : 'bg-gradient-to-r from-blue-600 to-cyan-500'}" style="width: ${attnPercent}%"></div>
+            </div>
+          `;
+          list.appendChild(card);
+        });
+      }
+    }
+
+    async function proposeNativeAutomixHardwareUI() {
+      try {
+        const res = await fetch('/api/v1/automixer/propose-setup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channels: [1, 2, 3, 4],
+            weights_db: { "1": 3.0, "2": 0.0, "3": 0.0, "4": -3.0 },
+            group_id: 1,
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi tạo đề xuất AutoMix: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const data = await res.json();
+        closeAutomixModal();
+
+        alert(`✅ ĐÃ TẠO THÀNH CÔNG ${data.proposals_count} ĐỀ XUẤT AUTOMIX:\n` +
+          data.proposals.map(p => `• Kênh ${p.target_channel}: ${p.hypothesis}`).join('\n') +
+          `\n\nVui lòng duyệt và áp dụng trên Bảng Đề Xuất (Panel 2)!`
+        );
+
+        if (data.proposals && data.proposals.length > 0) {
+          const first = data.proposals[0];
+          activeProposalId = first.proposal_id;
+          const box = document.getElementById('proposalBox');
+          if (box) {
+            box.innerHTML = `
+              <div class="flex items-center justify-between">
+                <span class="text-cyan-400 font-bold">Proposal: ${first.proposal_id}</span>
+                <span class="text-[10px] bg-cyan-950 text-cyan-300 px-2 py-0.5 rounded border border-cyan-800 font-mono">CH ${first.target_channel} • DUGAN AUTOMIX</span>
+              </div>
+              <div class="text-slate-200 font-medium">${first.hypothesis}</div>
+              <div class="text-slate-400 font-mono text-[10px] pt-1">
+                • Cài đặt X32 Native Automix DSP Group X, Trọng số ưu tiên.<br>
+                • Đảm bảo NOM = 1, chống hú tự động và triệt tiêu vang dội.
+              </div>
+            `;
+            const btn = document.getElementById('btnApplyProposal');
+            if (btn) {
+              btn.disabled = false;
+              btn.className = "w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs tracking-wider transition-all cursor-pointer shadow-lg shadow-cyan-600/30";
+            }
+            box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+
+        addAuditEntry("AUTOMIX_PROPOSE", `Đã tạo ${data.proposals_count} đề xuất cấu hình Native AutoMix cho X32.`);
+      } catch (e) {
+        alert("Lỗi kết nối API AutoMix: " + e);
+      }
+    }
+
     // --- Initialize ---
     window.addEventListener('load', () => {
       loadStatus();
@@ -4310,6 +4589,8 @@
       runPreServiceDiagnosticsUI();
       fetchLivestreamLoudness();
       setInterval(fetchLivestreamLoudness, 5000);
+      fetchAutomixerStatus();
+      setInterval(fetchAutomixerStatus, 5000);
       initWebSocket();
     });
   </script>

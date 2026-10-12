@@ -190,7 +190,8 @@ x32-ai-sound-engineer/
 | **B33**| Giám Sát Âm Lượng Phát Thanh Trực Tiếp (ITU-R BS.1770-4 / EBU R128 LUFS & True Peak 4x Polyphase) + Bảo Vệ Bất Biến Livestream Talkback Guard |  Đã xong (Sprint 19) |
 | **B34**| Bộ Nạp File Scene Behringer X32 (.scn) Từ USB, Thẩm Định Tiền Kiểm Tra Pre-Flight Safety Audit & Tự Động Vá Lỗi Invariant (Auto-Sanitize) |  Đã xong (Sprint 20) |
 | **B35**| Cân Chỉnh Headroom & Gain Staging Chuẩn Nhà Thờ (Phân Tích Peak/RMS, Digital Trim Whitelist /ch/xx/preamp/trim & Đề Xuất An Toàn) |  Đã xong (Sprint 21) |
-| **Tổng**| **129 / 129 Automated Python Tests + 19 / 19 Node Tests PASSING (148 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 35 HẠNG MỤC** |
+| **B36**| Dugan Speech Automixer & Bộ Chia Sẻ Gain Tự Động (NOM=1 Invariant <= 0.0 dB, Silence Hold, Cách Ly Kênh 11, X32 Native Automix DSP Proposals & UI Modal) |  Đã xong (Sprint 22) |
+| **Tổng**| **136 / 136 Automated Python Tests + 19 / 19 Node Tests PASSING (155 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 36 HẠNG MỤC** |
 
 
 

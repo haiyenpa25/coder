@@ -27,6 +27,11 @@ from .gain_staging import (
     trim_to_x32,
     x32_to_trim,
 )
+from .automixer import (
+    DuganSpeechAutomixer,
+    AutomixerReport,
+    ChannelAutomixState,
+)
 
 __all__ = [
     "VoiceActivityState",
@@ -45,5 +50,9 @@ __all__ = [
     "GainStagingReport",
     "trim_to_x32",
     "x32_to_trim",
+    "DuganSpeechAutomixer",
+    "AutomixerReport",
+    "ChannelAutomixState",
 ]
+
 

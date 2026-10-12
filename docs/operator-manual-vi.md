@@ -211,6 +211,31 @@ Trước khi bắt đầu buổi lễ 15 phút:
 4. **Bảo Lưu Bất Biến Silence Hold:**
    - Khi micro không có người nói hoặc ca sĩ nghỉ hát, hệ thống **tuyệt đối không tự động tăng Gain/Trim** nhằm tránh kéo tiếng xì xào và tiếng ồn nền của hội trường.
 
+---
+
+### 16. DUGAN SPEECH AUTOMIXER & BỘ CHIA SẺ GAIN TỰ ĐỘNG (NOM = 1 INVARIANT)
+1. **Nguyên Lý Dugan Speech Automixer & Bất Biến NOM = 1:**
+   - Trong giờ lễ, khi có nhiều micro nói mở cùng lúc (Mục sư giảng luận, người hướng dẫn chương trình, đọc Kinh Thánh, cầu nguyện, micro bục giảng), tổng ồn nền của hội trường và nguy cơ hú dội tăng theo cấp số nhân ($3\text{ dB}$ cho mỗi lần nhân đôi số micro mở). Đồng thời, hiện tượng lọc lược (comb filtering) xảy ra do cùng một giọng nói lọt vào nhiều micro ở các khoảng cách khác nhau.
+   - Thuật toán **Dugan Speech Automixer** áp dụng nguyên lý chia sẻ mức tăng ích (**Gain Sharing Formula**):
+     $$g_k = \frac{P_k}{\sum_{i} P_i}$$
+     với $P_k = 10^{(L_k + w_k) / 10}$.
+   - **Bất biến $\text{NOM} = 1$ (Number of Open Microphones = 1):** Tổng độ khuếch đại âm học của toàn bộ các micro trong nhóm luôn được chuẩn hóa $\sum g_k \le 1.0$ ($0.0\text{ dB}$), tương đương như khi chỉ có duy nhất 1 micro mở.
+   - Khi Mục sư cất tiếng nói, hệ thống lập tức ưu tiên toàn bộ gain cho micro Mục sư ($0\text{ dB}$), đồng thời tự động nén dìm các micro còn lại xuống mức sàn $-18\text{ dB}$, triệt tiêu hoàn toàn tiếng vang dội và tiết kiệm từ $4.8$ đến $9.5\text{ dB}$ độ ồn nền (SNR).
+2. **Bảo Vệ Bất Biến Silence Hold:**
+   - Khi hội trường chùng xuống trong sự cầu nguyện hoặc lúc Mục sư tạm dừng giữa các câu giảng (mức tín hiệu $< -50\text{ dBFS}$), trạng thái **Silence Hold** lập tức kích hoạt:
+   - Các mức gain được khóa chặt nguyên trạng thái, tuyệt đối không tự ý đẩy fader hay tăng gain âm thanh nền (tiếng quạt, máy lạnh, tiếng cử tọa cựa quậy).
+3. **Bảo Vệ Bất Biến An Toàn Tuyệt Đối Kênh 11 (Band Talkback):**
+   - Kênh 11 (Talkback ban nhạc) bị **nghiêm cấm tuyệt đối** không được tham gia vào bất kỳ nhóm Automixer nào.
+   - Bất kỳ cấu hình hay yêu cầu đưa Kênh 11 vào nhóm Automix đều bị SafetyGate chặn đứng ngay lập tức với lỗi `InvariantViolationError`.
+4. **Sử Dụng Giao Diện Điều Khiển:**
+   - Trên thanh công cụ trên cùng, nút **`[AutoMix: NOM=1]`** màu lục lam hiển thị số micro đang kết nối và trạng thái hoạt động.
+   - Bấm nút để mở cửa sổ **Dugan Speech Automixer & Bộ Chia Sẻ Gain**.
+   - Cửa sổ hiển thị thời gian thực: Tổng Gain âm học ($0.0\text{ dB}$), Mức tiết kiệm ồn nền, Người đang nói chính, Trạng thái Silence Hold, và dải thanh hiển thị tỷ lệ chia sẻ gain của từng kênh micro.
+5. **Đồng Bộ Vào Phần Cứng Mixer Behringer X32 DSP:**
+   - Bàn mixer X32 / M32 tích hợp sẵn 8 kênh xử lý Automix DSP phần cứng không độ trễ (Zero Latency) trên Kênh 1 đến Kênh 8.
+   - Bấm nút **`[Áp Dụng AutoMix Vào Phần Cứng X32]`**: Hệ thống tự động tạo 4 đề xuất thiết lập Native AutoMix (`/ch/xx/automix/group` và `/ch/xx/automix/weight`), chuyển sang Bảng Đề Xuất để kỹ thuật viên xem xét và duyệt nạp an toàn xuống mixer.
+
+
 
 
 
