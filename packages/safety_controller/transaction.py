@@ -82,21 +82,27 @@ class SafetyPolicy:
                 )
 
             # 3. Whitelist check for allowed channel parameters:
-            # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), or automix
+            # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), automix, or gate/expander
             is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
             is_mute = param == f"{ch_str}/mix/on"
             is_trim = param == f"{ch_str}/preamp/trim"
             is_automix = f"{ch_str}/automix/" in param
+            is_gate = f"{ch_str}/gate/" in param
 
-            # Hard Invariant: Channel 11 (Band Talkback) must NEVER be in Automix
+            # Hard Invariant: Channel 11 (Band Talkback) must NEVER be in Automix or Gate
             if ch == 11 and is_automix:
                 raise ProposalRejectedError(
                     "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER be assigned to Automix groups."
                 )
 
-            if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix):
+            if ch == 11 and is_gate:
+                raise ProposalRejectedError(
+                    "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER have gate/expander modified for FOH."
+                )
+
+            if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix or is_gate):
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )
@@ -112,6 +118,12 @@ class SafetyPolicy:
                 if abs(to_val - from_val) > 0.20:
                     raise ProposalRejectedError(
                         f"SAFETY LIMIT: Trim delta {abs(to_val - from_val):.3f} exceeds maximum safe limit 0.20 (~7.2 dB)."
+                    )
+
+            if is_gate and param == f"{ch_str}/gate/range" and isinstance(to_val, (int, float)):
+                if to_val > 0.40: # Max 24 dB attenuation range
+                    raise ProposalRejectedError(
+                        f"SAFETY LIMIT: Expander attenuation range {to_val:.3f} exceeds maximum safe limit 0.40 (~24 dB)."
                     )
 
 

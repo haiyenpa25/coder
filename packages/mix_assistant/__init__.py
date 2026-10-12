@@ -38,6 +38,11 @@ from .listening_test import (
     BlindABSession,
     ListeningTestEngine,
 )
+from .bleed_analyzer import (
+    ExpanderSettings,
+    CrossTalkReport,
+    StageBleedAdvisor,
+)
 
 __all__ = [
     "VoiceActivityState",
@@ -63,6 +68,9 @@ __all__ = [
     "ListeningEvaluation",
     "BlindABSession",
     "ListeningTestEngine",
+    "ExpanderSettings",
+    "CrossTalkReport",
+    "StageBleedAdvisor",
 ]
 
 

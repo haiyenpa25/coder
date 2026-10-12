@@ -262,6 +262,26 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Kéo 7 thanh trượt để chấm điểm trực quan (1.0 đến 5.0). Chỉ số MOS và lời khuyên chiến thuật sẽ cập nhật thời gian thực.
    - Bấm **`[Lưu & Duyệt Áp Dụng Proposal]`** để vừa lưu hồ sơ thẩm định vào cơ sở dữ liệu SQLite vừa gửi lệnh an toàn xuống mixer X32 qua SafetyGate.
 
+### 18. KIỂM SOÁT RÒ RỈ SÂN KHẤU (STAGE BLEED) & CÂN CHỈNH DOWNWARD EXPANDER CHO VOCAL
+1. **Bản Chất Của Rò Rỉ Sân Khấu (Stage Bleed) & Nguy Cơ Lọc Lược (Comb Filtering):**
+   - Trong không gian thánh đường có ban nhạc sống, tiếng trống Snare, Cymbals, amply đàn guitar và loa monitor sân khấu thường xuyên tràn vào các micro đơn ca, micro hướng dẫn và micro bục đọc.
+   - Khi tín hiệu từ một nguồn âm lọt vào nhiều micro ở các khoảng cách khác nhau, độ lệch pha về thời gian gây ra hiện tượng **Comb Filtering (Lọc lược)**: triệt tiêu các dải tần số quan trọng, làm mỏng giọng ca sĩ, tạo cảm giác âm thanh rỗng và thiếu tự nhiên.
+2. **Tại Sao Phải Dùng Downward Expander Thay Vì Noise Gate Cắt Cụt:**
+   - **Noise Gate thông thường:** Ngắt hoàn toàn tín hiệu khi âm lượng dưới ngưỡng. Điều này gây hiện tượng "chém đuôi chữ" (clipping word endings), làm mất tiếng thở tự nhiên, cắt đột ngột không gian vang thánh đường (reverb tail) tạo cảm giác giật cục, thiếu tôn nghiêm.
+   - **Downward Expander (Nén Mở Rộng Xuống):** Khi ca sĩ ngừng hát, hệ thống chỉ hạ nhẹ âm lượng nền xuống **8 dB đến 12 dB** (Range). Không khí phòng và đuôi vang tự nhiên vẫn được bảo toàn trọn vẹn, nhưng tiếng rò rỉ của trống và amply bị làm mờ đi đáng kể.
+3. **Chiến Lược Tối Ưu Thông Số Expander Trên X32:**
+   - **Ngưỡng Kích Hoạt (Threshold):** Tự động đo mức ồn nền thực tế (ambient noise floor) và thiết lập ngưỡng cao hơn ồn nền **+3 dB**.
+   - **Biên Độ Nén (Range):** Khống chế nghiêm ngặt trong khoảng **6 dB - 14 dB** (tối đa cho phép qua SafetyGate là 24 dB). Không bao giờ đặt range quá sâu để tránh hiện tượng bơm hút âm thanh (noise pumping).
+   - **Thời Gian Đóng/Mở (Envelope):** Attack mở cực nhanh (2 ms) để bắt trọn phụ âm đầu; Hold (80 ms) và Release dịu (350 ms) để âm đuôi ngân nga mượt mà.
+   - **Lọc Khóa Sidechain (Key Filter HPF 250 Hz):** Cắt bỏ toàn bộ dải trầm dưới 250 Hz trên đường kích hoạt detector, ngăn chặn tiếng rung sàn, tiếng chân bước và tiếng bass guitar vô tình mở micro giọng nói.
+4. **Bất Biến An Toàn Sống Còn (Hard Safety Invariant):**
+   - Kênh 11 (Band Talkback) tuyệt đối **KHÔNG BAO GIỜ** được áp dụng Expander hay Gate cho FOH, nhằm bảo đảm tín hiệu chỉ dẫn nội bộ của ban nhạc luôn thông suốt 100% trong in-ear P16.
+5. **Thao Tác Trên Web Console:**
+   - Trên bảng mixer, bấm vào bất kỳ kênh Micro nào (ví dụ Kênh 1 Pastor, Kênh 2 Lead Vocal).
+   - Trong cửa sổ **Chi Tiết Kênh (Channel Detail)**, cuộn xuống mục **"Kiểm Soát Rò Rỉ Sân Khấu & Vocal Expander"**.
+   - Quan sát Nguồn rò rỉ, Mức độ rò rỉ, Nhiễu nền và Huy hiệu mức độ rủi ro pha (Comb Risk).
+   - Bấm nút **`[Tạo Đề Xuất Downward Expander]`**. Hệ thống sẽ tính toán bộ thông số dịu nhẹ và tạo một Proposal chuẩn 5 bước lên Bảng điều khiển để kỹ thuật viên phê duyệt.
+
 
 
 

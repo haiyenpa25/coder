@@ -2148,6 +2148,48 @@
           </div>
         </div>
 
+        <!-- Stage Bleed & Downward Expander Box -->
+        <div class="p-3.5 bg-slate-950/80 rounded-xl border border-rose-500/30 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-rose-300 flex items-center">
+              <i class="fa-solid fa-ear-deaf mr-1.5 text-rose-400"></i>Kiểm Soát Rò Rỉ Sân Khấu & Vocal Expander:
+            </span>
+            <span id="cdmBleedRiskBadge" class="text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">ĐANG ĐO...</span>
+          </div>
+
+          <!-- Bleed Metrics -->
+          <div class="grid grid-cols-3 gap-2 text-[10px] font-mono text-center">
+            <div class="p-1.5 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400">Nguồn Rò Rỉ</div>
+              <div id="cdmBleedSource" class="font-bold text-white truncate">--</div>
+            </div>
+            <div class="p-1.5 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400">Mức Rò Rỉ</div>
+              <div id="cdmBleedLevel" class="font-bold text-amber-400">-50 dB</div>
+            </div>
+            <div class="p-1.5 rounded bg-slate-900 border border-slate-800">
+              <div class="text-slate-400">Noise Floor</div>
+              <div id="cdmNoiseFloor" class="font-bold text-cyan-400">-58 dBFS</div>
+            </div>
+          </div>
+
+          <!-- Advice & Proposal Button -->
+          <div class="p-2 rounded-lg bg-slate-900 border border-slate-800/80 text-[11px] text-slate-300 leading-snug flex items-start space-x-2">
+            <i class="fa-solid fa-shield-halved text-rose-400 mt-0.5 text-xs flex-shrink-0"></i>
+            <span id="cdmBleedAdvice">Đang phân tích tương quan rò rỉ âm thanh sân khấu (stage bleed) & nguy cơ comb-filtering...</span>
+          </div>
+
+          <div class="flex items-center justify-between pt-1">
+            <div class="text-[10px] font-mono text-slate-400">
+              Expander: <span id="cdmExpanderSettingsSummary" class="text-rose-300 font-bold">Thresh: -45dB | Range: 10dB</span>
+            </div>
+            <button onclick="proposeExpanderFromModal()" id="btnCdmProposeExpander" class="px-3 py-1.5 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 border border-rose-500/40 font-bold text-xs shadow-sm cursor-pointer whitespace-nowrap flex items-center space-x-1">
+              <i class="fa-solid fa-sliders text-rose-400 text-[11px]"></i>
+              <span>Tạo Đề Xuất Downward Expander</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Shortcut Action Buttons -->
         <div class="space-y-2">
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thao Tác Nhanh Theo Quy Trình (Wizards):</div>
@@ -2546,6 +2588,8 @@
 
       // Load Real-time Gain Staging & Headroom for this channel
       fetchChannelGainStaging(ch.channel);
+      // Load Stage Bleed & Vocal Expander analysis for this channel
+      fetchChannelBleedAnalysis(ch.channel);
     }
 
     function closeChannelDetailModal() {
@@ -2626,6 +2670,92 @@
         closeChannelDetailModal();
         displayProposal(data);
         addAuditEntry("GAIN_STAGING", `Tạo đề xuất cân chỉnh Digital Trim Kênh ${ch} (${data.report.recommended_trim_delta_db > 0 ? '+' : ''}${data.report.recommended_trim_delta_db} dB).`);
+      } catch (e) {
+        alert(`Lỗi mạng: ${e}`);
+      }
+    }
+
+    // --- Stage Bleed & Vocal Expander Calibration ---
+    async function fetchChannelBleedAnalysis(chId) {
+      const badge = document.getElementById('cdmBleedRiskBadge');
+      const srcEl = document.getElementById('cdmBleedSource');
+      const lvlEl = document.getElementById('cdmBleedLevel');
+      const nfEl = document.getElementById('cdmNoiseFloor');
+      const advEl = document.getElementById('cdmBleedAdvice');
+      const expSumEl = document.getElementById('cdmExpanderSettingsSummary');
+      const btn = document.getElementById('btnCdmProposeExpander');
+
+      if (badge) {
+        badge.innerText = "ĐANG ĐO...";
+        badge.className = "text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700";
+      }
+
+      try {
+        const res = await fetch(`/api/v1/bleed-analysis/${chId}`);
+        if (!res.ok) {
+          if (badge) badge.innerText = "N/A";
+          return;
+        }
+        const report = await res.json();
+
+        if (srcEl) srcEl.innerText = report.dominant_bleed_source || "None";
+        if (lvlEl) lvlEl.innerText = `${report.relative_bleed_level_db > 0 ? '+' : ''}${report.relative_bleed_level_db} dB`;
+        if (nfEl) nfEl.innerText = `${report.estimated_noise_floor_dbfs} dBFS`;
+        if (advEl) advEl.innerText = report.tactical_advice_vi;
+        
+        if (expSumEl && report.expander_settings) {
+          const s = report.expander_settings;
+          expSumEl.innerText = `Thresh: ${s.threshold_db}dB | Range: ${s.range_db}dB | HPF: ${s.sidechain_filter_freq_hz}Hz`;
+        }
+
+        if (badge) {
+          badge.innerText = `Comb Risk: ${report.comb_filtering_risk}`;
+          if (report.comb_filtering_risk === 'LOW') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800';
+          } else if (report.comb_filtering_risk === 'MODERATE') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800';
+          } else if (report.comb_filtering_risk === 'HIGH') {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-orange-950 text-orange-400 border border-orange-800';
+          } else {
+            badge.className = 'text-[9px] font-bold font-mono px-2 py-0.5 rounded bg-red-950 text-red-400 border border-red-700 animate-pulse';
+          }
+        }
+
+        // Disable button if channel 11 (Hard Invariant)
+        if (btn) {
+          if (chId === 11) {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            btn.title = "Bất biến: Không áp dụng Expander lên Band Talkback.";
+          } else {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btn.title = "";
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching bleed analysis:", e);
+      }
+    }
+
+    async function proposeExpanderFromModal() {
+      const ch = currentModalChannel;
+      if (ch === 11) {
+        alert("Bất biến an toàn: DL16 In 11 (Band Talkback) không được phép can thiệp Expander/Gate.");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/v1/bleed-analysis/${ch}/propose-expander`, { method: 'POST' });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi tạo đề xuất Downward Expander: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const data = await res.json();
+        closeChannelDetailModal();
+        displayProposal(data);
+        addAuditEntry("STAGE_BLEED", `Tạo đề xuất Downward Expander Kênh ${ch} (Range: ${data.report.expander_settings.range_db} dB, Threshold: ${data.report.expander_settings.threshold_db} dB).`);
       } catch (e) {
         alert(`Lỗi mạng: ${e}`);
       }

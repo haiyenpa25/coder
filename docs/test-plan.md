@@ -43,15 +43,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint21_gain_staging_and_headroom.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint21_gain_staging_and_headroom.py) | **6** | Cân Chỉnh Headroom & Gain Staging Chuẩn Nhà Thờ (Phân tích Peak/RMS/Crest Factor, Digital Trim Whitelist /ch/xx/preamp/trim, Bảo Vệ Headroom Lời Giảng -18 dBFS & Âm Nhạc -12 dBFS, Đề Xuất Proposal An Toàn). | **PASS** |
 | [tests/test_sprint22_speech_automixer.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint22_speech_automixer.py) | **7** | Dugan Speech Automixer & NOM=1 Gain Sharing Controller, Bất Biến Giữ Mức Tăng Ích Tổng Thể NOM=1 (<= 0.0 dB), Tiết Kiệm Ồn Nền SNR, Bất Biến Silence Hold Khóa Gain Khi Im Lặng, Cách Ly Tuyệt Đối Mic Talkback Kênh 11, Đề Xuất Cấu Hình X32 Native Automix DSP & REST API. | **PASS** |
 | [tests/test_sprint23_listening_test_benchmark.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint23_listening_test_benchmark.py) | **7** | Thẩm Định Thính Giác Mù A/B Chuẩn Quốc Tế ITU-R BS.1284, Bù Trừ Âm Lượng Equal-Loudness Fletcher-Munson, Ma Trận 7 Tiêu Chí Âm Học Nhà Thờ (Master Plan 3.4), Tính Điểm Trung Bình Trọng Số MOS (1.0-5.0), Quy Tắc Phủ Quyết An Toàn (Veto Rule), Lưu Trữ SQLite & REST API. | **PASS** |
-| **TỔNG CỘNG PYTHON** | **143** | **Bao phủ 100% 23 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer và Thẩm định thính giác mù A/B** | **100% PASS** |
+| [tests/test_sprint24_stage_bleed_and_expander.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint24_stage_bleed_and_expander.py) | **8** | Kiểm Soát Rò Rỉ Sân Khấu (Stage Bleed) & Cân Chỉnh Downward Expander Cho Vocal: Phân Tích Ma Trận Tương Quan Chéo, Phát Hiện Méo Pha Lọc Lược (Comb Filtering), Cân Chỉnh Expander Dịu Nhẹ (Threshold = Ồn Nền + 3 dB, Range <= 12 dB, Key HPF 250 Hz), Bảo Vệ Bất Biến Kênh 11 Band Talkback & REST API. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **151** | **Bao phủ 100% 24 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer, Thẩm định thính giác mù A/B và Kiểm soát rò rỉ Stage Bleed** | **100% PASS** |
 | **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **162** | **162 / 162 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **170** | **170 / 170 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 143 bài kiểm thử Python:
+Để thực thi toàn bộ 151 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
@@ -60,7 +61,7 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 ```powershell
 npm test
 ```
-Thời gian thực thi trung bình: **~25.0 giây (Python) + ~2.0 giây (Node)**.
+Thời gian thực thi trung bình: **~35.0 giây (Python) + ~2.0 giây (Node)**.
 
 
 

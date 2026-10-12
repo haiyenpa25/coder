@@ -87,6 +87,9 @@ from packages.mix_assistant import (
     ListeningEvaluation,
     BlindABSession,
     ListeningTestEngine,
+    ExpanderSettings,
+    CrossTalkReport,
+    StageBleedAdvisor,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -1143,6 +1146,133 @@ def reveal_blind_session(session_id: str):
         return session.to_dict(reveal_identity=True)
     except KeyError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+# --- Stage Bleed & Acoustic Cross-Talk Advisor Endpoints ---
+
+@app.get("/api/v1/bleed-analysis/{channel_id}")
+def analyze_channel_bleed(channel_id: int):
+    """
+    Analyze acoustic stage bleed and cross-talk into a specific vocal/speech channel.
+    Enforces Hard Safety Invariant: Channel 11 (Band Talkback) is strictly prohibited.
+    """
+    if channel_id == 11:
+        raise HTTPException(
+            status_code=400,
+            detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) được bảo vệ cách ly tuyệt đối, không phân tích FOH!",
+        )
+
+    profile = church_profile_mgr.get_channel(channel_id)
+    name = profile.get("name", f"Ch {channel_id:02d}") if profile else f"Ch {channel_id:02d}"
+    role = profile.get("role", "SPEECH") if profile else "SPEECH"
+
+    # Acquire target and stage signals (from Virtual Soundcheck if running, or realistic acoustic simulation)
+    sr = 48000
+    if soundcheck_engine.is_active:
+        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
+        target_sig = block_32[:, channel_id - 1]
+        stage_sigs = {}
+        for ch in [1, 2, 3, 4, 13, 14]:
+            if ch != channel_id and ch != 11:
+                p = church_profile_mgr.get_channel(ch)
+                ch_name = p.get("name", f"Ch {ch:02d}") if p else f"Ch {ch:02d}"
+                stage_sigs[ch] = (ch_name, block_32[:, ch - 1])
+    else:
+        # Realistic simulation: vocal signal with drum snare and stage rumble bleed
+        t = np.linspace(0, 0.5, int(0.5 * sr), endpoint=False)
+        voice = 0.12 * np.sin(2 * np.pi * 220 * t).astype(np.float32)
+        snare = 0.04 * np.sin(2 * np.pi * 180 * t).astype(np.float32) + np.random.normal(0, 0.015, len(t)).astype(np.float32)
+        target_sig = voice + 0.35 * snare
+        stage_sigs = {
+            13: ("Trống Snare / Cymbals", snare),
+            2: ("Hướng Dẫn (Mic 2)", 0.08 * np.sin(2 * np.pi * 330 * t).astype(np.float32)),
+        }
+
+    report = StageBleedAdvisor.analyze_cross_talk(
+        target_signal=target_sig,
+        target_channel=channel_id,
+        target_name=name,
+        target_role=role,
+        stage_signals=stage_sigs,
+    )
+    return report.to_dict()
+
+
+@app.post("/api/v1/bleed-analysis/{channel_id}/propose-expander")
+def propose_expander_setup(channel_id: int):
+    """
+    Generate hardware proposals for X32 Downward Expander (/ch/{ch}/gate/*).
+    Enforces Hard Safety Invariant: Channel 11 (Band Talkback) is strictly prohibited.
+    """
+    if channel_id == 11:
+        raise HTTPException(
+            status_code=400,
+            detail="BẤT BIẾN AN TOÀN SỐNG CÒN: Kênh 11 (Band Talkback) tuyệt đối không tạo đề xuất expander cho FOH!",
+        )
+
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    # Get bleed report
+    report_dict = analyze_channel_bleed(channel_id)
+    exp_data = report_dict["recommended_expander"]
+    exp_settings = ExpanderSettings(
+        enabled=exp_data["enabled"],
+        mode=exp_data["mode"],
+        threshold_dbfs=exp_data["threshold_dbfs"],
+        threshold_x32=exp_data["threshold_x32"],
+        range_db=exp_data["range_db"],
+        range_x32=exp_data["range_x32"],
+        attack_ms=exp_data["attack_ms"],
+        hold_ms=exp_data["hold_ms"],
+        release_ms=exp_data["release_ms"],
+        filter_on=exp_data["filter_on"],
+        filter_type=exp_data["filter_type"],
+        filter_freq_hz=exp_data["filter_freq_hz"],
+    )
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    proposals = StageBleedAdvisor.generate_expander_proposals(
+        channel_id=channel_id,
+        settings=exp_settings,
+        current_sha256=snapshot.sha256,
+    )
+
+    for prop in proposals:
+        active_proposals[prop.proposal_id] = prop
+
+    if db:
+        db.save_audit_event(
+            actor="Operator",
+            action="PROPOSE_EXPANDER",
+            proposal_id=proposals[0].proposal_id if proposals else None,
+            status="PROPOSED",
+            details={
+                "channel_id": channel_id,
+                "threshold_dbfs": exp_settings.threshold_dbfs,
+                "range_db": exp_settings.range_db,
+                "comb_risk": report_dict["comb_filtering_risk"],
+            }
+        )
+
+    prop_dict = None
+    if proposals:
+        p = proposals[0]
+        prop_dict = {
+            "proposal_id": p.proposal_id,
+            "target_channel": p.target_channel,
+            "hypothesis": p.hypothesis,
+            "confidence": p.confidence,
+            "changes": p.changes,
+            "expected_sha256": p.expected_sha256,
+            "operator_approved": p.operator_approved,
+        }
+
+    return {
+        "status": "PROPOSED",
+        "proposal": prop_dict,
+        "report": report_dict,
+    }
 
 
 # --- Wizard Endpoints ---

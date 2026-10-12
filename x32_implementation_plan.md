@@ -192,7 +192,8 @@ x32-ai-sound-engineer/
 | **B35**| Cân Chỉnh Headroom & Gain Staging Chuẩn Nhà Thờ (Phân Tích Peak/RMS, Digital Trim Whitelist /ch/xx/preamp/trim & Đề Xuất An Toàn) |  Đã xong (Sprint 21) |
 | **B36**| Dugan Speech Automixer & Bộ Chia Sẻ Gain Tự Động (NOM=1 Invariant <= 0.0 dB, Silence Hold, Cách Ly Kênh 11, X32 Native Automix DSP Proposals & UI Modal) |  Đã xong (Sprint 22) |
 | **B37**| Thẩm Định Thính Giác Mù A/B & Chấm Điểm 7 Tiêu Chí Âm Học (ITU-R BS.1284 / MP 3.4, Bù Trừ Equal-Loudness, Quy Tắc Phủ Quyết MOS Veto Rule & SQLite) |  Đã xong (Sprint 23) |
-| **Tổng**| **143 / 143 Automated Python Tests + 19 / 19 Node Tests PASSING (162 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 37 HẠNG MỤC** |
+| **B38**| Kiểm Soát Rò Rỉ Sân Khấu (Stage Bleed) & Cân Chỉnh Downward Expander Cho Vocal (Cross-Correlation, Comb-Filtering Detection, Gentle Expander <= 12 dB, Sidechain Key HPF 250 Hz, Khóa Bất Biến Kênh 11 & Web UI Card) |  Đã xong (Sprint 24) |
+| **Tổng**| **151 / 151 Automated Python Tests + 19 / 19 Node Tests PASSING (170 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 38 HẠNG MỤC** |
 
 
 
