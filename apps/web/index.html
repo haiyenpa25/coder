@@ -43,11 +43,11 @@
         <span class="text-xs font-mono text-emerald-400" id="mixerStatus">X32 Compact: ONLINE</span>
       </div>
 
-      <!-- Mode -->
-      <div class="flex items-center space-x-1.5 bg-indigo-950/60 border border-indigo-700/50 px-3 py-1.5 rounded-lg">
-        <i class="fa-solid fa-eye text-indigo-400 text-xs"></i>
+      <!-- Mode Selector Button -->
+      <button onclick="openSafetyModeModal()" class="flex items-center space-x-1.5 bg-indigo-950/60 border border-indigo-700/50 hover:border-indigo-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm" title="Chế độ Quyền Hạn Safety Engine: Bấm để chuyển đổi giữa OBSERVE, ASSIST, LIMITED_AUTO, ADMIN">
+        <i class="fa-solid fa-shield-halved text-indigo-400 text-xs" id="modeIcon"></i>
         <span class="text-xs font-semibold text-indigo-300" id="modeBadge">OBSERVE (Chỉ đọc)</span>
-      </div>
+      </button>
 
       <!-- Hard Invariant DL16 #11 Badge -->
       <div class="flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-600/40 px-3 py-1.5 rounded-lg" title="Bất biến an toàn: DL16 In 11 chỉ đi về P16, cách ly 100% khỏi Main FOH">
@@ -2216,6 +2216,123 @@
     </div>
   </div>
 
+  <!-- ========================================== -->
+  <!-- MODAL 4B: SAFETY ENGINE OPERATING MODES     -->
+  <!-- ========================================== -->
+  <div id="safetyModeModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 font-bold text-lg">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <h3 class="text-sm font-bold text-white">Chế Độ Quyền Hạn Safety Engine</h3>
+              <span id="smModalStatusBadge" class="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-950 text-indigo-400 border border-indigo-800">OBSERVE</span>
+            </div>
+            <p class="text-[11px] text-slate-400">Thiết lập 4 cấp độ quyền hạn và kích hoạt khóa an toàn (Master Plan 8.1 & 8.4)</p>
+          </div>
+        </div>
+        <button onclick="closeSafetyModeModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Notice if Disengaged -->
+        <div id="smDisengageAlert" class="hidden p-3 rounded-xl bg-rose-950/60 border border-rose-600/60 flex items-start space-x-3">
+          <i class="fa-solid fa-triangle-exclamation text-rose-400 text-lg mt-0.5 flex-shrink-0"></i>
+          <div>
+            <div class="font-bold text-rose-300">🚨 ĐÃ KÍCH HOẠT AUTO-DISENGAGE (PANIC FREEZE)</div>
+            <div id="smDisengageMsg" class="text-[11px] text-slate-300 mt-0.5">Toàn bộ lệnh ghi đã bị khóa cứng. Hệ thống trở về chế độ OBSERVE an toàn.</div>
+          </div>
+        </div>
+
+        <!-- Mode Radio Options -->
+        <div class="space-y-2.5">
+          <!-- 1. OBSERVE -->
+          <label class="flex items-start p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+            <input type="radio" name="safetyModeRadio" value="OBSERVE" class="mt-1 text-indigo-600 focus:ring-indigo-500" checked onchange="onSafetyModeRadioChange()">
+            <div class="ml-3 flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-white">1. OBSERVE (Chỉ Đọc — Khuyên Dùng Trong Lễ)</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono">MẶC ĐỊNH</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">Chỉ đọc telemetry, cấm tuyệt đối mọi lệnh gửi OSC write xuống mixer X32. Giữ nguyên vẹn 100% âm thanh thánh đường.</p>
+            </div>
+          </label>
+
+          <!-- 2. ASSIST -->
+          <label class="flex items-start p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+            <input type="radio" name="safetyModeRadio" value="ASSIST" class="mt-1 text-indigo-600 focus:ring-indigo-500" onchange="onSafetyModeRadioChange()">
+            <div class="ml-3 flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-white">2. ASSIST (Bán Tự Động — Phê Duyệt Từng Lệnh)</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-800 font-mono">REHEARSAL</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">Cho phép gửi lệnh điều chỉnh EQ, Digital Trim, Notch hú hoặc Downward Expander SAU KHI kỹ thuật viên bấm duyệt (Approve) trên bảng điều khiển.</p>
+            </div>
+          </label>
+
+          <!-- 3. LIMITED_AUTO -->
+          <label class="flex items-start p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+            <input type="radio" name="safetyModeRadio" value="LIMITED_AUTO" class="mt-1 text-indigo-600 focus:ring-indigo-500" onchange="onSafetyModeRadioChange()">
+            <div class="ml-3 flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-white">3. LIMITED_AUTO (Tự Động Bị Giới Hạn)</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800 font-mono">BOUNDED</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">Cho phép Dugan Speech Automixer và Downward Expander vi chỉnh trong ngưỡng biên độ an toàn; tuyệt đối KHÔNG tự động tăng fader quá mức.</p>
+            </div>
+          </label>
+
+          <!-- 4. ADMIN_MAINTENANCE -->
+          <label class="flex items-start p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 cursor-pointer transition-all">
+            <input type="radio" name="safetyModeRadio" value="ADMIN_MAINTENANCE" class="mt-1 text-indigo-600 focus:ring-indigo-500" onchange="onSafetyModeRadioChange()">
+            <div class="ml-3 flex-1">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-white">4. ADMIN_MAINTENANCE (Bảo Trì & Định Tuyến)</span>
+                <span class="text-[9px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-800 font-mono">YÊU CẦU PIN</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-1 leading-snug">Dành riêng cho quản trị viên âm thanh để bảo trì hệ thống. Yêu cầu mã PIN bảo mật. (Vẫn giữ vững bất biến cách ly DL16 #11).</p>
+            </div>
+          </label>
+        </div>
+
+        <!-- PIN Input Box (Hidden by default) -->
+        <div id="safetyPinBox" class="hidden p-3 rounded-xl bg-purple-950/30 border border-purple-600/40 space-y-2">
+          <div class="flex items-center space-x-2 text-purple-300 font-semibold text-xs">
+            <i class="fa-solid fa-key"></i>
+            <span>Nhập Mã PIN Quản Trị Âm Thanh:</span>
+          </div>
+          <input type="password" id="safetyAdminPinInput" placeholder="Mặc định: 7777" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-mono text-center tracking-widest text-sm focus:outline-none focus:border-purple-500" maxlength="8">
+        </div>
+
+        <!-- Emergency Disengage Button -->
+        <div class="pt-2">
+          <button onclick="triggerEmergencyDisengageFromModal()" class="w-full py-2.5 px-4 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/50 text-rose-300 font-bold text-xs flex items-center justify-center space-x-2 cursor-pointer transition-all shadow-sm">
+            <i class="fa-solid fa-hand text-rose-400"></i>
+            <span>NGẮT KHẨN CẤP TOÀN BỘ (PANIC AUTO-DISENGAGE)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <button onclick="closeSafetyModeModal()" class="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+        <button onclick="applySafetyModeFromModal()" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5 transition-all">
+          <i class="fa-solid fa-check"></i>
+          <span>Áp Dụng Chế Độ</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- JAVASCRIPT LOGIC -->
   <script>
     let activeProposalId = null;
@@ -2249,7 +2366,9 @@
               updateSoundcheckUI(data.soundcheck);
             }
 
-            if (data.stop_auto) {
+            if (data.safety_mode) {
+              updateSafetyModeUI(data.safety_mode);
+            } else if (data.stop_auto) {
               document.getElementById('btnStopAuto').classList.add('bg-red-800', 'animate-pulse');
               document.getElementById('modeBadge').innerText = 'EMERGENCY STOP (Khóa Cứng)';
               document.getElementById('modeBadge').className = 'text-xs font-bold text-red-400 bg-red-950/80 border border-red-700 px-3 py-1.5 rounded-lg';
@@ -2780,6 +2899,125 @@
         addAuditEntry("STOP_AUTO", "KHẨN CẤP: Kỹ thuật viên nhấn STOP AUTO. Toàn bộ tự động bị ngắt.");
       } catch (e) {
         alert("Lỗi gửi lệnh dừng khẩn cấp: " + e);
+      }
+    }
+
+    // --- Safety Engine Operating Modes & Auto-Disengage (Master Plan 8.1 & 8.4) ---
+    async function openSafetyModeModal() {
+      try {
+        const res = await fetch('/api/v1/safety/mode');
+        if (res.ok) {
+          const state = await res.json();
+          const radios = document.getElementsByName('safetyModeRadio');
+          radios.forEach(r => {
+            r.checked = (r.value === state.current_mode);
+          });
+          onSafetyModeRadioChange();
+
+          const badge = document.getElementById('smModalStatusBadge');
+          if (badge) badge.innerText = state.current_mode;
+
+          const alertBox = document.getElementById('smDisengageAlert');
+          const alertMsg = document.getElementById('smDisengageMsg');
+          if (alertBox && alertMsg) {
+            if (state.is_disengaged) {
+              alertBox.classList.remove('hidden');
+              alertMsg.innerText = `Lý do: ${state.disengage_reason} — ${state.disengage_detail || 'Đã khóa an toàn.'}`;
+            } else {
+              alertBox.classList.add('hidden');
+            }
+          }
+        }
+      } catch (e) {
+        console.error("Error fetching safety mode:", e);
+      }
+      document.getElementById('safetyModeModal').classList.remove('hidden');
+    }
+
+    function closeSafetyModeModal() {
+      document.getElementById('safetyModeModal').classList.add('hidden');
+    }
+
+    function onSafetyModeRadioChange() {
+      const selected = document.querySelector('input[name="safetyModeRadio"]:checked')?.value;
+      const pinBox = document.getElementById('safetyPinBox');
+      if (pinBox) {
+        if (selected === 'ADMIN_MAINTENANCE') {
+          pinBox.classList.remove('hidden');
+        } else {
+          pinBox.classList.add('hidden');
+        }
+      }
+    }
+
+    async function applySafetyModeFromModal() {
+      const selected = document.querySelector('input[name="safetyModeRadio"]:checked')?.value || 'OBSERVE';
+      const pin = document.getElementById('safetyAdminPinInput')?.value || '';
+
+      try {
+        const res = await fetch('/api/v1/safety/mode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: selected, operator: 'Operator', admin_pin: pin }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi chuyển đổi chế độ: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const state = await res.json();
+        closeSafetyModeModal();
+        updateSafetyModeUI(state);
+        addAuditEntry("SAFETY_MODE", `Chuyển chế độ sang ${state.current_mode} (${state.read_only ? 'Chỉ đọc' : 'Cho phép ghi'})`);
+      } catch (e) {
+        alert(`Lỗi mạng: ${e}`);
+      }
+    }
+
+    async function triggerEmergencyDisengageFromModal() {
+      try {
+        const res = await fetch('/api/v1/safety/disengage', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reason: 'PANIC_BUTTON', detail: 'Kỹ thuật viên bấm ngắt trong Safety Modal', operator: 'Operator' }),
+        });
+        const state = await res.json();
+        closeSafetyModeModal();
+        updateSafetyModeUI(state);
+        alert("🚨 PANIC AUTO-DISENGAGE KÍCH HOẠT:\nĐã ngắt toàn bộ tự động và khóa chặt mixer ở chế độ OBSERVE (Chỉ đọc).");
+        addAuditEntry("AUTO_DISENGAGE", "Kỹ thuật viên kích hoạt PANIC AUTO-DISENGAGE.");
+      } catch (e) {
+        alert(`Lỗi gửi lệnh ngắt khẩn cấp: ${e}`);
+      }
+    }
+
+    function updateSafetyModeUI(state) {
+      const badge = document.getElementById('modeBadge');
+      const icon = document.getElementById('modeIcon');
+      if (!badge) return;
+
+      if (state.is_disengaged) {
+        badge.innerText = "🚨 PANIC: OBSERVE";
+        badge.parentElement.className = "flex items-center space-x-1.5 bg-rose-950/80 border border-rose-500 hover:border-rose-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm animate-pulse";
+        if (icon) icon.className = "fa-solid fa-triangle-exclamation text-rose-400 text-xs";
+      } else if (state.current_mode === 'OBSERVE') {
+        badge.innerText = "OBSERVE (Chỉ đọc)";
+        badge.parentElement.className = "flex items-center space-x-1.5 bg-indigo-950/60 border border-indigo-700/50 hover:border-indigo-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm";
+        if (icon) icon.className = "fa-solid fa-eye text-indigo-400 text-xs";
+      } else if (state.current_mode === 'ASSIST') {
+        badge.innerText = "ASSIST (Bán tự động)";
+        badge.parentElement.className = "flex items-center space-x-1.5 bg-blue-950/60 border border-blue-700/50 hover:border-blue-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm";
+        if (icon) icon.className = "fa-solid fa-hand-holding-hand text-blue-400 text-xs";
+      } else if (state.current_mode === 'LIMITED_AUTO') {
+        badge.innerText = "LIMITED_AUTO (Giới hạn)";
+        badge.parentElement.className = "flex items-center space-x-1.5 bg-amber-950/60 border border-amber-700/50 hover:border-amber-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm";
+        if (icon) icon.className = "fa-solid fa-robot text-amber-400 text-xs";
+      } else if (state.current_mode === 'ADMIN_MAINTENANCE') {
+        badge.innerText = "ADMIN (Bảo trì)";
+        badge.parentElement.className = "flex items-center space-x-1.5 bg-purple-950/60 border border-purple-700/50 hover:border-purple-400 px-3 py-1.5 rounded-lg cursor-pointer transition-all shadow-sm";
+        if (icon) icon.className = "fa-solid fa-screwdriver-wrench text-purple-400 text-xs";
       }
     }
 

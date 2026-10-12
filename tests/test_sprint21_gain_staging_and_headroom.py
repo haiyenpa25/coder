@@ -24,7 +24,8 @@ from packages.safety_controller.transaction import (
     Proposal,
     ProposalRejectedError,
 )
-from apps.api.main import app
+from packages.safety_controller.modes import OperatorMode
+from apps.api.main import app, safety_mode_mgr
 
 
 class TestSprint21GainStagingAndHeadroom(unittest.TestCase):
@@ -32,6 +33,7 @@ class TestSprint21GainStagingAndHeadroom(unittest.TestCase):
     def setUpClass(cls):
         cls._ctx = TestClient(app)
         cls.client = cls._ctx.__enter__()
+        safety_mode_mgr.set_mode(OperatorMode.ASSIST, operator="TestEngineer")
 
     @classmethod
     def tearDownClass(cls):

@@ -18,7 +18,8 @@ from fastapi.testclient import TestClient
 # Ensure workspace root is in sys.path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from apps.api.main import app, x32_client, executor
+from apps.api.main import app, x32_client, executor, safety_mode_mgr
+from packages.safety_controller.modes import OperatorMode
 from packages.feedback_detector.detector import FeedbackCandidate
 from packages.eq_optimizer.recommender import PEQRecommender
 from packages.safety_controller.transaction import Proposal, TransactionExecutor, SafetyPolicy
@@ -32,6 +33,7 @@ class TestSprint18FeedbackAndChannelControl(unittest.TestCase):
     def setUpClass(cls):
         cls._ctx = TestClient(app)
         cls.client = cls._ctx.__enter__()
+        safety_mode_mgr.set_mode(OperatorMode.ASSIST, operator="TestEngineer")
         cls.recommender = PEQRecommender()
         cls.speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 

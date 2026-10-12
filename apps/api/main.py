@@ -41,6 +41,12 @@ from packages.safety_controller.transaction import (
     ProposalRejectedError,
     TransactionFailedError,
 )
+from packages.safety_controller.modes import (
+    SafetyModeManager,
+    OperatorMode,
+    DisengageReason,
+    SafetyModeState,
+)
 from packages.signal_analysis.dsp import (
     AudioFrame,
     compute_welch_spectrum,
@@ -121,6 +127,7 @@ soundcheck_engine = VirtualSoundcheckEngine(sample_rate=48000)
 ai_copilot = ChurchMixCopilot()
 audio_device_mgr = AudioDeviceManager()
 audio_stream_worker: Optional[AudioStreamWorker] = None
+safety_mode_mgr = SafetyModeManager()
 
 active_websockets: List[WebSocket] = []
 active_feedback_alerts: List[Dict[str, Any]] = []
@@ -146,11 +153,11 @@ async def lifespan(app: FastAPI):
     x32_client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True, timeout=1.0)
     try:
         x32_client.connect()
-        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy())
+        executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
         wizard_service = WizardService(client=x32_client)
         snap = x32_client.take_full_snapshot(max_channels=32)
         db.save_snapshot(sha256=snap.sha256, state_dict=snap.parameters, note="Startup initial state")
-        db.save_audit_event(actor="System", action="STARTUP", status="ONLINE", details={"read_only": True})
+        db.save_audit_event(actor="System", action="STARTUP", status="ONLINE", details={"read_only": True, "mode": "OBSERVE"})
         print("X32 Client successfully connected in READ_ONLY_MODE = True.")
     except Exception as e:
         print(f"Error connecting X32 Client: {e}")
@@ -263,6 +270,11 @@ async def audio_telemetry_loop():
             freqs, psd = compute_welch_spectrum(combined, sample_rate=48000, nperseg=1024, noverlap=512)
             rta_bars = compute_fractional_octave_rta(freqs, psd, fraction=12)
 
+            # Watchdog: monitor clipping and feedback alerts
+            has_clip = any(m.get("meter_dbfs", -60.0) >= -0.5 for m in meters)
+            has_feedback_spike = any(a.get("severity") in ("CRITICAL", "ALARM") for a in active_feedback_alerts)
+            safety_mode_mgr.record_telemetry_heartbeat(clip_detected=has_clip, feedback_spike=has_feedback_spike)
+
             payload = {
                 "type": "TELEMETRY",
                 "timestamp": round(t, 2),
@@ -271,6 +283,7 @@ async def audio_telemetry_loop():
                 "feedback_alerts": active_feedback_alerts,
                 "read_only_mode": x32_client.read_only_mode if x32_client else True,
                 "stop_auto": stop_auto_triggered,
+                "safety_mode": safety_mode_mgr.state.to_dict(),
                 "soundcheck": soundcheck_engine.get_status(),
             }
 
@@ -310,6 +323,7 @@ def get_system_status():
         "mixer": snapshot.mixer_info,
         "read_only_mode": x32_client.read_only_mode,
         "stop_auto": stop_auto_triggered,
+        "safety_mode": safety_mode_mgr.state.to_dict(),
         "sha256": snapshot.sha256,
         "dl16_talkback_invariant": {
             "safe": tb_ok,
@@ -628,6 +642,11 @@ def emergency_stop_auto():
         x32_client.read_only_mode = True
 
     active_proposals.clear()
+    safety_mode_mgr.trigger_auto_disengage(
+        reason=DisengageReason.PANIC_BUTTON,
+        detail="Kỹ thuật viên nhấn STOP AUTO khẩn cấp.",
+        operator="Operator",
+    )
 
     if db:
         db.save_audit_event(
@@ -649,16 +668,118 @@ def resume_auto():
     """Operator clears the emergency stop."""
     global stop_auto_triggered
     stop_auto_triggered = False
+    safety_mode_mgr.set_mode(OperatorMode.OBSERVE, operator="Operator")
+    if x32_client:
+        x32_client.read_only_mode = True
 
     if db:
         db.save_audit_event(
             actor="Operator",
             action="RESUME_AUTO",
             status="AUTOMATION_RESUMED",
-            details={"message": "Automation standby resumed."},
+            details={"message": "Automation standby resumed (OBSERVE mode)."},
         )
 
-    return {"status": "RESUMED", "message": "Automation standby resumed."}
+    return {"status": "RESUMED", "message": "Automation standby resumed (OBSERVE mode)."}
+
+
+# --- Safety Engine Operating Modes & Auto-Disengage Endpoints (Master Plan 8.1 & 8.4) ---
+
+class SetSafetyModeRequest(BaseModel):
+    mode: str
+    operator: str = "Operator"
+    admin_pin: Optional[str] = None
+
+
+class DisengageRequest(BaseModel):
+    reason: str = "PANIC_BUTTON"
+    detail: str = "Thủ công ngắt tự động"
+    operator: str = "Operator"
+
+
+@app.get("/api/v1/safety/mode")
+def get_safety_mode():
+    """Retrieve current Safety Engine Operating Mode & Auto-Disengage State."""
+    state = safety_mode_mgr.state.to_dict()
+    state["available_modes"] = [m.value for m in OperatorMode]
+    return state
+
+
+@app.post("/api/v1/safety/mode")
+def set_safety_mode(req: SetSafetyModeRequest):
+    """
+    Switch between the 4 operating modes (OBSERVE, ASSIST, LIMITED_AUTO, ADMIN_MAINTENANCE).
+    ADMIN_MAINTENANCE requires admin_pin verification.
+    """
+    try:
+        target_mode = OperatorMode(req.mode.upper())
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid mode '{req.mode}'. Valid modes: {[m.value for m in OperatorMode]}",
+        )
+
+    try:
+        new_state = safety_mode_mgr.set_mode(
+            new_mode=target_mode,
+            operator=req.operator,
+            admin_pin=req.admin_pin,
+        )
+        if x32_client:
+            x32_client.read_only_mode = safety_mode_mgr.is_read_only()
+
+        if db:
+            db.save_audit_event(
+                actor=req.operator,
+                action="SET_SAFETY_MODE",
+                status="MODE_CHANGED",
+                details={
+                    "mode": target_mode.value,
+                    "read_only": new_state.to_dict()["read_only"],
+                },
+            )
+
+        res = new_state.to_dict()
+        res["available_modes"] = [m.value for m in OperatorMode]
+        return res
+    except PermissionError as e:
+        raise HTTPException(status_code=403, detail=str(e))
+
+
+@app.post("/api/v1/safety/disengage")
+def trigger_safety_disengage(req: DisengageRequest):
+    """
+    Trigger immediate safety auto-disengage back to OBSERVE (Read-only).
+    """
+    global stop_auto_triggered
+    stop_auto_triggered = True
+
+    try:
+        reason_enum = DisengageReason(req.reason.upper())
+    except ValueError:
+        reason_enum = DisengageReason.PANIC_BUTTON
+
+    state = safety_mode_mgr.trigger_auto_disengage(
+        reason=reason_enum,
+        detail=req.detail,
+        operator=req.operator,
+    )
+    if x32_client:
+        x32_client.read_only_mode = True
+
+    active_proposals.clear()
+
+    if db:
+        db.save_audit_event(
+            actor=req.operator,
+            action="AUTO_DISENGAGE",
+            status="DISENGAGED",
+            details={"reason": reason_enum.value, "detail": req.detail},
+        )
+
+    res = state.to_dict()
+    res["available_modes"] = [m.value for m in OperatorMode]
+    return res
 
 
 class CopilotQuestion(BaseModel):

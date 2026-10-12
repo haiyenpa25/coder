@@ -17,6 +17,7 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from packages.x32_osc_adapter.client import X32Client, Snapshot
 from .routing import RoutingGraph, InvariantViolationError
+from .modes import SafetyModeManager, OperatorMode, DisengageReason
 
 
 class ProposalRejectedError(PermissionError):
@@ -129,14 +130,21 @@ class SafetyPolicy:
 
 
 class TransactionExecutor:
-    def __init__(self, client: X32Client, policy: SafetyPolicy | None = None):
+    def __init__(
+        self,
+        client: X32Client,
+        policy: SafetyPolicy | None = None,
+        mode_manager: SafetyModeManager | None = None,
+    ):
         self.client = client
         self.policy = policy or SafetyPolicy()
+        self.mode_manager = mode_manager
         self.audit_log: List[Dict[str, Any]] = []
 
     def execute(self, proposal: Proposal, operator_id: str) -> Dict[str, Any]:
         """
         Execute a proposal through the 6-stage Safety Gate:
+        0. Mode authorization check (Must not be in OBSERVE/disengaged)
         1. Authorization check
         2. Policy whitelist validation
         3. Optimistic revision lock check
@@ -144,6 +152,14 @@ class TransactionExecutor:
         5. Write with rate-limiting
         6. Readback verify + automatic rollback on failure
         """
+        # Stage 0: Operator Mode Check
+        if self.mode_manager:
+            current_mode = self.mode_manager.get_mode()
+            if self.mode_manager.is_read_only():
+                raise ProposalRejectedError(
+                    f"SAFETY DENIAL: Cannot apply proposal in {current_mode.value} mode (Read-Only). Switch to ASSIST or LIMITED_AUTO mode."
+                )
+
         # Stage 1: Explicit operator approval
         if not proposal.operator_approved or not proposal.approved_by:
             raise ProposalRejectedError(
@@ -246,10 +262,18 @@ class TransactionExecutor:
             }
             self.audit_log.append(audit_entry)
 
+            # If mode manager is active, trigger auto-disengage back to OBSERVE on execution failure
+            if self.mode_manager:
+                self.mode_manager.trigger_auto_disengage(
+                    reason=DisengageReason.AUDIO_FAULT,
+                    detail=f"Lỗi thực thi giao dịch '{proposal.proposal_id}'. Đã tự động ngắt về OBSERVE.",
+                    operator=operator_id,
+                )
+
             raise TransactionFailedError(
                 f"Transaction aborted and rolled back due to error: {exc}. "
                 f"Rollback status: {'Clean' if not rollback_errors else rollback_errors}"
             )
         finally:
             # Always restore strict read-only mode after transaction
-            self.client.read_only_mode = True
+            self.client.read_only_mode = self.mode_manager.is_read_only() if self.mode_manager else True

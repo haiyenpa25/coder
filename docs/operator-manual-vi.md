@@ -282,6 +282,35 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Quan sát Nguồn rò rỉ, Mức độ rò rỉ, Nhiễu nền và Huy hiệu mức độ rủi ro pha (Comb Risk).
    - Bấm nút **`[Tạo Đề Xuất Downward Expander]`**. Hệ thống sẽ tính toán bộ thông số dịu nhẹ và tạo một Proposal chuẩn 5 bước lên Bảng điều khiển để kỹ thuật viên phê duyệt.
 
+### 19. HỆ THỐNG 4 CHẾ ĐỘ QUYỀN HẠN (OPERATING MODES) & TỰ ĐỘNG KHÓA CỨNG (AUTO-DISENGAGE / PANIC FREEZE)
+1. **Bốn Cấp Độ Quyền Hạn Safety Engine (Master Plan 8.1):**
+   - **`OBSERVE` (Chỉ Đọc — Mặc Định Trong Lễ):**
+     * Toàn bộ kênh giao tiếp OSC write xuống mixer bị khóa cứng 100%. Hệ thống chỉ lắng nghe telemetry và RTA để hiển thị trực quan.
+     * Đây là chế độ mặc định khi khởi động ứng dụng, khi kết nối lại mạng hoặc sau khi đổi scene để bảo đảm an toàn tuyệt đối.
+   - **`ASSIST` (Bán Tự Động — Duyệt Từng Lệnh):**
+     * Dùng trong buổi tổng duyệt (rehearsal) hoặc cân chỉnh trước lễ.
+     * Mọi đề xuất (EQ, Digital Trim, Notch hú, Downward Expander) chỉ được ghi xuống bàn mixer sau khi kỹ thuật viên nhấn nút **`[Duyệt Áp Dụng]`** và vượt qua bộ lọc kiểm tra SafetyGate.
+   - **`LIMITED_AUTO` (Tự Động Bị Giới Hạn):**
+     * Cho phép các thuật toán vi chỉnh tự động hoạt động trong biên độ cho phép: Dugan Speech Automixer chia sẻ gain $NOM=1 \le 0.0\text{ dB}$, Silence Hold chống trôi fader, và Downward Expander làm sạch tiếng ồn nền.
+     * Tuyệt đối không cho phép tự động đẩy fader âm lượng lên cao.
+   - **`ADMIN_MAINTENANCE` (Bảo Trì Cấp Cao — Yêu Cầu PIN):**
+     * Dành riêng cho kỹ thuật viên trưởng hoặc chuyên gia âm thanh thực hiện kiểm tra định tuyến hoặc kiểm thử scene.
+     * Bắt buộc nhập mã PIN bảo mật (mặc định: `7777`).
+     * *Lưu ý sống còn:* Ngay cả trong chế độ ADMIN, Bất biến an toàn cách ly Kênh 11 Band Talkback khỏi Main FOH vẫn được bảo vệ bất khả xâm phạm.
+2. **Cơ Chế Tự Động Ngắt Khẩn Cấp (Auto-Disengage Watchdog — MP 8.4):**
+   - Hệ thống liên tục giám sát sức khỏe tín hiệu thời gian thực. Nếu phát hiện bất kỳ sự cố nào dưới đây, chế độ lập tức rơi tự do về **`OBSERVE` (Chỉ đọc)** và đóng băng toàn bộ lệnh ghi:
+     * **Mất nhịp tim telemetry (Heartbeat Lost / Stale Meters):** Không nhận được dữ liệu đo đạc quá 2.5 giây.
+     * **Vỡ tiếng liên tục (Excessive Clipping):** Tín hiệu chạm ngưỡng 0 dBFS liên tiếp trên 5 khung thời gian.
+     * **Tăng đột biến nguy cơ hú (Feedback Risk Spike):** Xuất hiện tần số hú cấp độ Báo Động (Alarm).
+     * **Nút bấm khẩn cấp (Emergency Stop Auto):** Kỹ thuật viên nhấn nút STOP AUTO màu đỏ.
+3. **Thao Tác Trên Web Console:**
+   - Trên thanh Header trên cùng, bấm vào huy hiệu **`[Chế độ: OBSERVE]`**.
+   - Hộp thoại **Chế Độ Quyền Hạn Safety Engine** xuất hiện.
+   - Chọn chế độ mong muốn (nếu chọn ADMIN, nhập mã PIN 7777).
+   - Bấm **`[Áp Dụng Chế Độ]`** để chuyển đổi an toàn.
+   - Trong trường hợp khẩn cấp, có thể bấm nút **`[NGẮT KHẨN CẤP TOÀN BỘ (PANIC AUTO-DISENGAGE)]`** ngay trong hộp thoại để đóng băng mixer lập tức.
+
+
 
 
 

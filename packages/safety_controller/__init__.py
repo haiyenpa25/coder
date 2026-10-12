@@ -7,6 +7,7 @@ safety_controller package:
 
 from .routing import RoutingGraph, InvariantViolationError
 from .transaction import SafetyPolicy, Proposal, TransactionExecutor, ProposalRejectedError
+from .modes import OperatorMode, DisengageReason, SafetyModeState, SafetyModeManager
 
 __all__ = [
     "RoutingGraph",
@@ -15,4 +16,8 @@ __all__ = [
     "Proposal",
     "TransactionExecutor",
     "ProposalRejectedError",
+    "OperatorMode",
+    "DisengageReason",
+    "SafetyModeState",
+    "SafetyModeManager",
 ]
