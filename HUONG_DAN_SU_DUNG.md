@@ -109,13 +109,14 @@ Giao diện gồm các khu vực trực quan:
    * Hiển thị đầy đủ 32 kênh với tên gợi nhớ (Pastor, Lead Voc, Piano, Bass, Drums...).
    * Cột đèn LED Peak meter hiển thị mức âm lượng sống động.
    * Kênh 11 (Band Talkback) được ghim nhãn xanh đậm `P16 Only`.
-   * **Chạm vào bất kỳ kênh nào** để mở cửa sổ **Channel Inspector** xem chi tiết 4 dải PEQ, HPF, Mute và Routing.
+   * **Chạm vào bất kỳ kênh nào** để mở cửa sổ **Channel Inspector**: Xem chi tiết 4 dải PEQ, HPF, Mute, Routing và bấm nút **"Tạo Đề Xuất PEQ Cho Kênh Này"** với 7 cấu hình âm thanh tùy chọn.
 4. **Trợ Lý AI Sound Copilot (Tiếng Việt):**
    * Hỏi đáp nhanh kỹ thuật âm thanh nhà thờ.
    * Nhấp vào các gợi ý: *"Tiếng Mục sư rõ lời"*, *"Xử lý hú an toàn"*, *"Kiểm tra cổng Talkback DL16 #11"*.
 5. **Cửa Sổ Đề Xuất Cân Chỉnh PEQ (A/B Curve Preview):**
-   * Xem trước đáp tuyến tần số mô phỏng trước và sau khi can thiệp.
-   * Bấm **Duyệt & Áp Dụng Qua Safety Gate** khi đồng ý.
+   * **Bộ tạo đề xuất đa vai trò:** Chọn bất kỳ Kênh nào (CH 1–32) và Vai trò âm thanh phù hợp (Mục Sư, Nữ Đơn Ca, Nam Đơn Ca, Ca Đoàn, Acoustic Guitar, Piano / Keys, Bass Guitar) $\rightarrow$ Bấm nút **"Tạo"** để tạo ngay đề xuất PEQ tối ưu.
+   * **Bản xem trước A/B:** Xem trước đường cong đáp tuyến tần số mô phỏng trước và sau khi can thiệp trên Canvas HTML5.
+   * **Phê duyệt an toàn:** Bấm nút **"DUYỆT & ÁP DỤNG QUA SAFETY GATE"** khi đồng ý.
 6. **Nhật Ký Giao Dịch Bất Biến (Audit Trail):**
    * Ghi nhận lịch sử mọi thao tác kèm mã băm SHA-256 chống chỉnh sửa giả mạo.
 
@@ -144,10 +145,11 @@ Nhấp vào nút **`[Wizards Quy Trình]`** trên thanh tiêu đề để mở b
 * **Mục đích:** Cân chỉnh PEQ cho micro Mục sư hoặc người hướng dẫn thờ phượng.
 * **Thao tác:**
   1. Chọn kênh micro cần cân (ví dụ: Ch 01 - Pastor Mic).
-  2. Yêu cầu Mục sư nói tự nhiên vào micro khoảng 20 giây.
-  3. Bấm **"Lấy Mẫu 20s & Phân Tích Đề Xuất Âm Học"**.
-  4. Hệ thống sẽ đề xuất HPF (Low-cut 85 Hz), dọn dẹp vùng đục giọng (280 Hz) và mở độ sáng hiện diện (2.8 kHz).
-  5. Bấm **"Duyệt & Áp Dụng"** nếu đồng ý.
+  2. Chọn vai trò (Mục Sư, Nữ Đơn Ca, Nam Đơn Ca, Ca Đoàn).
+  3. Yêu cầu ca sĩ/Mục sư hát hoặc nói tự nhiên vào micro khoảng 20 giây.
+  4. Bấm **"Lấy Mẫu 20s & Phân Tích Đề Xuất Âm Học"**.
+  5. Hệ thống sẽ hiển thị bảng PEQ, thông số compressor và hướng dẫn bố trí micro vật lý.
+  6. Bấm **"Nạp Sang Bản Xem Trước A/B & Duyệt Áp Dụng (Safety Gate)"** để xem trước và nạp xuống mixer.
 
 ### W4: Cân Chỉnh Hệ Thống Loa Hội Trường (Room / PA Tuning H1)
 * **Khi nào dùng:** Khi thiết lập âm thanh tại không gian phòng mới hoặc định kỳ 6 tháng.
@@ -157,7 +159,8 @@ Nhấp vào nút **`[Wizards Quy Trình]`** trên thanh tiêu đề để mở b
 ### W5: Dò Hú An Toàn Khi Tập (Safe Feedback Ring-Out)
 * **Khi nào dùng:** Buổi tập ban nhạc khi **hội trường hoàn toàn không có khán giả**.
 * **Mục đích:** Tìm trước các điểm tần số có nguy cơ hú của phòng để cắt notch filter hẹp dự phòng.
-* **Thao tác:** Làm theo 8 bước hướng dẫn chi tiết trên màn hình. Hệ thống sẽ tự động bắt tần số hú và tạo bộ lọc notch cực hẹp ($Q \ge 6.0$, cắt tối đa $-4.5\text{ dB}$).
+* **Thao tác:** Làm theo 8 bước hướng dẫn chi tiết trên màn hình. Hệ thống sẽ tự động bắt tần số hú và tạo bộ lọc notch cực hẹp ($Q \ge 6.0$, cắt tối đa $-3.5\text{ dB}$).
+* Bấm **"Nạp Notch Filter Sang Safety Gate Để Duyệt Áp Dụng (Q=7.0)"** để áp dụng an toàn xuống bàn mixer.
 
 ### W6: Trợ Lý Trực Tiếp Buổi Lễ (Live Service Tactical Assistant)
 * **Khi nào dùng:** Mở xuyên suốt trong suốt buổi lễ thờ phượng.
