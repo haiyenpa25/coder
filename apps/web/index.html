@@ -178,8 +178,25 @@
               <i class="fa-solid fa-chart-line text-emerald-400"></i>
               <h3 class="text-sm font-bold text-slate-200">Đề Xuất Cân Chỉnh PEQ (A/B Preview)</h3>
             </div>
-            <button onclick="generatePastorProposal()" class="text-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/40 px-2.5 py-1 rounded-lg font-semibold cursor-pointer">
-              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Tạo Đề Xuất Mic Mục Sư
+            <span class="text-xs text-slate-400 font-mono">Bảo Toàn Giọng Hát</span>
+          </div>
+
+          <!-- Quick Channel & Role Generator Bar -->
+          <div class="bg-slate-950 p-2 rounded-xl border border-slate-800 mb-3 flex items-center space-x-2 text-xs">
+            <select id="panel2ChannelSelect" class="w-24 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white font-mono text-[11px] focus:outline-none">
+              <!-- Will be populated 1..32 -->
+            </select>
+            <select id="panel2RoleSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1.5 text-white text-[11px] focus:outline-none">
+              <option value="PASTOR_SPEECH">Mục Sư (Pastor)</option>
+              <option value="LEAD_VOCAL_FEMALE">Nữ Đơn Ca (Lead Female)</option>
+              <option value="LEAD_VOCAL_MALE">Nam Đơn Ca (Lead Male)</option>
+              <option value="CHOIR_OVERHEAD">Ca Đoàn (Choir)</option>
+              <option value="ACOUSTIC_GUITAR">Acoustic Guitar</option>
+              <option value="PIANO_KEYS">Piano / Keys</option>
+              <option value="BASS_GUITAR">Bass Guitar</option>
+            </select>
+            <button onclick="generateProposalFromPanel2()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm cursor-pointer whitespace-nowrap">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1"></i>Tạo
             </button>
           </div>
 
@@ -191,7 +208,7 @@
 
           <!-- Active Proposal Details -->
           <div id="proposalBox" class="bg-slate-950 rounded-xl p-3 border border-slate-800 text-xs space-y-1.5 min-h-[90px]">
-            <p class="text-slate-400">Chưa có đề xuất nào được tạo. Nhấn nút <strong>"Tạo Đề Xuất Mic Mục Sư"</strong> ở trên để xem quy trình.</p>
+            <p class="text-slate-400">Chưa có đề xuất nào được tạo. Chọn Kênh và Vai trò ở trên, rồi nhấn <strong>"Tạo"</strong> để xem quy trình.</p>
           </div>
         </div>
 
@@ -511,6 +528,10 @@
                 </thead>
                 <tbody id="w3BandsTableBody" class="divide-y divide-slate-900"></tbody>
               </table>
+              <button onclick="applyW3TuningToSafetyGate()" class="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center justify-center space-x-1.5 transition-all">
+                <i class="fa-solid fa-shield-halved"></i>
+                <span>Nạp Sang Bản Xem Trước A/B & Duyệt Áp Dụng (Safety Gate)</span>
+              </button>
             </div>
           </div>
         </div>
@@ -651,6 +672,11 @@
                 <div id="w5GainMargin" class="text-sm font-bold text-emerald-400 mt-1">-- dB</div>
               </div>
             </div>
+
+            <button onclick="applyW5NotchToSafetyGate()" class="w-full mt-3 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-500 hover:to-amber-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center justify-center space-x-1.5 transition-all">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span>Nạp Notch Filter Sang Safety Gate Để Duyệt Áp Dụng (Q=7.0)</span>
+            </button>
           </div>
         </div>
 
@@ -968,6 +994,29 @@
           </div>
         </div>
 
+        <!-- Quick PEQ Generator for this channel -->
+        <div class="p-3 bg-slate-950/80 rounded-xl border border-indigo-500/30 space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-bold text-indigo-300 flex items-center">
+              <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-emerald-400"></i>Tạo Đề Xuất PEQ Cho Kênh Này:
+            </span>
+          </div>
+          <div class="flex items-center space-x-2">
+            <select id="cdmRoleSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none">
+              <option value="PASTOR_SPEECH">Giọng Nói Mục Sư (Pastor Speech)</option>
+              <option value="LEAD_VOCAL_FEMALE">Nữ Đơn Ca (Female Lead Vocal)</option>
+              <option value="LEAD_VOCAL_MALE">Nam Đơn Ca (Male Lead Vocal)</option>
+              <option value="CHOIR_OVERHEAD">Ca Đoàn Tổng Hợp (Choir Overhead)</option>
+              <option value="ACOUSTIC_GUITAR">Đàn Acoustic Guitar</option>
+              <option value="PIANO_KEYS">Đàn Piano / Keyboard</option>
+              <option value="BASS_GUITAR">Đàn Bass Guitar</option>
+            </select>
+            <button onclick="generateProposalFromChannelModal()" class="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-sm cursor-pointer whitespace-nowrap">
+              Tạo Đề Xuất
+            </button>
+          </div>
+        </div>
+
         <!-- Shortcut Action Buttons -->
         <div class="space-y-2">
           <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Thao Tác Nhanh Theo Quy Trình (Wizards):</div>
@@ -997,6 +1046,7 @@
   <!-- JAVASCRIPT LOGIC -->
   <script>
     let activeProposalId = null;
+    let currentModalChannel = 1;
     let ws = null;
     let rtaData = [];
     let channelsData = [];
@@ -1098,6 +1148,17 @@
         const data = await res.json();
         channelsData = data.channels || [];
         renderChannelStrips(channelsData);
+
+        // Populate Panel 2 Channel Selector if empty
+        const p2Sel = document.getElementById('panel2ChannelSelect');
+        if (p2Sel && p2Sel.options.length === 0) {
+          channelsData.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.channel;
+            opt.innerText = `CH ${c.channel}: ${c.name}`;
+            p2Sel.appendChild(opt);
+          });
+        }
       } catch (err) {
         console.error("Failed to load channels:", err);
       }
@@ -1150,6 +1211,7 @@
 
     // --- Channel Detail Modal & Mixer Explorer ---
     function openChannelDetail(ch) {
+      currentModalChannel = ch.channel;
       document.getElementById('channelDetailModal').classList.remove('hidden');
 
       const isTalkback = ch.channel === 11;
@@ -1243,25 +1305,37 @@
       }
     }
 
-    // --- Generate Pastor Proposal ---
-    async function generatePastorProposal() {
+    // --- Multi-Role PEQ Proposal Generators ---
+    async function generateProposalForRole(channelId, role) {
       try {
-        const res = await fetch('/api/v1/proposals/generate-pastor', {
+        const res = await fetch('/api/v1/proposals/generate-role', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ channel_id: 1, role: 'PASTOR_SPEECH' }),
+          body: JSON.stringify({ channel_id: channelId, role: role }),
         });
         const data = await res.json();
+        if (!res.ok) {
+          alert("Lỗi tạo đề xuất: " + data.detail);
+          return;
+        }
         activeProposalId = data.proposal_id;
 
         const box = document.getElementById('proposalBox');
+        const tradeoffsHtml = (data.tuning_detail.expected_tradeoffs || [])
+          .map(t => `<div>• ${t}</div>`).join('');
+
+        const bandsSummary = (data.changes || [])
+          .filter(c => c.parameter.includes('/eq/'))
+          .length;
+
         box.innerHTML = `
-          <div class="text-emerald-400 font-bold">Proposal ID: ${data.proposal_id}</div>
-          <div class="text-slate-300">${data.hypothesis}</div>
-          <div class="text-slate-400 font-mono text-[10px]">
-            • Bật HPF: 85 Hz (lọc rung gió)<br>
-            • Band 1: Cắt -1.8 dB @ 250 Hz (giảm đục phòng)<br>
-            • Band 2: Tăng +1.2 dB @ 2.8 kHz (tăng độ rõ lời)
+          <div class="flex items-center justify-between">
+            <span class="text-emerald-400 font-bold">Proposal ID: ${data.proposal_id}</span>
+            <span class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded border border-indigo-700/60 font-mono">CH ${data.target_channel} • ${data.tuning_detail.role}</span>
+          </div>
+          <div class="text-slate-200 font-medium">${data.hypothesis}</div>
+          <div class="text-slate-400 font-mono text-[10px] leading-relaxed pt-1 border-t border-slate-850">
+            ${tradeoffsHtml}
           </div>
         `;
 
@@ -1272,9 +1346,78 @@
         const btn = document.getElementById('btnApplyProposal');
         btn.disabled = false;
         btn.className = "w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider transition-all cursor-pointer shadow-lg shadow-emerald-600/30";
+
+        // Scroll Panel 2 into view smoothly
+        box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       } catch (e) {
         alert("Lỗi tạo đề xuất: " + e);
       }
+    }
+
+    async function generateProposalFromPanel2() {
+      const ch = parseInt(document.getElementById('panel2ChannelSelect').value) || 1;
+      const role = document.getElementById('panel2RoleSelect').value || 'PASTOR_SPEECH';
+      await generateProposalForRole(ch, role);
+    }
+
+    async function generateProposalFromChannelModal() {
+      const role = document.getElementById('cdmRoleSelect').value || 'PASTOR_SPEECH';
+      closeChannelDetailModal();
+      await generateProposalForRole(currentModalChannel, role);
+    }
+
+    async function applyW3TuningToSafetyGate() {
+      const ch = parseInt(document.getElementById('w3ChannelSelect').value) || 1;
+      const role = document.getElementById('w3RoleSelect').value || 'PASTOR_SPEECH';
+      closeWizardModal();
+      await generateProposalForRole(ch, role);
+    }
+
+    async function applyW5NotchToSafetyGate() {
+      const ch = parseInt(document.getElementById('w5ChannelSelect').value) || 3;
+      const resFreqEl = document.getElementById('w5ResFreq');
+      const rawText = resFreqEl ? resFreqEl.innerText.replace('Hz', '').trim() : "2850";
+      const freq = parseFloat(rawText) || 2850.0;
+      closeWizardModal();
+
+      try {
+        const res = await fetch('/api/v1/proposals/generate-notch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ channel_id: ch, freq_hz: freq, confidence: 0.90 }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert("Lỗi tạo notch: " + data.detail);
+          return;
+        }
+        activeProposalId = data.proposal_id;
+
+        const box = document.getElementById('proposalBox');
+        box.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="text-red-400 font-bold">Proposal ID: ${data.proposal_id}</span>
+            <span class="text-[10px] bg-red-950 text-red-300 px-2 py-0.5 rounded border border-red-700/60 font-mono">CH ${data.target_channel} • FEEDBACK NOTCH</span>
+          </div>
+          <div class="text-slate-200 font-medium">${data.hypothesis}</div>
+          <div class="text-slate-400 font-mono text-[10px] leading-relaxed pt-1">
+            • Cắt notch phẫu thuật siêu hẹp (Q = 7.0, độ sâu -3.5 dB) tại ${freq} Hz.<br>
+            • Triệt tiêu vòng phản hồi âm học mà không làm mỏng chất giọng ca sĩ.
+          </div>
+        `;
+
+        drawABCurve(data.tuning_detail.simulated_curve);
+
+        const btn = document.getElementById('btnApplyProposal');
+        btn.disabled = false;
+        btn.className = "w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs tracking-wider transition-all cursor-pointer shadow-lg shadow-emerald-600/30";
+      } catch (e) {
+        alert("Lỗi gửi đề xuất notch: " + e);
+      }
+    }
+
+    async function generatePastorProposal() {
+      await generateProposalForRole(1, 'PASTOR_SPEECH');
     }
 
     // --- Draw Simulated A/B Frequency Curve ---

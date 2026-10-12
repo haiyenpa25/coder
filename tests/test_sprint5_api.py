@@ -147,6 +147,32 @@ class TestSprint5API(unittest.TestCase):
         self.assertTrue(any("Line Check" in t["phase"] for t in data["timeline"]))
         self.assertTrue(any("Live Service" in t["phase"] for t in data["timeline"]))
 
+    def test_generate_role_and_notch_endpoints(self):
+        # 1. Test generate-role for ACOUSTIC_GUITAR on Ch 6
+        res_role = self.client.post("/api/v1/proposals/generate-role", json={
+            "channel_id": 6,
+            "role": "ACOUSTIC_GUITAR",
+        })
+        self.assertEqual(res_role.status_code, 200)
+        data_role = res_role.json()
+        self.assertEqual(data_role["target_channel"], 6)
+        self.assertEqual(data_role["tuning_detail"]["role"], "ACOUSTIC_GUITAR")
+        self.assertEqual(data_role["tuning_detail"]["hpf_freq_hz"], 80.0)
+        self.assertTrue(len(data_role["tuning_detail"]["simulated_curve"]) > 10)
+
+        # 2. Test generate-notch for feedback frequency on Ch 3
+        res_notch = self.client.post("/api/v1/proposals/generate-notch", json={
+            "channel_id": 3,
+            "freq_hz": 3150.0,
+            "confidence": 0.92,
+        })
+        self.assertEqual(res_notch.status_code, 200)
+        data_notch = res_notch.json()
+        self.assertEqual(data_notch["target_channel"], 3)
+        self.assertIn("3150", data_notch["hypothesis"])
+        self.assertEqual(data_notch["tuning_detail"]["role"], "FEEDBACK_NOTCH")
+        self.assertTrue(len(data_notch["tuning_detail"]["simulated_curve"]) > 10)
+
 
 if __name__ == "__main__":
     unittest.main()

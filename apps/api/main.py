@@ -52,6 +52,7 @@ from packages.signal_analysis.dsp import (
 from packages.feedback_detector.detector import FeedbackDetector, FeedbackCandidate
 from packages.eq_optimizer.recommender import (
     PEQRecommender,
+    PEQBandProposal,
     x32_to_freq,
     x32_to_gain,
     x32_to_q,
@@ -344,8 +345,116 @@ def generate_pastor_tuning(req: GenerateProposalRequest):
         "tuning_detail": {
             "role": tuning_detail.role,
             "hpf_freq_hz": tuning_detail.hpf_freq_hz,
+            "bands": [
+                {
+                    "band": b.band_index,
+                    "freq_hz": b.freq_hz,
+                    "gain_db": b.gain_db,
+                    "q": b.q_factor,
+                    "rationale": b.rationale,
+                }
+                for b in tuning_detail.bands
+            ],
             "expected_tradeoffs": tuning_detail.expected_tradeoffs,
             "simulated_curve": tuning_detail.simulated_curve,
+        },
+        "expected_sha256": proposal.expected_sha256,
+    }
+
+
+@app.post("/api/v1/proposals/generate-role")
+def generate_role_tuning(req: GenerateProposalRequest):
+    """Generate PEQ tuning for any church channel role (vocal, choir, acoustic, piano, bass)."""
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    proposal, tuning_detail = recommender.recommend_role(
+        channel_id=req.channel_id,
+        role=req.role,
+        expected_sha256=snapshot.sha256,
+    )
+
+    active_proposals[proposal.proposal_id] = proposal
+
+    return {
+        "proposal_id": proposal.proposal_id,
+        "target_channel": proposal.target_channel,
+        "hypothesis": proposal.hypothesis,
+        "confidence": proposal.confidence,
+        "changes": proposal.changes,
+        "tuning_detail": {
+            "role": tuning_detail.role,
+            "hpf_freq_hz": tuning_detail.hpf_freq_hz,
+            "bands": [
+                {
+                    "band": b.band_index,
+                    "freq_hz": b.freq_hz,
+                    "gain_db": b.gain_db,
+                    "q": b.q_factor,
+                    "rationale": b.rationale,
+                }
+                for b in tuning_detail.bands
+            ],
+            "expected_tradeoffs": tuning_detail.expected_tradeoffs,
+            "simulated_curve": tuning_detail.simulated_curve,
+        },
+        "expected_sha256": proposal.expected_sha256,
+    }
+
+
+class GenerateNotchRequest(BaseModel):
+    channel_id: int
+    freq_hz: float
+    confidence: float = 0.88
+
+
+@app.post("/api/v1/proposals/generate-notch")
+def generate_notch_tuning(req: GenerateNotchRequest):
+    """Generate surgical feedback notch proposal for a specific channel and frequency."""
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    candidate = FeedbackCandidate(
+        channel_id=req.channel_id,
+        freq_hz=req.freq_hz,
+        confidence=req.confidence,
+        severity="WARNING",
+        level_dbfs=-18.0,
+        persistence_frames=4,
+        is_musical_note=False,
+        evidence=["Manual Ringout / Real-time Detector Alert"],
+        recommended_action=f"Surgical notch at {req.freq_hz} Hz",
+    )
+    proposal = recommender.recommend_feedback_notch(candidate, expected_sha256=snapshot.sha256)
+    active_proposals[proposal.proposal_id] = proposal
+
+    # Simulate curve with notch
+    notch_band = PEQBandProposal(
+        band_index=3,
+        filter_type="PEQ",
+        freq_hz=req.freq_hz,
+        gain_db=-3.5,
+        q_factor=7.0,
+        rationale=f"Surgical feedback notch at {req.freq_hz} Hz",
+    )
+    sim_curve = recommender.simulate_response(hpf_freq=None, bands=[notch_band])
+
+    return {
+        "proposal_id": proposal.proposal_id,
+        "target_channel": proposal.target_channel,
+        "hypothesis": proposal.hypothesis,
+        "confidence": proposal.confidence,
+        "changes": proposal.changes,
+        "tuning_detail": {
+            "role": "FEEDBACK_NOTCH",
+            "hpf_freq_hz": 0.0,
+            "expected_tradeoffs": [
+                f"Triệt tiêu cộng hưởng hú tại {req.freq_hz} Hz với độ dốc siêu hẹp Q=7.0.",
+                "Bảo toàn trọn vẹn chất giọng ca sĩ mà không làm mỏng hay biến dạng âm sắc.",
+            ],
+            "simulated_curve": sim_curve,
         },
         "expected_sha256": proposal.expected_sha256,
     }

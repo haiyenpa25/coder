@@ -85,45 +85,107 @@ class PEQRecommender:
     def __init__(self):
         pass
 
-    def recommend_pastor_speech(
+    def recommend_role(
         self,
         channel_id: int,
+        role: str,
         expected_sha256: str,
-        current_eq_params: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Proposal, ChannelTuningProposal]:
         """
-        Generate conservative tuning for Pastor/Speech mic:
-        - HPF: 85 Hz (filters body handling and HVAC air rumble)
-        - Band 1 (Low-Mid): -1.8 dB at 250 Hz, Q=1.5 (cleans church hall mud and chestiness)
-        - Band 2 (Speech Presence): +1.2 dB at 2800 Hz, Q=1.2 (improves sermon intelligibility)
-        - Band 3: Neutral
-        - Band 4: Neutral
+        Generate conservative tuning for any supported church audio role:
+        - PASTOR_SPEECH
+        - LEAD_VOCAL_FEMALE
+        - LEAD_VOCAL_MALE
+        - CHOIR_OVERHEAD
+        - ACOUSTIC_GUITAR
+        - PIANO_KEYS
+        - BASS_GUITAR
         """
         ch_str = f"/ch/{channel_id:02d}"
-        bands = [
-            PEQBandProposal(
-                band_index=1,
-                filter_type="PEQ",
-                freq_hz=250.0,
-                gain_db=-1.8,
-                q_factor=1.5,
-                rationale="Giảm đục và ù âm học nhà thờ ở dải 250 Hz giúp giọng nói rõ ràng hơn.",
-            ),
-            PEQBandProposal(
-                band_index=2,
-                filter_type="PEQ",
-                freq_hz=2800.0,
-                gain_db=1.2,
-                q_factor=1.2,
-                rationale="Tăng nhẹ hiện diện ở dải 2.8 kHz giúp hội chúng nghe rõ từng âm tiết bài giảng.",
-            ),
-        ]
+
+        if role == "LEAD_VOCAL_FEMALE":
+            hpf = 110.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=320.0, gain_db=-1.5, q_factor=2.0, rationale="Khử đục dải low-mid giọng nữ trong không gian dội âm."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=3500.0, gain_db=1.2, q_factor=2.2, rationale="Tăng độ sáng và hiện diện của giọng hát trên nền ban nhạc."),
+                PEQBandProposal(band_index=3, filter_type="PEQ", freq_hz=7200.0, gain_db=-1.6, q_factor=4.0, rationale="Giảm xì gắt âm sibilance ('s', 'x', 'tr')."),
+            ]
+            hypothesis = "Cân chỉnh giọng nữ đơn ca: làm sáng ca từ, giảm xì sibilance và khử đục low-mid"
+            tradeoffs = [
+                "Bảo toàn chất giọng nữ mượt mà, tránh chói tai khi hát nốt cao trên FOH.",
+                "Làm sạch dải 320 Hz giúp giọng hát nổi bật mà không cần đẩy âm lượng quá lớn.",
+            ]
+        elif role == "LEAD_VOCAL_MALE":
+            hpf = 75.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=220.0, gain_db=-1.6, q_factor=1.8, rationale="Giảm om phòng dải trầm nam, tránh ù đọng."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=2600.0, gain_db=1.2, q_factor=2.0, rationale="Tăng độ nét ca từ của giọng hát nam."),
+            ]
+            hypothesis = "Cân chỉnh giọng nam đơn ca: giữ độ ấm tự nhiên, tăng độ nét ca từ và khử om phòng"
+            tradeoffs = [
+                "Giữ trọn độ dày baritone ấm áp mà không làm nặng nề dàn loa FOH.",
+                "Tăng độ hiện diện dải 2.6 kHz giúp ca từ rõ ràng ngay cả khi ban nhạc chơi cao trào.",
+            ]
+        elif role == "CHOIR_OVERHEAD":
+            hpf = 130.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=400.0, gain_db=-2.0, q_factor=1.5, rationale="Cắt dội âm hội trường ca đoàn."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=3000.0, gain_db=-1.0, q_factor=2.0, rationale="Giảm chói tiếng cộng hưởng nhóm khi nhiều người cùng hát."),
+            ]
+            hypothesis = "Cân chỉnh micro ca đoàn: dọn dẹp dội âm phòng và kiểm soát chói dải 3 kHz"
+            tradeoffs = [
+                "Giúp tổng thể ca đoàn hòa quyện, thanh thoát mà không triệt tiêu hòa âm bè.",
+            ]
+        elif role == "ACOUSTIC_GUITAR":
+            hpf = 80.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=200.0, gain_db=-2.0, q_factor=2.0, rationale="Khử tiếng ù thùng đàn và va chạm dây."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=800.0, gain_db=-1.8, q_factor=2.5, rationale="Giảm tiếng gắt/quack đặc trưng của pickup piezo."),
+                PEQBandProposal(band_index=3, filter_type="PEQ", freq_hz=4500.0, gain_db=1.5, q_factor=2.0, rationale="Tăng độ long lanh (sparkle) của tiếng gảy acoustic."),
+            ]
+            hypothesis = "Cân chỉnh đàn Acoustic Guitar: khử tiếng gắt piezo, lọc ù thùng đàn và tăng độ nét dây"
+            tradeoffs = [
+                "Tiếng đàn acoustic trong trẻo, thanh thoát, hòa quyện với piano và giọng hát.",
+            ]
+        elif role == "PIANO_KEYS":
+            hpf = 40.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=280.0, gain_db=-1.5, q_factor=1.5, rationale="Khử đục dải low-mid tránh tranh chấp dải tần với giọng Mục sư."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=3200.0, gain_db=1.0, q_factor=1.8, rationale="Tăng độ tách bạch của phím đàn trong bản phối thờ phượng."),
+            ]
+            hypothesis = "Cân chỉnh đàn Piano/Keys: dọn dẹp dải 280Hz và tạo khoảng không gian cho giọng hát"
+            tradeoffs = [
+                "Đàn piano rõ tiếng, thanh thoát, không chiếm chỗ dải vocal.",
+            ]
+        elif role == "BASS_GUITAR":
+            hpf = 35.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=70.0, gain_db=1.5, q_factor=1.8, rationale="Tăng cường dải lực trầm ấm chắc khỏe của nốt bass."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=250.0, gain_db=-2.5, q_factor=2.0, rationale="Khoét dải đục 250Hz để nhường chỗ cho kick và vocal."),
+                PEQBandProposal(band_index=3, filter_type="PEQ", freq_hz=1200.0, gain_db=1.5, q_factor=2.2, rationale="Tăng độ nảy ngón tay (finger attack) giúp nghe rõ đường chạy nốt."),
+            ]
+            hypothesis = "Cân chỉnh đàn Bass: tạo nền trầm chắc gọn, khoét mud 250Hz và nét ngón đàn"
+            tradeoffs = [
+                "Đảm bảo nốt trầm tròn trịa, chắc gọn, không làm rung rền hội trường.",
+            ]
+        else: # Default: PASTOR_SPEECH
+            role = "PASTOR_SPEECH"
+            hpf = 85.0
+            bands = [
+                PEQBandProposal(band_index=1, filter_type="PEQ", freq_hz=250.0, gain_db=-1.8, q_factor=1.5, rationale="Giảm đục và ù âm học nhà thờ ở dải 250 Hz giúp giọng nói rõ ràng hơn."),
+                PEQBandProposal(band_index=2, filter_type="PEQ", freq_hz=2800.0, gain_db=1.2, q_factor=1.2, rationale="Tăng nhẹ hiện diện ở dải 2.8 kHz giúp hội chúng nghe rõ từng âm tiết bài giảng."),
+            ]
+            hypothesis = "Cải thiện độ rõ lời bài giảng Mục sư, khử ù 250Hz và lọc rung HPF 85Hz"
+            tradeoffs = [
+                "Giảm nhẹ độ trầm giả tạo do hiệu ứng tiệm cận (proximity effect) khi để mic sát miệng.",
+                "Cải thiện độ rõ lời trong hội trường dội âm mà không làm mỏng chất giọng thật.",
+            ]
 
         changes: List[Dict[str, Any]] = []
 
         # HPF
         changes.append({"parameter": f"{ch_str}/preamp/hpon", "from": 0, "to": 1})
-        changes.append({"parameter": f"{ch_str}/preamp/hpf", "from": 0.0, "to": freq_to_x32(85.0, 20.0, 400.0)})
+        changes.append({"parameter": f"{ch_str}/preamp/hpf", "from": 0.0, "to": freq_to_x32(hpf, 20.0, 400.0)})
 
         # Bands
         for b in bands:
@@ -133,30 +195,38 @@ class PEQRecommender:
             changes.append({"parameter": f"{prefix}/q", "from": 0.5, "to": q_to_x32(b.q_factor)})
 
         proposal = Proposal(
-            proposal_id=f"speech-tuning-ch{channel_id:02d}",
+            proposal_id=f"{role.lower().replace('_', '-')}-ch{channel_id:02d}",
             target_channel=channel_id,
-            hypothesis="Cải thiện độ rõ lời bài giảng Mục sư, khử ù 250Hz và lọc rung HPF 85Hz",
-            confidence=0.88,
+            hypothesis=hypothesis,
+            confidence=0.90,
             changes=changes,
             expected_sha256=expected_sha256,
         )
 
-        sim_curve = self.simulate_response(hpf_freq=85.0, bands=bands)
+        sim_curve = self.simulate_response(hpf_freq=hpf, bands=bands)
 
         tuning_detail = ChannelTuningProposal(
             channel_id=channel_id,
-            role="PASTOR_SPEECH",
+            role=role,
             hpf_on=True,
-            hpf_freq_hz=85.0,
+            hpf_freq_hz=hpf,
             bands=bands,
-            expected_tradeoffs=[
-                "Giảm nhẹ độ trầm giả tạo do hiệu ứng tiệm cận (proximity effect) khi để mic sát miệng.",
-                "Cải thiện độ rõ lời trong hội trường dội âm mà không làm mỏng chất giọng thật.",
-            ],
+            expected_tradeoffs=tradeoffs,
             simulated_curve=sim_curve,
         )
 
         return proposal, tuning_detail
+
+    def recommend_pastor_speech(
+        self,
+        channel_id: int,
+        expected_sha256: str,
+        current_eq_params: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[Proposal, ChannelTuningProposal]:
+        """
+        Generate conservative tuning for Pastor/Speech mic (calls recommend_role).
+        """
+        return self.recommend_role(channel_id, "PASTOR_SPEECH", expected_sha256)
 
     def recommend_feedback_notch(
         self,

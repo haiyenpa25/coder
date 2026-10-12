@@ -27,7 +27,7 @@
   # hoặc
   & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8080
   ```
-- **Chạy toàn bộ 61 bài kiểm thử tự động:**
+- **Chạy toàn bộ 63 bài kiểm thử tự động:**
   ```powershell
   & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
   ```

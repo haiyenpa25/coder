@@ -147,6 +147,30 @@ class TestSprint4PEQ(unittest.TestCase):
         pres_pt = min(curve, key=lambda pt: abs(pt["freq"] - 2800.0))
         self.assertGreater(pres_pt["response_db"], 0.5, "Should have boost around 2.8 kHz")
 
+    def test_recommend_role_various_church_instruments(self):
+        roles_to_test = [
+            ("LEAD_VOCAL_FEMALE", 110.0, 3),
+            ("LEAD_VOCAL_MALE", 75.0, 2),
+            ("CHOIR_OVERHEAD", 130.0, 2),
+            ("ACOUSTIC_GUITAR", 80.0, 3),
+            ("PIANO_KEYS", 40.0, 2),
+            ("BASS_GUITAR", 35.0, 3),
+        ]
+        snapshot = self.client.take_full_snapshot(max_channels=32)
+
+        for role, expected_hpf, expected_bands_count in roles_to_test:
+            prop, detail = self.recommender.recommend_role(
+                channel_id=5,
+                role=role,
+                expected_sha256=snapshot.sha256,
+            )
+            self.assertEqual(prop.target_channel, 5)
+            self.assertEqual(detail.role, role)
+            self.assertEqual(detail.hpf_freq_hz, expected_hpf)
+            self.assertEqual(len(detail.bands), expected_bands_count)
+            self.assertTrue(len(detail.expected_tradeoffs) >= 1)
+            self.assertTrue(len(detail.simulated_curve) > 0)
+
 
 if __name__ == "__main__":
     unittest.main()
