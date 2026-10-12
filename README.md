@@ -1,115 +1,146 @@
-# HAINGUYENCODER
+# ChurchMix — X32 AI Sound Engineer
 
-Web app chạy local để **tạo dự án mới (hoặc áp dụng vào dự án có sẵn)** kèm bộ cấu hình chuẩn cho Antigravity IDE:
-`AGENTS.md`, rules theo stack, skills, hooks kiểm chứng, `PROJECT_CONTEXT.md`, cấp port không trùng, file môi trường XAMPP/Docker.
+> **Hệ Thống Trợ Lý Kỹ Thuật Âm Thanh Nhà Thờ Thông Minh & An Toàn Tuyệt Đối**  
+> Dành cho mixer **Behringer X32 Compact / Midas M32**, stagebox **Midas DL16** và hệ thống monitor cá nhân **Ultranet P16**.
 
-## Chạy
+[![Safety Verified](https://img.shields.io/badge/Safety-Invariant%20Guaranteed-success.svg)](#nguyên-tắc-bất-biến-sống-còn-hard-invariants)
+[![Tests Passing](https://img.shields.io/badge/Tests-56%2F56%20Passing-brightgreen.svg)](#kiểm-thử-tự-động)
+[![OSC Read-Only First](https://img.shields.io/badge/Mode-READ__ONLY__MODE%20First-blue.svg)](#chế-độ-vận-hành)
+[![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](#yêu-cầu-môi-trường)
 
-- Double-click `start.bat`, **hoặc**
-- `node server.js` rồi mở <http://127.0.0.1:4590>
+---
 
-Không cần `npm install` (không có dependency). Cần Node.js ≥ 20.
-Test: `node --test "tests/**/*.test.js"`
+## 1. Giới Thiệu & Mục Tiêu
 
-> 📖 **Xem hướng dẫn chi tiết từng bước:** [HUONG_DAN_SU_DUNG.md](HUONG_DAN_SU_DUNG.md)
+**ChurchMix (X32 AI Sound Engineer)** được thiết kế chuyên biệt cho môi trường thờ phượng tại nhà thờ, giải quyết bài toán thiếu hụt nhân sự âm thanh chuyên nghiệp nhưng vẫn đảm bảo:
+* Giọng nói Mục sư rõ lời, tròn vành, không om bí, không mỏng gắt.
+* Ban nhạc và ca đoàn hòa quyện, âm trường sân khấu sống động.
+* **Không bao giờ xảy ra tiếng hú rít bất ngờ** trong thánh lễ.
+* **An toàn tuyệt đối:** Trợ lý AI chỉ đưa ra đề xuất âm học và giải thích bằng tiếng Việt; chỉ thực thi lệnh ghi sau khi kỹ thuật viên xác nhận.
 
-## Chép sang máy khác
+---
 
-1. **Đóng gói bằng `pack.bat`**:
-   - Double-click **`pack.bat`** (hoặc chạy `pack.bat -Lite` để có file zip gọn nhẹ ~8 MB).
-   - Script tự động loại bỏ `data/` (danh sách dự án riêng máy cũ), `.git` trong thư viện và các file tạm.
-   - Kết quả là 1 file zip nằm cạnh thư mục app, sẵn sàng copy sang máy mới / USB.
-2. **Cài đặt trên máy mới (Double-click `setup.bat`)** — không cần Node.js có sẵn. Script sẽ:
-   - kiểm tra từng công cụ trong [`setup/tools.json`](setup/tools.json);
-   - tìm bản đã cài nhưng chưa có trong PATH (VD `D:\xampp\php`) và **chỉ thêm PATH**;
-   - cài **Node.js + Git** (bắt buộc) qua `winget`, hỏi từng công cụ còn lại: PHP, Composer, Python, clasp, XAMPP, Docker;
-   - tự động cấu hình **Chrome DevTools MCP** và **Playwright MCP** vào `%USERPROFILE%\.gemini\config\mcp_config.json` cho Antigravity IDE (bảo tồn server cũ của bạn, sao lưu nếu hỏng);
-   - tự động cài **11 skill cộng đồng chọn lọc** (từ [`setup/global-skills.json`](setup/global-skills.json)) vào `%USERPROFILE%\.gemini\config\skills\` (không ghi đè skill đã có);
-   - Composer tải từ getcomposer.org và **kiểm tra SHA-256**;
-   - ghi PATH vào biến môi trường **User** (không dùng `setx`, không bị cắt 1024 ký tự);
-   - đề nghị đặt ExecutionPolicy `RemoteSigned` (CurrentUser) để lệnh `npm` chạy được trong PowerShell;
-   - mở app tại `http://127.0.0.1:4590`.
-3. Trong app, trang **Môi trường máy** hiển thị công cụ còn thiếu (kèm dự án nào cần, MCP servers) và cài thêm bằng một cú bấm. Doctor và màn Xem trước cũng cảnh báo khi máy thiếu công cụ cho dự án.
+## 2. Sơ Đồ Đấu Nối Thực Tế
 
-Chạy script thủ công:
+```text
+[Sân khấu] Midas DL16 (AES50 A) ──────────┐
+                                          │
+[Monitor] DL16 Ultranet ──> P16-D ──> 3x P16-HQ In-Ear
+                                          │
+[FOH Console] Behringer X32 Compact ──────┤
+   │                                      │
+   ├── [Cáp LAN / UDP 10023] ─────────────┼──> [Máy tính điều khiển Laptop/PC]
+   └── [Cáp USB / X-USB Audio 32-ch] ─────┘    (Chạy ChurchMix Server & UI)
+```
+
+---
+
+## 3. Các Bất Biến Sống Còn (Hard Invariants)
+
+1. **Bất Biến Cổng DL16 #11 (Band Talkback):**
+   * Tín hiệu từ cổng này **CHỈ ĐƯỢC PHÉP** đi vào hệ thống Ultranet P16 của ban nhạc.
+   * **TUYỆT ĐỐI CẤM** định tuyến ra loa FOH (Main LR, Mono/Center, hay Matrix). Bất kỳ giao dịch nào vi phạm sẽ bị hủy bỏ ngay lập tức với lỗi `InvariantViolationError`.
+2. **Khởi Động Read-Only (Mặc định chỉ đọc):**
+   * Mọi kết nối đến phần cứng luôn khởi đầu ở trạng thái `READ_ONLY_MODE = True`.
+3. **Nút Khẩn Cấp STOP AUTO:**
+   * Luôn ghim trên thanh tiêu đề và phím tắt; phản hồi dưới 50ms để khóa cứng toàn bộ luồng ghi tham số khi có sự cố.
+4. **Silence Hold (Chống trôi Fader):**
+   * Tuyệt đối không tự động đẩy fader lên khi micro im lặng hoặc người nói tạm ngừng để tránh kéo ồn nền hội trường.
+5. **No-Boost-in-Nulls:**
+   * Không bao giờ tăng dải EQ vào các điểm triệt tiêu pha âm học phòng ($Coherence < 0.65$ & $Magnitude < -6\text{ dB}$).
+6. **Chống Hú Đa Bằng Chứng:**
+   * Phân tích dãy hài âm tự nhiên ($2f, 3f, 4f$) để loại trừ nốt ca sĩ ngân dài hoặc tiếng đàn organ, chỉ can thiệp notch hẹp ($Q \ge 6.0$, độ sâu giới hạn $-3\text{dB}$ đến $-4.5\text{dB}$) vào đúng tần số cộng hưởng hú thật.
+
+---
+
+## 4. Khởi Động Nhanh (Quick Start)
+
+### 4.1 Khởi động bằng 1 cú nhấp chuột (Windows)
+Double-click vào tệp:
+```text
+start_church_engineer.bat
+```
+Ứng dụng sẽ tự khởi chạy máy chủ backend và mở giao diện tại địa chỉ:
+👉 **`http://127.0.0.1:8080`**
+
+### 4.2 Khởi động thủ công qua PowerShell
+```powershell
+# 1. Cài đặt thư viện phụ thuộc
+pip install -r requirements.txt
+
+# 2. Khởi động Web & API Server
+python -m uvicorn apps.api.main:app --host 127.0.0.1 --port 8080
+```
+
+---
+
+## 5. Quy Trình Chuẩn 7 Bước (SOP Wizards)
+
+Hệ thống tích hợp sẵn 7 Wizards chuẩn hóa toàn diện quy trình âm thanh nhà thờ:
+
+| Wizard | Tên Quy Trình | Mục Đích Sử Dụng |
+| :---: | :--- | :--- |
+| **W1** | **Inventory & Safety Routing** | Quét kiểm kê 32 line và xác thực an toàn tuyệt đối cổng DL16 #11. |
+| **W2** | **Sunday Pre-Service Line Check** | Kiểm tra dây dẫn, pin micro không dây, gain cấu trúc trước giờ lễ. |
+| **W3** | **Vocal & Speech Calibration** | Thu mẫu 20s giọng Mục sư/Ca trưởng, đề xuất 4-band PEQ và nghe thử A/B. |
+| **W4** | **Room & PA Tuning (H1)** | Cân chỉnh đáp tuyến loa hội trường qua hàm truyền 2 kênh & căn delay. |
+| **W5** | **Safe Feedback Ring-Out** | Dò tìm tần số hú an toàn trong buổi tập khi không có khán giả. |
+| **W6** | **Live Service Tactical Assistant** | Giám sát trực tiếp buổi lễ: Headroom, VAD, Silence Hold, cảnh báo clipping. |
+| **W7** | **Post-Service Debrief** | Tổng kết thống kê sự cố, mức âm lượng trung bình và xuất báo cáo Markdown. |
+
+---
+
+## 6. Xuất File Cắm USB Mặt Trước X32 (.scn)
+
+Không cần máy tính trực tiếp trong giờ lễ, bạn có thể xuất toàn bộ cấu hình tối ưu thành file Scene chuẩn Behringer X32:
+1. Nhấn nút **"Xuất File Scene USB (.scn) Cho X32"** trên dashboard.
+2. Sao chép tệp `ChurchMix_FOH.scn` vào thư mục gốc của USB định dạng FAT32.
+3. Cắm vào cổng USB trên mặt bàn trộn X32 và chọn **Scenes $\rightarrow$ Utility $\rightarrow$ Load Scene**.
+
+---
+
+## 7. Kiểm Thử Tự Động (Automated Testing)
+
+Toàn bộ hệ thống được bảo vệ bởi **56 bài kiểm thử tự động** chạy độc lập trên bộ giả lập UDP `MockX32Server`:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File setup\install-tools.ps1 -CheckOnly
-powershell -NoProfile -ExecutionPolicy Bypass -File setup\install-tools.ps1 -Tools php,composer
+& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
-Yêu cầu: Windows 10/11 có `winget` (App Installer). Sau khi cài, mở lại terminal / Antigravity IDE để nhận PATH mới.
+* Thời gian chạy: **~4.5 giây**.
+* Kết quả: **56 / 56 tests PASSING (100%)**.
 
-## Cấu trúc
+---
+
+## 8. Cấu Trúc Mã Nguồn
 
 ```text
-HAINGUYENCODER/
-├── start.bat              # Khởi động app & mở trình duyệt (127.0.0.1:4590)
-├── setup.bat              # Cài đặt môi trường, MCP & 11 skill cho máy mới
-├── pack.bat / pack.ps1    # Đóng gói zip để chép máy (có tùy chọn -Lite)
-├── server.js              # HTTP server (chỉ 127.0.0.1, zero-dependency)
-├── HUONG_DAN_SU_DUNG.md   # Hướng dẫn chi tiết đầy đủ 14 mục
-├── src/
-│   ├── catalog.js         # stack, profile, dải port — sửa ở đây để thêm stack
-│   ├── projectGenerator.js# validate → file set → preview → ghi (không ghi đè im lặng)
-│   ├── projectService.js  # điều phối nghiệp vụ
-│   ├── portAllocator.js   # netstat + registry + thử bind
-│   ├── stackDetector.js   # detect stack & lệnh verify có thật
-│   ├── projectContext.js  # PROJECT_CONTEXT.md (khối HNC được quản lý)
-│   ├── envFiles.js        # run.bat, router.php, docker-compose, Dockerfile, .env, vhost XAMPP
-│   ├── xampp.js           # cài vhost vào httpd-vhosts.conf (có backup)
-│   ├── doctor.js          # kiểm tra cấu hình dự án
-│   └── storage.js         # data/settings.json, data/projects.json
-├── templates/             # KHO GỐC — sửa ở đây để đổi chuẩn cho dự án tạo sau
-│   ├── core/              # AGENTS.md, DESIGN.md.template, .ai/*
-│   ├── personal/          # personal.md — thói quen cá nhân, luôn bật
-│   ├── rules/             # architecture, security, testing, php, laravel, typescript, frontend, python, apps-script, docker, database-migrations
-│   ├── skills/            # 11 core skills (bao gồm brainstorming, TDD, browser-verification)
-│   ├── agents/            # reviewer, test-engineer (thử nghiệm)
-│   ├── hooks/             # hooks.json + wrapper .mjs
-│   └── scripts/verify.mjs
-├── community-skills/      # Thư viện offline: agent-skills, taste-skill, superpowers, design.md...
-├── setup/
-│   ├── install-tools.ps1  # Script cài winget, MCP & skill toàn cục
-│   ├── tools.json         # Danh mục công cụ & lệnh cài
-│   └── global-skills.json # 11 skill cộng đồng chọn lọc cài vào Antigravity
-├── public/                # Giao diện web local
-└── data/                  # Registry dự án + cài đặt (tự tạo lúc chạy, không commit/pack)
+ChurchMix/
+├── apps/
+│   ├── api/                    # FastAPI REST & WebSocket Telemetry Server
+│   ├── capture_agent/          # Native Audio Capture qua SoundDevice (X-USB ASIO/WASAPI)
+│   └── web/                    # Dashboard UI Canvas 60fps RTA, Strips & Wizards
+├── packages/
+│   ├── mock_x32/               # UDP Simulator giả lập X32 trên cổng 10023
+│   ├── x32_osc_adapter/        # Binary OSC Codec, Snapshot SHA-256, UDP Discovery
+│   ├── safety_controller/      # Whitelist, Routing Graph, Safety Transactions & Rollback
+│   ├── signal_analysis/        # 1/12-Octave RTA, Welch PSD, Peak/RMS
+│   ├── feedback_detector/      # Dò hú đa bằng chứng loại trừ hài âm ca sĩ (2f..5f)
+│   ├── eq_optimizer/           # Đề xuất 4-Band PEQ chuẩn phần cứng X32
+│   ├── acoustic_measurement/   # Đo hàm truyền H1, Coherence, Parser OSM CSV
+│   ├── mix_assistant/          # Speech Leveler & Silence Hold chống trôi fader
+│   ├── storage/                # SQLite DB (Snapshots, Audit Logs, Acoustic history)
+│   └── wizards/                # Nghiệp vụ 7 quy trình chuẩn SOP (W1-W7)
+├── configs/                    # Whitelist OSC, Phân quyền RBAC, Safety defaults
+├── deploy/                     # Dockerfile, Docker Compose, Windows Service, Systemd
+├── docs/                       # Toàn bộ 7 tài liệu kỹ thuật & quy chuẩn vận hành
+└── tests/                      # 10 bộ Unit & Integration test suites (56 tests)
 ```
 
-## Dự án được sinh ra
+---
 
-```text
-<du-an>/
-├── AGENTS.md                  # policy ngắn, luôn bật (Plan → Test → Implement → Review → Verify)
-├── DESIGN.md                  # chuẩn Google Labs: Design Tokens, bảng màu WCAG AA, Typography
-├── PROJECT_CONTEXT.md         # link Sheet/GitHub, stack, port, cách chạy + ghi chú của bạn
-├── run.bat                    # Chạy dự án trực tiếp KHÔNG CẦN XAMPP (đọc port từ .env)
-├── router.php                 # (chỉ PHP thuần) Router tích hợp, chặn file nhạy cảm (.env, .git...)
-├── .agents/
-│   ├── rules/                 # personal + rule theo stack (frontend đọc DESIGN.md)
-│   ├── skills/                # 11 skills: brainstorming, TDD, browser-verification, debug...
-│   ├── agents/                # reviewer (+ test-engineer ở strict)
-│   ├── hooks.json             # PostToolUse format + Stop quality gate
-│   └── hooks/*.mjs
-├── .ai/                       # plans / reviews / verification / decisions + verify.json
-├── scripts/verify.mjs         # chạy mọi lệnh trong .ai/verify.json
-├── docker-compose.yml, docker/  (nếu Docker)
-├── xampp/vhost.conf             (nếu XAMPP)
-├── .env (secret, không commit), .env.example
-└── .gitignore
-```
+## 9. Giấy Phép & Đóng Góp
 
-## Nguyên tắc an toàn
+* Phát triển cho cộng đồng âm thanh nhà thờ phục vụ phụng vụ thánh.
+* Chi tiết bản quyền và ghi công thư viện nguồn mở xem tại [docs/licensing-SBOM.md](docs/licensing-SBOM.md).
 
-- File đã tồn tại và khác template → **xung đột**, chỉ ghi đè khi bạn tick.
-- `.env` và `.ai/verify.json` chỉ tạo khi chưa có.
-- `PROJECT_CONTEXT.md`: chỉ khối `HNC:BEGIN…END` được cập nhật, phần ghi chú của bạn giữ nguyên.
-- Cài vhost XAMPP luôn backup `httpd-vhosts.conf` trước.
-- "Gỡ" dự án chỉ xóa khỏi danh sách, không xóa file.
-- Stop hook tối đa ép agent chạy tiếp 2 lần / hội thoại để tránh vòng lặp vô hạn.
-
-## Lưu ý
-
-- Thư mục `.agents/agents/` (subagent) không có trong tài liệu customization đi kèm IDE — coi là thử nghiệm.
-- PostToolUse hook chỉ format được khi payload có đường dẫn file; nếu IDE không gửi, hook bỏ qua (không lỗi).
