@@ -83,7 +83,7 @@ class SafetyPolicy:
                 )
 
             # 3. Whitelist check for allowed channel parameters:
-            # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), automix, or gate/expander
+            # EQ, HPF, limited fader, channel mute (mix/on), digital trim (preamp/trim), automix, gate/expander, or mixbus sends
             is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
@@ -91,6 +91,19 @@ class SafetyPolicy:
             is_trim = param == f"{ch_str}/preamp/trim"
             is_automix = f"{ch_str}/automix/" in param
             is_gate = f"{ch_str}/gate/" in param
+
+            # Mixbus sends: /ch/{ch}/mix/{bus}/level or /ch/{ch}/mix/{bus}/on
+            is_bus_send = False
+            bus_num = None
+            if param.startswith(f"{ch_str}/mix/"):
+                parts = param.split("/")
+                if len(parts) == 6 and parts[3] == "mix" and parts[5] in ("level", "on"):
+                    try:
+                        bus_num = int(parts[4])
+                        if 1 <= bus_num <= 16:
+                            is_bus_send = True
+                    except ValueError:
+                        pass
 
             # Hard Invariant: Channel 11 (Band Talkback) must NEVER be in Automix or Gate
             if ch == 11 and is_automix:
@@ -103,7 +116,14 @@ class SafetyPolicy:
                     "SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER have gate/expander modified for FOH."
                 )
 
-            if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix or is_gate):
+            # Hard Invariant: Channel 11 must NEVER send signal to Stage Wedges (Bus 1-4) or FX
+            if ch == 11 and is_bus_send and bus_num is not None:
+                if (1 <= bus_num <= 4 or bus_num >= 13) and (to_val > 0.0 or (param.endswith("/on") and to_val == 1)):
+                    raise ProposalRejectedError(
+                        f"SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER send signal to Stage Wedge/FX Bus {bus_num:02d}."
+                    )
+
+            if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix or is_gate or is_bus_send):
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )
@@ -113,6 +133,12 @@ class SafetyPolicy:
                 if abs(to_val - from_val) > self.max_fader_delta:
                     raise ProposalRejectedError(
                         f"SAFETY LIMIT: Fader delta {abs(to_val - from_val):.3f} exceeds maximum safe limit {self.max_fader_delta}."
+                    )
+
+            if is_bus_send and param.endswith("/level") and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):
+                if abs(to_val - from_val) > 0.25: # Max ~6 dB jump
+                    raise ProposalRejectedError(
+                        f"SAFETY LIMIT: Mix bus send level delta {abs(to_val - from_val):.3f} exceeds maximum safe limit 0.25 (~6 dB)."
                     )
 
             if is_trim and isinstance(to_val, (int, float)) and isinstance(from_val, (int, float)):

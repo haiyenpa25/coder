@@ -310,6 +310,37 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Bấm **`[Áp Dụng Chế Độ]`** để chuyển đổi an toàn.
    - Trong trường hợp khẩn cấp, có thể bấm nút **`[NGẮT KHẨN CẤP TOÀN BỘ (PANIC AUTO-DISENGAGE)]`** ngay trong hộp thoại để đóng băng mixer lập tức.
 
+### 20. MA TRẬN MONITOR SÂN KHẤU (AUX MIXBUSES) & BẤT BIẾN TAI NGHE IN-EAR ULTRANET P16 (SPRINT 26)
+1. **Kiến Trúc Hệ Thống Monitor Trong Nhà Thờ:**
+   - **16 Đường Gửi Phụ (MixBuses 1-16):**
+     * **Bus 1-4 (Loa Sàn Stage Wedges):** Dành cho Mục sư, Ban Hát Dẫn, Ca đoàn và Nhạc cụ sân khấu. Loa hướng trực tiếp vào micro nên tiềm ẩn rủi ro hú âm học lớn nhất.
+     * **Bus 5-8 (Tai Nghe In-Ear Monitors - IEMs):** Dành cho ca sĩ chính, trưởng ban nhạc và tay trống. Cần sự ổn định tối đa về âm lượng.
+     * **Bus 9-12 (Subgroups / Livestream Broadcast):** Gom nhóm nhạc cụ hoặc đường gửi âm thanh phát sóng trực tiếp.
+     * **Bus 13-16 (Bộ Hiệu Ứng Nội Bộ FX):** Reverb Hall, Delay, Chorus, Plate Reverb.
+   - **16 Kênh Giám Sát Cá Nhân Ultranet P16 (P16-M / P16-D):**
+     * Truyền 16 kênh âm thanh số qua cáp mạng Cat5 đến mixer cá nhân của từng nhạc công trên bục thờ phượng.
+2. **Bất Biến An Toàn Sống Còn (Hard Safety Invariant - Rule 5):**
+   - **DL16 Input 11 (Band Talkback):**
+     * **CHỈ ĐƯỢC PHÉP** định tuyến duy nhất vào **Ultranet P16 Slot 11** (`/outputs/p16/11/src = 11`).
+     * **TUYỆT ĐỐI CẤM** rò rỉ vào bất kỳ khe P16 nào khác (Slots 1-10, 12-16).
+     * **TUYỆT ĐỐI CẤM** gửi ra bất kỳ MixBus nào đi ra FOH (`/bus/xx/mix/st = 1`) hoặc các loa monitor sàn Stage Wedges (Bus 1-4). Nếu Talkback phát ra loa sàn, tiếng nhắc nhở nội bộ của ban nhạc sẽ phát thẳng ra toàn bộ hội chúng trong nhà thờ và gây nguy cơ hú micro nghiêm trọng.
+3. **Phát Hiện Nguy Cơ Hú Loa Sàn & Chuẩn Hóa Điểm Lấy Tín Hiệu (Tap-Point):**
+   - **Cảnh Báo Hú (Feedback Hazard):** Bất kỳ micro giọng nói/hát nào (Pastors, Vocals, Choir) có mức gửi vào loa sàn Stage Wedge vượt quá **0.80 (+2.5 dB)** hoặc **0.85 (+5 dB)** sẽ lập tức bị hệ thống gắn cờ cảnh báo rủi ro `HIGH` hoặc `CRITICAL`.
+   - **Lỗi Cấu Hình Tap-Point (Post-Fader Hazard):** Loa sàn và tai nghe IEM bắt buộc phải lấy tín hiệu **Pre-Fader** (hoặc Pre-EQ / Post-EQ). Nếu cấu hình nhầm sang **Post-Fader**, mỗi lần kỹ thuật viên đẩy fader FOH cho hội chúng nghe thì âm lượng monitor của ca sĩ sẽ bị biến động đột ngột, dễ gây giật mình hát lệch nhịp và bùng nổ tiếng hú tức thì.
+4. **Tạo Đề Xuất Cân Bằng Monitor An Toàn (Safe Proposals):**
+   - Tuân thủ nguyên tắc số 7: *"Đề xuất không bao giờ là mệnh lệnh"*.
+   - Khi kỹ thuật viên yêu cầu kiểm tra hoặc nhấn nút **`[Tạo Đề Xuất Chống Hú & Cân Bằng]`**:
+     * Nếu phát hiện Talkback vô tình bị mở vào loa sàn: Tạo đề xuất MUTE ngay lập tức (`/ch/11/mix/xx/on = 0`, level = 0.0).
+     * Nếu phát hiện send micro quá lớn (> 0.80): Tạo đề xuất hạ nhẹ về mức danh định Unity 0.75 (0 dB) để khôi phục biên dự phòng an toàn (Headroom 4-6 dB).
+     * Nếu phát hiện lỗi Post-Fader: Đề xuất chuyển về điểm Pre-Fader.
+5. **Thao Tác Trên Web Console:**
+   - Trên thanh điều khiển trên cùng, nhấn nút màu xanh lá **`[Monitor & P16 IEM]`**.
+   - Hộp thoại **Ma Trận Monitor Aux & Ultranet P16 IEM** hiển thị với 3 tab:
+     * **Tab 1: Ultranet P16 (16 Slots):** Xem sơ đồ 16 khe P16; Khe số 11 được viền vàng nổi bật khẳng định Talkback được cách ly an toàn.
+     * **Tab 2: MixBuses (Wedges / IEMs / FX):** Xem tổng quan 16 bus, mức Master, số kênh gửi và huy hiệu cảnh báo rủi ro hú. Bấm nút **`[Tạo Đề Xuất Chống Hú & Cân Bằng]`** cho từng bus để AI tối ưu hóa.
+     * **Tab 3: Cảnh Báo Hú & Tap-Point:** Liệt kê chi tiết mọi micro gửi quá ngưỡng hoặc sai cấu hình Tap-Point, kèm nút một chạm để tạo đề xuất khắc phục.
+
+
 
 
 

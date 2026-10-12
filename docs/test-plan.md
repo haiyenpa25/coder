@@ -45,15 +45,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint23_listening_test_benchmark.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint23_listening_test_benchmark.py) | **7** | Thẩm Định Thính Giác Mù A/B Chuẩn Quốc Tế ITU-R BS.1284, Bù Trừ Âm Lượng Equal-Loudness Fletcher-Munson, Ma Trận 7 Tiêu Chí Âm Học Nhà Thờ (Master Plan 3.4), Tính Điểm Trung Bình Trọng Số MOS (1.0-5.0), Quy Tắc Phủ Quyết An Toàn (Veto Rule), Lưu Trữ SQLite & REST API. | **PASS** |
 | [tests/test_sprint24_stage_bleed_and_expander.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint24_stage_bleed_and_expander.py) | **8** | Kiểm Soát Rò Rỉ Sân Khấu (Stage Bleed) & Cân Chỉnh Downward Expander Cho Vocal: Phân Tích Ma Trận Tương Quan Chéo, Phát Hiện Méo Pha Lọc Lược (Comb Filtering), Cân Chỉnh Expander Dịu Nhẹ (Threshold = Ồn Nền + 3 dB, Range <= 12 dB, Key HPF 250 Hz), Bảo Vệ Bất Biến Kênh 11 Band Talkback & REST API. | **PASS** |
 | [tests/test_sprint25_safety_modes_and_disengage.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint25_safety_modes_and_disengage.py) | **8** | Hệ Thống 4 Chế Độ Quyền Hạn Safety Engine (OBSERVE, ASSIST, LIMITED_AUTO, ADMIN_MAINTENANCE) & Tự Động Khóa Cứng (Auto-Disengage / Panic Freeze Watchdog: Vỡ tiếng liên tục > 5 frames, Tăng vọt nguy cơ hú, Mất telemetry > 2.5s, Nút STOP AUTO, Khóa bảo mật PIN 7777 & REST API). | **PASS** |
-| **TỔNG CỘNG PYTHON** | **159** | **Bao phủ 100% 25 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer, Thẩm định thính giác mù A/B, Stage Bleed và 4 Chế độ quyền hạn Safety Modes** | **100% PASS** |
+| [tests/test_sprint26_monitor_matrix_and_iem.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint26_monitor_matrix_and_iem.py) | **10** | Ma Trận Monitor Aux & Ultranet P16 Personal IEM: Thẩm định 16 khe P16, Bất biến cách ly Talkback DL16 #11, Phân loại MixBus (Wedges/IEMs/FX), Dò nguy cơ hú loa sàn (> 0.80 fader send), Lỗi cấu hình Tap-Point Post-Fader, Đề xuất cân bằng an toàn qua SafetyGate & REST API. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **169** | **Bao phủ 100% 26 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer, Thẩm định thính giác mù A/B, Stage Bleed, Safety Modes và Monitor Matrix** | **100% PASS** |
 | **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **178** | **178 / 178 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **188** | **188 / 188 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 159 bài kiểm thử Python:
+Để thực thi toàn bộ 169 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```

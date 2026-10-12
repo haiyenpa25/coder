@@ -43,6 +43,15 @@ from .bleed_analyzer import (
     CrossTalkReport,
     StageBleedAdvisor,
 )
+from .monitor_inspector import (
+    P16SlotInfo,
+    ChannelBusSend,
+    MixBusSummary,
+    MonitorMatrixAuditReport,
+    MonitorMatrixInspector,
+    x32_to_bus_level_db,
+    bus_level_db_to_x32,
+)
 
 __all__ = [
     "VoiceActivityState",
@@ -71,6 +80,13 @@ __all__ = [
     "ExpanderSettings",
     "CrossTalkReport",
     "StageBleedAdvisor",
+    "P16SlotInfo",
+    "ChannelBusSend",
+    "MixBusSummary",
+    "MonitorMatrixAuditReport",
+    "MonitorMatrixInspector",
+    "x32_to_bus_level_db",
+    "bus_level_db_to_x32",
 ]
 
 

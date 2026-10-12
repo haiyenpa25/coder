@@ -96,6 +96,11 @@ from packages.mix_assistant import (
     ExpanderSettings,
     CrossTalkReport,
     StageBleedAdvisor,
+    P16SlotInfo,
+    ChannelBusSend,
+    MixBusSummary,
+    MonitorMatrixAuditReport,
+    MonitorMatrixInspector,
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
@@ -1393,6 +1398,101 @@ def propose_expander_setup(channel_id: int):
         "status": "PROPOSED",
         "proposal": prop_dict,
         "report": report_dict,
+    }
+
+
+# --- Monitor Mix Matrix & P16 IEM Endpoints ---
+
+class ProposeBusBalanceRequest(BaseModel):
+    bus_id: int
+    operator: str = "Operator"
+
+
+@app.get("/api/v1/monitors/iem-matrix")
+def get_monitor_iem_matrix():
+    """
+    Get multi-bus monitor matrix, P16 Ultranet status, and acoustic feedback inspection.
+    """
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    report = MonitorMatrixInspector.audit_mixbus_matrix(snapshot.parameters)
+    return report.to_dict()
+
+
+@app.get("/api/v1/monitors/p16-audit")
+def get_p16_audit():
+    """
+    Audit all 16 Ultranet P16 slots, confirming Channel 11 (Band Talkback) isolation.
+    """
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    slots, is_safe, violations = MonitorMatrixInspector.audit_p16_ultranet(snapshot.parameters)
+    return {
+        "timestamp": time.time(),
+        "slots": [s.to_dict() for s in slots],
+        "p16_talkback_safe": is_safe,
+        "violations": violations,
+    }
+
+
+@app.post("/api/v1/monitors/propose-bus-balance")
+def propose_bus_balance(req: ProposeBusBalanceRequest):
+    """
+    Formulate safe balance & feedback prevention proposals for a target MixBus.
+    """
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+    if not (1 <= req.bus_id <= 16):
+        raise HTTPException(status_code=400, detail="bus_id must be between 1 and 16")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    proposals = MonitorMatrixInspector.generate_safe_bus_balance_proposals(
+        x32_state=snapshot.parameters,
+        bus_id=req.bus_id,
+        current_sha256=snapshot.sha256,
+    )
+
+    for prop in proposals:
+        active_proposals[prop.proposal_id] = prop
+
+    bus_name = snapshot.parameters.get(f"/bus/{req.bus_id:02d}/config/name", f"Bus {req.bus_id:02d}")
+    bus_type = MonitorMatrixInspector.classify_bus_type(req.bus_id, bus_name)
+
+    if db and proposals:
+        db.save_audit_event(
+            actor=req.operator,
+            action="PROPOSE_MONITOR_BALANCE",
+            proposal_id=proposals[0].proposal_id,
+            status="PROPOSED",
+            details={
+                "bus_id": req.bus_id,
+                "bus_name": bus_name,
+                "bus_type": bus_type,
+                "proposal_count": len(proposals),
+            },
+        )
+
+    return {
+        "status": "PROPOSED",
+        "bus_id": req.bus_id,
+        "bus_name": bus_name,
+        "bus_type": bus_type,
+        "proposals": [
+            {
+                "proposal_id": p.proposal_id,
+                "target_channel": p.target_channel,
+                "hypothesis": p.hypothesis,
+                "confidence": p.confidence,
+                "changes": p.changes,
+                "expected_sha256": p.expected_sha256,
+                "operator_approved": p.operator_approved,
+            }
+            for p in proposals
+        ],
     }
 
 
