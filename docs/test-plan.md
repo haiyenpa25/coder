@@ -24,22 +24,22 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 56 bài kiểm 
 | [tests/test_sprint2_safety.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint2_safety.py) | **6** | Routing Graph Parser, Xác minh bất biến DL16 #11 $\rightarrow$ P16 only, Chặn các đường đi FOH/Matrix, Whitelist channel EQ, Chặn sửa Routing/P16, Rollback tự động khi readback sai lệch. | **PASS** |
 | [tests/test_sprint3_dsp.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint3_dsp.py) | **5** | Tạo sóng âm (sine, pink noise, baritone vocal), Phân tích phổ Welch PSD, RTA 1/12-Octave (61 dải log), Bộ dò hú đa bằng chứng, Loại trừ nốt ca sĩ ngân dài có hài âm $2f..5f$. | **PASS** |
 | [tests/test_sprint4_peq.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint4_peq.py) | **4** | Chuyển đổi hai chiều $Hz \leftrightarrow X32\ float$, $dB \leftrightarrow X32\ float$, $Q \leftrightarrow X32\ float$, Đề xuất PEQ bảo toàn giọng Mục sư, Mô phỏng đáp tuyến biquad A/B. | **PASS** |
-| [tests/test_sprint5_api.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint5_api.py) | **8** | FastAPI Status & DL16 Invariant, Trạng thái 32 kênh, Khóa khẩn cấp STOP AUTO (HTTP 403), Trợ lý tiếng Việt Copilot Q&A, Đo âm học H1, Nhập CSV Open Sound Meter, Lịch sử Audit Log SQLite & Acoustic Sessions. | **PASS** |
+| [tests/test_sprint5_api.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint5_api.py) | **9** | FastAPI Status & DL16 Invariant, Trạng thái 32 kênh, Khóa khẩn cấp STOP AUTO (HTTP 403), Trợ lý tiếng Việt Copilot Q&A, Đo âm học H1, Nhập CSV Open Sound Meter, Lịch sử Audit Log SQLite & Acoustic Sessions, Kích hoạt mô phỏng buổi lễ Sunday Simulation Endpoint. | **PASS** |
 | [tests/test_sprint6_acoustic_and_dynamics.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint6_acoustic_and_dynamics.py) | **5** | Đo hàm truyền hai kênh $H_1$, Căn độ trễ delay cross-correlation, Quy tắc **No-Boost-in-Nulls**, Parser file OSM / REW CSV & FRD, Bộ cân mức giọng nói VAD & Silence Hold (chống trôi fader). | **PASS** |
 | [tests/test_sprint7_wizards.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint7_wizards.py) | **8** | Wizard 1 Báo cáo kiểm kê Markdown, Wizard 2 Line Check Chúa Nhật, Wizard 3 Hiệu chuẩn giọng hát, Wizard 5 Dò hú Rehearsal, Wizard 6 Trợ lý trực tiếp buổi lễ, Wizard 7 Báo cáo tổng kết, Hardware Switcher LAN IP ↔ Simulator, Tự động quét mạng dò tìm X32 UDP broadcast. | **PASS** |
 | [tests/test_sprint8_audio_capture.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint8_audio_capture.py) | **5** | Liệt kê thiết bị sound card (WASAPI / ASIO / MME), Tự động nhận diện card X-USB / X-LIVE, Khởi tạo AudioStreamWorker, Bộ đệm vòng đa kênh, Đo mức âm lượng dBFS thời gian thực. | **PASS** |
 | [tests/test_sprint9_scene_export.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint9_scene_export.py) | **2** | Trích xuất file Scene Behringer X32 (`.scn`), Khóa cứng kênh 11 `/ch/11/mix/lr OFF` và định tuyến Ultranet `/outputs/p16/11/src 11` trên file cắm USB. | **PASS** |
 | [tests/test_sprint10_database_and_discovery.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint10_database_and_discovery.py) | **5** | SQLite Database persistence (Snapshot SHA-256, Audit Event bất biến với cryptographic hash, Phiên đo âm học H1), Tự động quét tìm bàn trộn X32 qua UDP OSC broadcast (`/info`), Wizard 6 Live Service Tactical Assistant. | **PASS** |
 | [tests/test_sprint11_e2e_service.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint11_e2e_service.py) | **4** | Kịch bản mô phỏng toàn diện buổi lễ Chúa Nhật (End-to-End Sunday Service Lifecycle): Boot & Invariant verification, Line Check 32 kênh, Vocal Tuning & Harmonic Rejection, Live Tactical Monitoring & Silence Hold & USB Scene export. | **PASS** |
-| **TỔNG CỘNG** | **60** | **Bao phủ 100% các chức năng cốt lõi và bất biến an toàn** | **100% PASS** |
+| **TỔNG CỘNG** | **61** | **Bao phủ 100% các chức năng cốt lõi và bất biến an toàn** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 60 bài test:
+Để thực thi toàn bộ 61 bài test:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
-Thời gian thực thi trung bình: **~5.0 giây**.
+Thời gian thực thi trung bình: **~5.2 giây**.
 

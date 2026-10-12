@@ -137,6 +137,16 @@ class TestSprint5API(unittest.TestCase):
         data_meas = res_meas.json()
         self.assertIn("measurements", data_meas)
 
+    def test_sunday_simulation_endpoint(self):
+        res = self.client.post("/api/v1/simulation/run")
+        self.assertEqual(res.status_code, 200)
+        data = res.json()
+        self.assertEqual(data["status"], "SUCCESS")
+        self.assertEqual(len(data["timeline"]), 5)
+        self.assertTrue(any("Boot" in t["phase"] for t in data["timeline"]))
+        self.assertTrue(any("Line Check" in t["phase"] for t in data["timeline"]))
+        self.assertTrue(any("Live Service" in t["phase"] for t in data["timeline"]))
+
 
 if __name__ == "__main__":
     unittest.main()

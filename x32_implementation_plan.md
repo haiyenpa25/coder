@@ -178,6 +178,6 @@ x32-ai-sound-engineer/
 | **B21**| Trợ Lý Trực Tiếp Buổi Lễ (W6 Live Service Assistant Tactical Dashboard & Key Channel Highlights) |  Đã xong (Sprint 10) |
 | **B22**| Cấu Hình Phân Quyền RBAC (`configs/roles-example.yaml`) & Triển Khai (`deploy/` Docker, Windows Service, Systemd) |  Đã xong (Sprint 10) |
 | **B23**| Mô Phỏng Vòng Đời Buổi Lễ Chúa Nhật Toàn Diện (Sprint 11 E2E Lifecycle Simulation & Invariant Integration) |  Đã xong (Sprint 11) |
-| **Tổng**| **60 / 60 Automated Unit & Integration Tests PASSING** |  **100% HOÀN TẤT TOÀN BỘ 23 HẠNG MỤC** |
+| **Tổng**| **61 / 61 Automated Unit & Integration Tests PASSING** |  **100% HOÀN TẤT TOÀN BỘ 23 HẠNG MỤC** |
 
 
