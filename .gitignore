@@ -1,0 +1,16 @@
+# Dependency directories
+node_modules/
+
+# Local machine settings & temporary project data
+data/settings.json
+data/*.tmp
+*.tmp
+*.log
+
+# Heavy reference archive (sickn33/antigravity-awesome-skills: ~318 MB, ~26k files)
+community-skills/antigravity-awesome-skills/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
