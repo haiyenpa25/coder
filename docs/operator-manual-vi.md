@@ -110,3 +110,26 @@ Khi làm lễ ở các hội trường hoặc phòng nhóm khác nhau:
    - Nhật ký điều chỉnh và can thiệp fader.
    - Khuyến nghị âm học cho buổi lễ kế tiếp.
 3. Nhấn `Ctrl + P` để in ra giấy hoặc lưu thành file PDF nộp cho Ban Trị Sự / Mục Sư.
+
+---
+
+### 10. TỰ CHẨN ĐOÁN TIỀN LỄ (10-POINT PRE-SERVICE HEALTH CHECK)
+Trước khi bắt đầu buổi lễ 15 phút:
+1. Quan sát huy hiệu **`[Khám Sức Khỏe: 10/10 OK]`** màu xanh lá ở góc trên thanh Header.
+2. Bấm vào huy hiệu để mở bảng chi tiết chẩn đoán 10 tiêu chuẩn:
+   - Thư viện Core Python, Cơ sở dữ liệu SQLite, Bất biến DL16 #11 Talkback.
+   - Kết nối OSC X32 Read-Only, Sound Card USB, Sơ đồ 32 kênh, Hồ sơ phòng, Virtual Soundcheck, Copilot RAG, Bản in báo cáo.
+3. Nếu tất cả hiển thị **`PASS`**, hệ thống hoàn toàn sẵn sàng. Có thể chạy qua dòng lệnh terminal bằng:
+   ```powershell
+   python diagnose_system.py
+   ```
+
+---
+
+### 11. QUẢN LÝ SƠ ĐỒ 32 KÊNH NHÀ THỜ (CHURCH CHANNEL MAP)
+1. Bấm nút **`[Sơ Đồ Kênh]`** màu tím trên thanh Header.
+2. Màn hình mở lưới 32 kênh của nhà thờ:
+   - Bấm **`Chỉnh Sửa`** tại bất kỳ kênh nào để đổi tên ca sĩ, vai trò âm học (Role) hoặc ghi chú phụ trách.
+   - Sau khi lưu, tên kênh sẽ tự động cập nhật ngay lập tức xuống các dải fader trên màn hình chính.
+   - **Bảo vệ vĩnh viễn Kênh 11:** Biểu tượng ổ khóa màu đỏ báo hiệu cổng Talkback DL16 #11 được khóa bất biến, ngăn ngừa hoàn toàn nguy cơ gán nhầm sang loa lớn FOH.
+   - Nút **`Khôi Phục Mặc Định`** giúp nạp lại cấu hình chuẩn ban đầu khi cần thiết.

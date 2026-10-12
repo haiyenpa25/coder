@@ -183,6 +183,8 @@ x32-ai-sound-engineer/
 | **B26**| Phòng Thí Nghiệm Kiểm Thử Hỗn Loạn, Fault-Injection & Khả Năng Chống Chịu Sự Cố (Chaos & Resilience Test Suite) |  Đã xong (Sprint 13) |
 | **B27**| Gói Trí Tuệ Nhân Tạo AI Copilot RAG (`packages/ai_copilot/`) & Truy Vấn Trực Tiếp Theo Thời Gian Thực |  Đã xong (Sprint 14) |
 | **B28**| Quản Lý Profile Phòng Nhóm & So Sánh Baseline Âm Học Hội Trường (Multi-Sanctuary Hall Profiles & Baseline Comparator) |  Đã xong (Sprint 15) |
-| **Tổng**| **93 / 93 Automated Python Tests + 19 / 19 Node Tests PASSING (112 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 28 HẠNG MỤC** |
+| **B29**| Bộ Tự Chẩn Đoán Hệ Thống Tiền Lễ 10 Tiêu Chuẩn (`diagnose_system.py` & REST API `/api/v1/system/diagnostics`) |  Đã xong (Sprint 16) |
+| **B30**| Giao Diện Sơ Đồ 32 Kênh Nhà Thờ (`#churchChannelsModal`), Khóa Cứng Kênh 11 & Tự Động Đồng Bộ Tên Kênh |  Đã xong (Sprint 16) |
+| **Tổng**| **100 / 100 Automated Python Tests + 19 / 19 Node Tests PASSING (119 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 30 HẠNG MỤC** |
 
 

@@ -84,6 +84,7 @@ from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_
 from packages.ai_copilot import ChurchMixCopilot
 from apps.capture_agent.device_manager import AudioDeviceManager
 from apps.capture_agent.stream_worker import AudioStreamWorker
+from diagnose_system import run_all_diagnostics
 
 # --- Global State & Singletons ---
 mock_server: Optional[MockX32Server] = None
@@ -315,6 +316,13 @@ def get_channels():
         summary["is_foh"] = is_foh
         summary["is_p16"] = is_p16
         summary["p16_slots"] = p16_slots
+
+        prof = church_profile_mgr.get_channel(ch)
+        if prof:
+            summary["church_role"] = prof.get("role")
+            if prof.get("name") and (not summary.get("name") or summary.get("name") == f"CH{ch:02d}"):
+                summary["name"] = prof.get("name")
+
         channels.append(summary)
 
     return {"channels": channels}
@@ -1189,6 +1197,13 @@ def get_sunday_service_report(
         events=events,
     )
     return HTMLResponse(content=html_content, status_code=200)
+
+
+@app.get("/api/v1/system/diagnostics")
+def get_system_diagnostics():
+    """Execute pre-service diagnostic check and return 10-point health score."""
+    report = run_all_diagnostics(verbose=False)
+    return report
 
 
 # --- Multi-Hall Acoustic Profiles & Sanctuary Comparison Endpoints ---

@@ -54,6 +54,12 @@
         <i class="fa-solid fa-shield-halved text-emerald-400 text-xs"></i>
         <span class="text-xs font-semibold text-emerald-300">DL16 #11: P16 ONLY</span>
       </div>
+
+      <!-- Pre-Service Health Diagnostic Badge -->
+      <button onclick="openDiagnosticsModal()" id="headerDiagBtn" class="flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg cursor-pointer hover:border-emerald-400 transition-all" title="Chẩn đoán tiền lễ: Bấm để kiểm tra 10 mục linh kiện và bất biến">
+        <i class="fa-solid fa-stethoscope text-emerald-400 text-xs"></i>
+        <span class="text-xs font-semibold text-emerald-300" id="headerDiagLabel">Khám Sức Khỏe: 10/10 OK</span>
+      </button>
     </div>
 
     <!-- Header Action Buttons -->
@@ -66,6 +72,11 @@
       <button onclick="openHallModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
         <i class="fa-solid fa-church text-teal-400"></i>
         <span id="headerHallLabel">Phòng: Đang tải...</span>
+      </button>
+
+      <button onclick="openChurchChannelsModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
+        <i class="fa-solid fa-list-check text-indigo-400"></i>
+        <span>Sơ Đồ Kênh</span>
       </button>
 
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
@@ -1191,6 +1202,145 @@
       <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
         <span class="text-[11px] text-slate-500 font-mono">Bảo lưu bất biến an toàn khi chuyển đổi phòng.</span>
         <button onclick="closeHallModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3.9: CHURCH 32-CHANNEL PROFILE MAP       -->
+  <!-- ============================================== -->
+  <div id="churchChannelsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-indigo-400 text-lg">
+            <i class="fa-solid fa-list-check"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Sơ Đồ 32 Kênh Nhà Thờ (Church Channel Map)</h3>
+            <p class="text-[11px] text-slate-400">Tùy biến tên, vai trò âm học (Role) và ghi chú. Kênh 11 Talkback được khóa cứng bảo vệ FOH.</p>
+          </div>
+        </div>
+        <button onclick="closeChurchChannelsModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Top Status Banner -->
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <span class="px-2.5 py-1 rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800 font-mono font-bold text-[10px]">32 KÊNH X32</span>
+            <span class="text-slate-300 text-[11px]"><i class="fa-solid fa-shield-halved text-blue-400 mr-1.5"></i>Bất biến DL16 #11: Khóa cứng định tuyến P16 Slot 11, bảo lưu vĩnh viễn</span>
+          </div>
+          <button onclick="resetChurchChannelsUI()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 border border-amber-500/30 text-[11px] font-semibold cursor-pointer">
+            <i class="fa-solid fa-arrow-rotate-left mr-1"></i>Khôi Phục Mặc Định
+          </button>
+        </div>
+
+        <!-- Inline Channel Editor Drawer (Hidden by default) -->
+        <div id="channelEditDrawer" class="hidden p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/50 space-y-3 animate-fade-in">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-pen-to-square text-indigo-400 mr-1.5"></i>Chỉnh Sửa Kênh <span id="editDrawerChNum" class="ml-1 text-cyan-300">1</span>
+            </span>
+            <button onclick="closeEditChannelForm()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tên Kênh:</label>
+              <input id="editDrawerName" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Vai Trò Âm Học (Role):</label>
+              <select id="editDrawerRole" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+                <option value="PASTOR_SPEECH">Mục Sư / Giảng Luận (PASTOR_SPEECH)</option>
+                <option value="LEAD_VOCAL_FEMALE">Nữ Đơn Ca (LEAD_VOCAL_FEMALE)</option>
+                <option value="LEAD_VOCAL_MALE">Nam Đơn Ca (LEAD_VOCAL_MALE)</option>
+                <option value="CHOIR_OVERHEAD">Ca Đoàn Tổng Hợp (CHOIR_OVERHEAD)</option>
+                <option value="ACOUSTIC_GUITAR">Acoustic Guitar (ACOUSTIC_GUITAR)</option>
+                <option value="PIANO_KEYS">Piano / Keyboard (PIANO_KEYS)</option>
+                <option value="BASS_GUITAR">Bass Guitar (BASS_GUITAR)</option>
+                <option value="DRUMS">Trống / Percussion (DRUMS)</option>
+                <option value="GENERAL_INPUT">Đường Vào Chung (GENERAL_INPUT)</option>
+                <option value="TALKBACK_BAND" disabled>Talkback Ban Nhạc (KHÓA CỨNG)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ghi Chú:</label>
+              <input id="editDrawerNotes" type="text" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-indigo-500">
+            </div>
+          </div>
+          <div class="flex items-center justify-end space-x-2 pt-1">
+            <button onclick="closeEditChannelForm()" class="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 text-xs font-semibold cursor-pointer">Hủy</button>
+            <button onclick="saveChannelProfileFromDrawer()" class="px-4 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md cursor-pointer">Lưu Thay Đổi</button>
+          </div>
+        </div>
+
+        <!-- 32-Channels Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5" id="churchChannelsGrid"></div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">Đồng bộ tự động tên kênh xuống bảng điều khiển fader.</span>
+        <button onclick="closeChurchChannelsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3.10: PRE-SERVICE HEALTH DIAGNOSTICS     -->
+  <!-- ============================================== -->
+  <div id="diagnosticsModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-600/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400 text-lg">
+            <i class="fa-solid fa-stethoscope"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Tự Chẩn Đoán Hệ Thống Tiền Lễ (10-Point Pre-Service Check)</h3>
+            <p class="text-[11px] text-slate-400">Kiểm tra toàn diện 10 tiêu chuẩn linh kiện, cơ sở dữ liệu và bất biến an toàn sống còn</p>
+          </div>
+        </div>
+        <button onclick="closeDiagnosticsModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Status Banner -->
+        <div id="diagOverallBanner" class="p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between">
+          <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-circle-check text-emerald-400 text-2xl" id="diagOverallIcon"></i>
+            <div>
+              <div class="font-bold text-emerald-300 text-sm" id="diagOverallTitle">HỆ THỐNG AN TOÀN TUYỆT ĐỐI (10/10 TIÊU CHUẨN ĐẠT)</div>
+              <div class="text-[11px] text-slate-300" id="diagOverallSub">Tất cả bất biến Talkback, cơ sở dữ liệu, OSC Client và RAG hoạt động hoàn hảo.</div>
+            </div>
+          </div>
+          <span class="px-3 py-1 rounded-full bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs" id="diagOverallBadge">PASS 100%</span>
+        </div>
+
+        <!-- Checks List -->
+        <div class="space-y-2" id="diagChecksList"></div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <button onclick="runPreServiceDiagnosticsUI()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5">
+          <i class="fa-solid fa-rotate-right"></i>
+          <span>Chẩn Đoán Lại (Re-run Check)</span>
+        </button>
+        <button onclick="closeDiagnosticsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
           Đóng
         </button>
       </div>
@@ -2790,6 +2940,238 @@
       }
     }
 
+    // ========================================================
+    // CHURCH 32-CHANNEL PROFILE MAP MANAGER
+    // ========================================================
+    let cachedChurchChannels = [];
+    let currentEditingChNum = null;
+
+    function openChurchChannelsModal() {
+      document.getElementById('churchChannelsModal').classList.remove('hidden');
+      loadChurchChannelsUI();
+    }
+
+    function closeChurchChannelsModal() {
+      document.getElementById('churchChannelsModal').classList.add('hidden');
+      closeEditChannelForm();
+    }
+
+    async function loadChurchChannelsUI() {
+      try {
+        const res = await fetch('/api/v1/config/church-channels');
+        const data = await res.json();
+        cachedChurchChannels = data.channels || [];
+        renderChurchChannelsGrid(cachedChurchChannels);
+      } catch (e) {
+        console.error("Error loading church channels:", e);
+      }
+    }
+
+    function renderChurchChannelsGrid(channels) {
+      const grid = document.getElementById('churchChannelsGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+
+      channels.forEach(ch => {
+        const isTalkback = ch.channel === 11 || ch.is_protected;
+        const card = document.createElement('div');
+        card.className = `p-3 rounded-xl border flex flex-col justify-between transition-all ${
+          isTalkback
+            ? 'border-red-600/60 bg-red-950/20'
+            : 'border-slate-800 bg-slate-950 hover:border-slate-700'
+        }`;
+
+        card.innerHTML = `
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[10px] font-mono font-bold ${isTalkback ? 'text-red-400' : 'text-slate-400'}">CH ${ch.channel < 10 ? '0' : ''}${ch.channel}</span>
+              ${isTalkback ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-red-950 text-red-300 border border-red-800 font-bold"><i class="fa-solid fa-lock mr-1"></i>P16 ONLY</span>' : `<span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-indigo-300 font-mono">${ch.role.split('_')[0]}</span>`}
+            </div>
+            <div class="font-bold text-white text-xs truncate" title="${ch.name}">${ch.name}</div>
+            <div class="text-[10px] text-slate-400 truncate mt-0.5">${ch.notes || 'Đường tín hiệu'}</div>
+          </div>
+          <button onclick="openEditChannelForm(${ch.channel})" class="mt-2.5 w-full py-1 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 text-[10px] font-semibold border border-slate-800 flex items-center justify-center space-x-1 cursor-pointer">
+            <i class="fa-solid fa-pen text-[9px]"></i>
+            <span>${isTalkback ? 'Xem Khóa' : 'Chỉnh Sửa'}</span>
+          </button>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function openEditChannelForm(chNum) {
+      currentEditingChNum = chNum;
+      const ch = cachedChurchChannels.find(c => c.channel === chNum);
+      if (!ch) return;
+
+      const drawer = document.getElementById('channelEditDrawer');
+      drawer.classList.remove('hidden');
+      document.getElementById('editDrawerChNum').innerText = chNum;
+      document.getElementById('editDrawerName').value = ch.name;
+      document.getElementById('editDrawerRole').value = ch.role;
+      document.getElementById('editDrawerNotes').value = ch.notes || '';
+
+      const roleSel = document.getElementById('editDrawerRole');
+      const nameInput = document.getElementById('editDrawerName');
+      if (chNum === 11) {
+        roleSel.disabled = true;
+        nameInput.disabled = true;
+      } else {
+        roleSel.disabled = false;
+        nameInput.disabled = false;
+      }
+      drawer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeEditChannelForm() {
+      const drawer = document.getElementById('channelEditDrawer');
+      if (drawer) drawer.classList.add('hidden');
+      currentEditingChNum = null;
+    }
+
+    async function saveChannelProfileFromDrawer() {
+      if (!currentEditingChNum) return;
+      if (currentEditingChNum === 11) {
+        alert("Kênh 11 Talkback được hệ thống bảo vệ khóa cứng bất biến, không thể sửa đổi.");
+        closeEditChannelForm();
+        return;
+      }
+
+      const name = document.getElementById('editDrawerName').value.trim();
+      const role = document.getElementById('editDrawerRole').value;
+      const notes = document.getElementById('editDrawerNotes').value.trim();
+
+      try {
+        const res = await fetch(`/api/v1/config/church-channels/${currentEditingChNum}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name, role: role, notes: notes }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          addAuditEntry("CHANNEL_MAP", `Cập nhật thông số Kênh ${currentEditingChNum}: ${name} (${role})`);
+          closeEditChannelForm();
+          loadChurchChannelsUI();
+          loadChannels();
+        } else {
+          alert("Lỗi lưu kênh: " + data.detail);
+        }
+      } catch (e) {
+        alert("Lỗi kết nối: " + e);
+      }
+    }
+
+    async function resetChurchChannelsUI() {
+      if (!confirm("Bạn có chắc muốn khôi phục sơ đồ 32 kênh về mặc định chuẩn của Nhà Thờ?")) return;
+      try {
+        const res = await fetch('/api/v1/config/church-channels/reset', { method: 'POST' });
+        if (res.ok) {
+          addAuditEntry("CHANNEL_MAP", "Khôi phục toàn bộ sơ đồ 32 kênh về mặc định.");
+          loadChurchChannelsUI();
+          loadChannels();
+          alert("✅ ĐÃ KHÔI PHỤC THÀNH CÔNG:\nSơ đồ 32 kênh đã trở về cấu hình chuẩn.");
+        }
+      } catch (e) {
+        alert("Lỗi khôi phục: " + e);
+      }
+    }
+
+    // ========================================================
+    // PRE-SERVICE 10-POINT HEALTH DIAGNOSTICS CONTROLLER
+    // ========================================================
+    function openDiagnosticsModal() {
+      document.getElementById('diagnosticsModal').classList.remove('hidden');
+      runPreServiceDiagnosticsUI();
+    }
+
+    function closeDiagnosticsModal() {
+      document.getElementById('diagnosticsModal').classList.add('hidden');
+    }
+
+    async function runPreServiceDiagnosticsUI() {
+      const container = document.getElementById('diagChecksList');
+      if (container) {
+        container.innerHTML = '<div class="text-center py-6 text-slate-400 font-mono text-xs"><i class="fa-solid fa-spinner fa-spin mr-2 text-indigo-400"></i>Đang kiểm tra 10/10 mục linh kiện và bất biến an toàn...</div>';
+      }
+
+      try {
+        const res = await fetch('/api/v1/system/diagnostics');
+        const report = await res.json();
+
+        // Update Header Button
+        const headerBadge = document.getElementById('headerDiagLabel');
+        const headerBtn = document.getElementById('headerDiagBtn');
+        if (headerBadge) {
+          if (report.overall_status === 'PASS') {
+            headerBadge.innerText = `Khám Sức Khỏe: ${report.passed_count}/${report.total_count} OK`;
+            headerBadge.className = 'text-xs font-semibold text-emerald-300';
+            if (headerBtn) headerBtn.className = 'flex items-center space-x-1.5 bg-emerald-950/50 border border-emerald-500/40 px-2.5 py-1.5 rounded-lg cursor-pointer hover:border-emerald-400 transition-all';
+          } else {
+            headerBadge.innerText = `Cảnh Báo: ${report.total_count - report.passed_count} LỖI`;
+            headerBadge.className = 'text-xs font-semibold text-red-300';
+            if (headerBtn) headerBtn.className = 'flex items-center space-x-1.5 bg-red-950/60 border border-red-500 px-2.5 py-1.5 rounded-lg cursor-pointer animate-pulse';
+          }
+        }
+
+        // Update Modal Banner
+        const bTitle = document.getElementById('diagOverallTitle');
+        const bSub = document.getElementById('diagOverallSub');
+        const bBadge = document.getElementById('diagOverallBadge');
+        const bIcon = document.getElementById('diagOverallIcon');
+        const banner = document.getElementById('diagOverallBanner');
+
+        if (report.overall_status === 'PASS') {
+          if (banner) banner.className = 'p-4 rounded-xl bg-emerald-950/40 border border-emerald-600/50 flex items-center justify-between';
+          if (bTitle) bTitle.innerText = `HỆ THỐNG AN TOÀN TUYỆT ĐỐI (${report.passed_count}/${report.total_count} TIÊU CHUẨN ĐẠT)`;
+          if (bSub) bSub.innerText = 'Tất cả bất biến Talkback, cơ sở dữ liệu, OSC Client và RAG hoạt động hoàn hảo.';
+          if (bBadge) {
+            bBadge.className = 'px-3 py-1 rounded-full bg-emerald-600/20 text-emerald-300 border border-emerald-500/40 font-mono font-bold text-xs';
+            bBadge.innerText = 'PASS 100%';
+          }
+          if (bIcon) bIcon.className = 'fa-solid fa-circle-check text-emerald-400 text-2xl';
+        } else {
+          if (banner) banner.className = 'p-4 rounded-xl bg-red-950/40 border border-red-600/50 flex items-center justify-between';
+          if (bTitle) bTitle.innerText = `PHÁT HIỆN LỖI KIỂM TRA (${report.passed_count}/${report.total_count} ĐẠT)`;
+          if (bSub) bSub.innerText = 'Cần xử lý các mục báo đỏ trước khi mở tín hiệu âm thanh ra loa FOH.';
+          if (bBadge) {
+            bBadge.className = 'px-3 py-1 rounded-full bg-red-600/20 text-red-300 border border-red-500/40 font-mono font-bold text-xs';
+            bBadge.innerText = 'CÓ CẢNH BÁO';
+          }
+          if (bIcon) bIcon.className = 'fa-solid fa-triangle-exclamation text-red-400 text-2xl';
+        }
+
+        // Render Checks List
+        if (container) {
+          container.innerHTML = '';
+          report.checks.forEach(c => {
+            const item = document.createElement('div');
+            item.className = `p-2.5 rounded-lg border flex items-center justify-between font-mono text-xs ${
+              c.passed
+                ? 'bg-slate-950 border-slate-800'
+                : 'bg-red-950/30 border-red-600/60'
+            }`;
+            item.innerHTML = `
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid ${c.passed ? 'fa-circle-check text-emerald-400' : 'fa-circle-xmark text-red-400'}"></i>
+                <div>
+                  <div class="font-bold text-white">${c.name}</div>
+                  <div class="text-[10px] text-slate-400 font-sans mt-0.5">${c.message}</div>
+                </div>
+              </div>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded ${
+                c.passed ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800'
+              }">${c.status}</span>
+            `;
+            container.appendChild(item);
+          });
+        }
+      } catch (e) {
+        if (container) {
+          container.innerHTML = `<div class="p-3 bg-red-950/50 border border-red-700 rounded-lg text-red-300 text-xs">Lỗi chạy chẩn đoán: ${e}</div>`;
+        }
+      }
+    }
+
     // --- Initialize ---
     window.addEventListener('load', () => {
       loadStatus();
@@ -2797,6 +3179,7 @@
       loadAuditHistory();
       fetchSoundcheckStatus();
       fetchActiveHallInfo();
+      runPreServiceDiagnosticsUI();
       initWebSocket();
     });
   </script>

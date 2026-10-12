@@ -85,6 +85,14 @@ class ChurchProfileManager:
         except Exception:
             return DEFAULT_CHURCH_CHANNELS
 
+    def get_channel(self, channel_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve a specific channel profile by number."""
+        channels = self.get_channels()
+        for ch in channels:
+            if ch.get("channel") == channel_id:
+                return ch
+        return None
+
     def update_channel(self, channel_id: int, updates: Dict[str, Any]) -> Dict[str, Any]:
         """
         Update custom channel properties (name, role, notes, color).
