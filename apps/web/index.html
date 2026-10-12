@@ -58,6 +58,16 @@
 
     <!-- Header Action Buttons -->
     <div class="flex items-center space-x-3">
+      <button onclick="openSoundcheckModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 border border-blue-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
+        <i class="fa-solid fa-compact-disc text-blue-400"></i>
+        <span id="headerSoundcheckLabel">Soundcheck Ảo</span>
+      </button>
+
+      <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
+        <i class="fa-solid fa-file-invoice text-amber-400"></i>
+        <span>In Báo Cáo</span>
+      </a>
+
       <button onclick="openWizardModal('tab-w2')" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
         <i class="fa-solid fa-wand-magic-sparkles text-purple-400"></i>
         <span>Wizards Quy Trình</span>
@@ -919,6 +929,120 @@
     </div>
   </div>
 
+  <!-- ============================================== -->
+  <!-- MODAL 3.5: VIRTUAL SOUNDCHECK REHEARSAL ENGINE -->
+  <!-- ============================================== -->
+  <div id="soundcheckModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-500/40 flex items-center justify-center text-blue-400 text-lg">
+            <i class="fa-solid fa-compact-disc"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Virtual Soundcheck (Tập Lễ Kỹ Thuật Số)</h3>
+            <p class="text-[11px] text-slate-400">Mô phỏng đa kênh ban nhạc & Mục sư 32 track để cân chỉnh EQ/Hú trước giờ lễ</p>
+          </div>
+        </div>
+        <button onclick="closeSoundcheckModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+        <!-- Live Playback Status Card -->
+        <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <span id="scStatusDot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+              <span id="scStatusBadge" class="text-xs font-mono font-bold text-slate-400">ĐANG DỪNG (STOPPED)</span>
+            </div>
+            <div class="text-[11px] font-mono text-slate-400">
+              Thời gian: <span id="scTimeElapsed" class="text-blue-400 font-bold">0.0s</span> • Blocks: <span id="scBlocksCount" class="text-white font-bold">0</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3 text-xs font-mono">
+            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500 uppercase">Phiên Tập Đang Chọn</div>
+              <div id="scCurrentSessionName" class="text-white font-bold truncate mt-0.5">Thờ Phượng Êm Dịu</div>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-900 border border-slate-800">
+              <div class="text-[10px] text-slate-500 uppercase">Nguồn Tín Hiệu Dẫn (Lead)</div>
+              <div id="scCurrentLeadSource" class="text-indigo-300 font-bold truncate mt-0.5">Lead Vocal Female (Ch 3)</div>
+            </div>
+          </div>
+
+          <!-- Channel Isolation Invariant Notification -->
+          <div class="p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-600/40 text-[11px] flex items-center justify-between text-emerald-300">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+              <span><strong>DL16 #11 Talkback Band:</strong> Tự động cách ly (-55dBFS), không lọt ra Main FOH</span>
+            </div>
+            <span class="px-2 py-0.5 bg-emerald-900/60 rounded text-[10px] font-mono font-bold text-emerald-300">BẢO VỆ 100%</span>
+          </div>
+        </div>
+
+        <!-- Presets Selection List -->
+        <div>
+          <label class="text-xs font-bold text-slate-300 uppercase tracking-wider block mb-2">Chọn Phiên Tập Thờ Phượng & Giảng Luận:</label>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2.5" id="scPresetsGrid">
+            <!-- Preset 1: Ballad -->
+            <div onclick="selectSoundcheckPreset('SUNDAY_WORSHIP_BALLAD')" id="preset-card-SUNDAY_WORSHIP_BALLAD" class="p-3.5 rounded-xl border border-blue-500 bg-blue-950/30 cursor-pointer transition-all hover:border-blue-400">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-heart mr-1.5 text-blue-400"></i>Thờ Phượng Êm Dịu</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-900/60 text-blue-300">68 BPM • D Maj</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-tight">Piano, Acoustic Guitar, Nữ đơn ca và đệm pad nền mềm mại.</p>
+            </div>
+
+            <!-- Preset 2: Uptempo -->
+            <div onclick="selectSoundcheckPreset('SUNDAY_UPTEMPO_PRAISE')" id="preset-card-SUNDAY_UPTEMPO_PRAISE" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950 cursor-pointer transition-all hover:border-slate-700">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-bolt mr-1.5 text-amber-400"></i>Ngợi Khen Sôi Động</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-900/60 text-amber-300">124 BPM • G Maj</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-tight">Trống cajon/kick, Bass, Guitar, Nam đơn ca và bè ca đoàn.</p>
+            </div>
+
+            <!-- Preset 3: Preaching -->
+            <div onclick="selectSoundcheckPreset('SERMON_PREACHING')" id="preset-card-SERMON_PREACHING" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950 cursor-pointer transition-all hover:border-slate-700">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-microphone-lines mr-1.5 text-emerald-400"></i>Bài Giảng Mục Sư</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-900/60 text-emerald-300">Speech VAD</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-tight">Ngữ điệu ngắt câu tự nhiên kiểm tra cơ chế Silence Hold & Leveler.</p>
+            </div>
+
+            <!-- Preset 4: Prayer -->
+            <div onclick="selectSoundcheckPreset('CONGREGATIONAL_PRAYER')" id="preset-card-CONGREGATIONAL_PRAYER" class="p-3.5 rounded-xl border border-slate-800 bg-slate-950 cursor-pointer transition-all hover:border-slate-700">
+              <div class="flex items-center justify-between mb-1">
+                <span class="text-xs font-bold text-white flex items-center"><i class="fa-solid fa-hands-praying mr-1.5 text-purple-400"></i>Cầu Nguyện Chung</span>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-purple-900/60 text-purple-300">60 BPM • C Maj</span>
+              </div>
+              <p class="text-[11px] text-slate-400 leading-tight">Tiếng cầu nguyện kết hợp piano êm ái hỗ trợ kiểm tra ngưỡng nhạy gate.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer Action -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <button id="btnScToggle" onclick="toggleSoundcheckPlayback()" class="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 cursor-pointer flex items-center space-x-1.5">
+            <i class="fa-solid fa-play"></i>
+            <span id="btnScToggleLabel">Bắt Đầu Phát Đa Kênh</span>
+          </button>
+        </div>
+        <button onclick="closeSoundcheckModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- ========================================== -->
   <!-- MODAL 4: CHANNEL DETAIL & MIXER EXPLORER   -->
   <!-- ========================================== -->
@@ -1064,6 +1188,10 @@
             rtaData = data.rta || [];
             drawRTA(rtaData, data.feedback_alerts || []);
             updateMeters(data.meters || []);
+
+            if (data.soundcheck) {
+              updateSoundcheckUI(data.soundcheck);
+            }
 
             if (data.stop_auto) {
               document.getElementById('btnStopAuto').classList.add('bg-red-800', 'animate-pulse');
@@ -2152,6 +2280,129 @@
       }
     }
 
+    // --- Modal 3.5: Virtual Soundcheck Rehearsal ---
+    let selectedSoundcheckSession = "SUNDAY_WORSHIP_BALLAD";
+    let isSoundcheckActive = false;
+
+    function openSoundcheckModal() {
+      document.getElementById('soundcheckModal').classList.remove('hidden');
+      fetchSoundcheckStatus();
+    }
+
+    function closeSoundcheckModal() {
+      document.getElementById('soundcheckModal').classList.add('hidden');
+    }
+
+    function selectSoundcheckPreset(sessionId) {
+      selectedSoundcheckSession = sessionId;
+      const presets = ["SUNDAY_WORSHIP_BALLAD", "SUNDAY_UPTEMPO_PRAISE", "SERMON_PREACHING", "CONGREGATIONAL_PRAYER"];
+      presets.forEach(p => {
+        const card = document.getElementById(`preset-card-${p}`);
+        if (!card) return;
+        if (p === sessionId) {
+          card.className = "p-3.5 rounded-xl border border-blue-500 bg-blue-950/40 cursor-pointer transition-all";
+        } else {
+          card.className = "p-3.5 rounded-xl border border-slate-800 bg-slate-950 cursor-pointer transition-all hover:border-slate-700";
+        }
+      });
+      if (isSoundcheckActive) {
+        startSoundcheckPlayback(sessionId);
+      }
+    }
+
+    async function fetchSoundcheckStatus() {
+      try {
+        const res = await fetch('/api/v1/soundcheck/status');
+        const data = await res.json();
+        updateSoundcheckUI(data);
+      } catch (e) {
+        console.error("Error fetching soundcheck status:", e);
+      }
+    }
+
+    function updateSoundcheckUI(status) {
+      if (!status) return;
+      isSoundcheckActive = !!status.is_active;
+
+      const dot = document.getElementById('scStatusDot');
+      const badge = document.getElementById('scStatusBadge');
+      const timeEl = document.getElementById('scTimeElapsed');
+      const blocksEl = document.getElementById('scBlocksCount');
+      const nameEl = document.getElementById('scCurrentSessionName');
+      const leadEl = document.getElementById('scCurrentLeadSource');
+      const toggleBtn = document.getElementById('btnScToggle');
+      const headerLabel = document.getElementById('headerSoundcheckLabel');
+
+      if (timeEl) timeEl.innerText = `${status.time_elapsed_seconds || 0}s`;
+      if (blocksEl) blocksEl.innerText = `${status.total_blocks_streamed || 0}`;
+      if (nameEl && status.session_name) nameEl.innerText = status.session_name;
+      if (leadEl && status.lead_source) leadEl.innerText = status.lead_source;
+
+      if (isSoundcheckActive) {
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+        if (badge) {
+          badge.className = "text-xs font-mono font-bold text-emerald-400";
+          badge.innerText = "ĐANG PHÁT ĐA KÊNH (MULTITRACK ACTIVE)";
+        }
+        if (toggleBtn) {
+          toggleBtn.className = "px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-lg shadow-red-600/30 cursor-pointer flex items-center space-x-1.5";
+          toggleBtn.innerHTML = '<i class="fa-solid fa-stop"></i><span>Dừng Phát (Stop)</span>';
+        }
+        if (headerLabel) headerLabel.innerText = "Soundcheck: PLAYING";
+      } else {
+        if (dot) dot.className = "w-2.5 h-2.5 rounded-full bg-slate-500";
+        if (badge) {
+          badge.className = "text-xs font-mono font-bold text-slate-400";
+          badge.innerText = "ĐANG DỪNG (STOPPED)";
+        }
+        if (toggleBtn) {
+          toggleBtn.className = "px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs shadow-lg shadow-blue-600/30 cursor-pointer flex items-center space-x-1.5";
+          toggleBtn.innerHTML = '<i class="fa-solid fa-play"></i><span>Bắt Đầu Phát Đa Kênh</span>';
+        }
+        if (headerLabel) headerLabel.innerText = "Soundcheck Ảo";
+      }
+    }
+
+    async function toggleSoundcheckPlayback() {
+      if (!isSoundcheckActive) {
+        await startSoundcheckPlayback(selectedSoundcheckSession);
+      } else {
+        await stopSoundcheckPlayback();
+      }
+    }
+
+    async function startSoundcheckPlayback(sessionId) {
+      try {
+        const res = await fetch('/api/v1/soundcheck/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+          isSoundcheckActive = true;
+          fetchSoundcheckStatus();
+          addAuditEntry("SOUNDCHECK", `Khởi động Virtual Soundcheck: ${data.name}`);
+        }
+      } catch (e) {
+        alert("Lỗi khởi động Soundcheck: " + e);
+      }
+    }
+
+    async function stopSoundcheckPlayback() {
+      try {
+        const res = await fetch('/api/v1/soundcheck/stop', { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          isSoundcheckActive = false;
+          fetchSoundcheckStatus();
+          addAuditEntry("SOUNDCHECK", "Đã dừng phát Virtual Soundcheck.");
+        }
+      } catch (e) {
+        alert("Lỗi dừng Soundcheck: " + e);
+      }
+    }
+
     // --- Download Native X32 Scene File (.scn) ---
     async function downloadX32Scene() {
       try {
@@ -2219,6 +2470,7 @@
       loadStatus();
       loadChannels();
       loadAuditHistory();
+      fetchSoundcheckStatus();
       initWebSocket();
     });
   </script>

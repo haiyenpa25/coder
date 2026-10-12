@@ -165,6 +165,10 @@ class ChurchMixDatabase:
                 })
             return events
 
+    def get_audit_trail(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Alias for get_recent_audit_events."""
+        return self.get_recent_audit_events(limit=limit)
+
     def save_measurement(
         self,
         name: str,

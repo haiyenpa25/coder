@@ -77,6 +77,9 @@ from packages.mix_assistant.leveler import (
 )
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
+from packages.storage.church_profile import ChurchProfileManager
+from packages.storage.report_generator import generate_printable_sunday_report_html
+from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_PRESETS
 from apps.capture_agent.device_manager import AudioDeviceManager
 from apps.capture_agent.stream_worker import AudioStreamWorker
 
@@ -90,6 +93,8 @@ feedback_detector = FeedbackDetector(min_prominence_db=12.0, min_persistence_fra
 speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 
 db = ChurchMixDatabase()
+church_profile_mgr = ChurchProfileManager()
+soundcheck_engine = VirtualSoundcheckEngine(sample_rate=48000)
 audio_device_mgr = AudioDeviceManager()
 audio_stream_worker: Optional[AudioStreamWorker] = None
 
@@ -164,8 +169,20 @@ async def audio_telemetry_loop():
                 await asyncio.sleep(0.1)
                 continue
 
-            # If physical/simulated USB audio capture agent is streaming, use live audio buffer
-            if audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
+            # Priority 1: Virtual Soundcheck Rehearsal Engine
+            if soundcheck_engine.is_active:
+                block_32 = soundcheck_engine.generate_audio_block(block_size=1024)
+                meters = []
+                for ch in range(1, 33):
+                    col = block_32[:, ch - 1]
+                    pk = float(np.max(np.abs(col)))
+                    pk_db = 20.0 * np.log10(max(1e-7, pk))
+                    meters.append({"channel": ch, "meter_dbfs": round(pk_db, 1)})
+                # Combine active lead channels for RTA spectrum
+                active_sum = np.sum(block_32[:, :10], axis=1) * 0.4
+                combined = active_sum.astype(np.float32)
+            # Priority 2: Physical/Simulated USB Audio Capture Agent
+            elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
                 buf = audio_stream_worker.latest_buffer
                 combined = buf[:, 0] if buf.ndim > 1 else buf
                 live_peaks = audio_stream_worker.latest_peak_dbfs
@@ -229,6 +246,7 @@ async def audio_telemetry_loop():
                 "feedback_alerts": active_feedback_alerts,
                 "read_only_mode": x32_client.read_only_mode if x32_client else True,
                 "stop_auto": stop_auto_triggered,
+                "soundcheck": soundcheck_engine.get_status(),
             }
 
             # Broadcast to all connected clients
@@ -1066,6 +1084,122 @@ def run_sunday_simulation():
         ],
         "summary": "100% Sunday service lifecycle verified successfully."
     }
+
+
+# --- Virtual Soundcheck Rehearsal Endpoints ---
+
+class SoundcheckStartRequest(BaseModel):
+    session_id: str = "SUNDAY_WORSHIP_BALLAD"
+
+
+@app.get("/api/v1/soundcheck/status")
+def get_soundcheck_status():
+    """Get status of Virtual Soundcheck multitrack simulation."""
+    return soundcheck_engine.get_status()
+
+
+@app.get("/api/v1/soundcheck/sessions")
+def get_soundcheck_sessions():
+    """List all available Virtual Soundcheck multitrack session presets."""
+    return {
+        "sessions": [
+            {
+                "id": p.id,
+                "name": p.name,
+                "description": p.description,
+                "tempo_bpm": p.tempo_bpm,
+                "key": p.key,
+                "active_channels": p.active_channels,
+                "lead_source": p.lead_source,
+            }
+            for p in SESSION_PRESETS.values()
+        ]
+    }
+
+
+@app.post("/api/v1/soundcheck/start")
+def start_soundcheck(req: SoundcheckStartRequest = SoundcheckStartRequest()):
+    """Start Virtual Soundcheck multitrack rehearsal playback."""
+    session = soundcheck_engine.start_session(session_id=req.session_id)
+    return {
+        "status": "STARTED",
+        "session_id": session.id,
+        "name": session.name,
+        "description": session.description,
+        "is_active": True,
+    }
+
+
+@app.post("/api/v1/soundcheck/stop")
+def stop_soundcheck():
+    """Stop Virtual Soundcheck rehearsal playback."""
+    soundcheck_engine.stop()
+    return {"status": "STOPPED", "is_active": False}
+
+
+# --- Church Channel Profile Manager Endpoints ---
+
+class ChannelProfileUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    role: Optional[str] = None
+    color: Optional[str] = None
+    icon: Optional[str] = None
+    notes: Optional[str] = None
+
+
+@app.get("/api/v1/config/church-channels")
+def get_church_channels():
+    """Get the 32-channel church profile layout and roles."""
+    return {
+        "channels": church_profile_mgr.get_channels(),
+        "talkback_invariant_protected": True,
+    }
+
+
+@app.post("/api/v1/config/church-channels/reset")
+def reset_church_channels():
+    """Reset church channel profile back to default preset."""
+    channels = church_profile_mgr.reset_to_default()
+    return {"status": "RESET", "channels": channels}
+
+
+@app.post("/api/v1/config/church-channels/{channel_id}")
+def update_church_channel(channel_id: int, req: ChannelProfileUpdateRequest):
+    """Update a church channel profile while strictly enforcing DL16 In 11 invariant."""
+    try:
+        updates = {k: v for k, v in req.model_dump().items() if v is not None}
+        target = church_profile_mgr.update_channel(channel_id=channel_id, updates=updates)
+        return {"status": "UPDATED", "channel": target}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# --- Printable Sunday Service Audio Report Endpoint ---
+
+@app.get("/api/v1/reports/sunday-service")
+def get_sunday_service_report(
+    church_name: str = "Hội Thánh Tin Lành (ChurchMix Sanctuary)",
+    engineer_name: str = "Kỹ Thuật Viên Âm Thanh",
+):
+    """Generate printable HTML Sunday service executive safety & line-check report."""
+    snapshot_hash = "sim-snap-48000"
+    if x32_client:
+        try:
+            snapshot = x32_client.take_full_snapshot(max_channels=32)
+            snapshot_hash = snapshot.sha256
+        except Exception:
+            pass
+
+    events = db.get_recent_audit_events(limit=20) if db else []
+
+    html_content = generate_printable_sunday_report_html(
+        church_name=church_name,
+        engineer_name=engineer_name,
+        mixer_model="Behringer X32 Compact / Midas M32",
+        snapshot_hash=snapshot_hash,
+        events=events,
+    )
+    return HTMLResponse(content=html_content, status_code=200)
 
 
 # Serve Static UI
