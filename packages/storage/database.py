@@ -119,6 +119,57 @@ class ChurchMixDatabase:
                 }
             return None
 
+    def get_snapshots(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Retrieve list of saved snapshots (without full state_json to keep it fast)."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT id, mixer_id, sha256, captured_at, iso_time, author, note 
+                FROM snapshots 
+                ORDER BY id DESC 
+                LIMIT ?
+            """, (limit,))
+            rows = cursor.fetchall()
+            return [
+                {
+                    "id": r["id"],
+                    "mixer_id": r["mixer_id"],
+                    "sha256": r["sha256"],
+                    "captured_at": r["captured_at"],
+                    "iso_time": r["iso_time"],
+                    "author": r["author"],
+                    "note": r["note"],
+                }
+                for r in rows
+            ]
+
+    def get_snapshot_by_id(self, snapshot_id: int) -> Optional[Dict[str, Any]]:
+        """Retrieve full snapshot including state parameters by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM snapshots WHERE id = ?", (snapshot_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    "id": row["id"],
+                    "mixer_id": row["mixer_id"],
+                    "sha256": row["sha256"],
+                    "captured_at": row["captured_at"],
+                    "iso_time": row["iso_time"],
+                    "author": row["author"],
+                    "note": row["note"],
+                    "state": json.loads(row["state_json"]),
+                }
+            return None
+
+    def delete_snapshot(self, snapshot_id: int) -> bool:
+        """Delete a snapshot by ID."""
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM snapshots WHERE id = ?", (snapshot_id,))
+            conn.commit()
+            return cursor.rowcount > 0
+
     def save_audit_event(
         self,
         actor: str,

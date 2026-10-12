@@ -133,3 +133,19 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Sau khi lưu, tên kênh sẽ tự động cập nhật ngay lập tức xuống các dải fader trên màn hình chính.
    - **Bảo vệ vĩnh viễn Kênh 11:** Biểu tượng ổ khóa màu đỏ báo hiệu cổng Talkback DL16 #11 được khóa bất biến, ngăn ngừa hoàn toàn nguy cơ gán nhầm sang loa lớn FOH.
    - Nút **`Khôi Phục Mặc Định`** giúp nạp lại cấu hình chuẩn ban đầu khi cần thiết.
+
+---
+
+### 12. KHO LƯU TRỮ SCENE & SO SÁNH KHÁC BIỆT (SCENE VAULT & SNAPSHOT DIFF)
+1. Bấm nút **`[Kho Lưu Trữ Scene]`** màu hổ phách trên thanh Header.
+2. **Tạo bản sao lưu tức thì (Snapshot Live Mixer):**
+   - Nhập tên bản lưu (ví dụ: *"Lễ Sáng Chúa Nhật 12/10"*), người thực hiện và ghi chú.
+   - Bấm **`Lưu Bản Sao Vào Kho`**: Hệ thống sẽ chụp toàn bộ 32 kênh từ bàn mixer thật/giả lập, tự động tính toán mã toàn vẹn SHA-256 và thẩm định nghiêm ngặt bất biến Talkback DL16 #11.
+3. **Xuất file USB .scn cắm bàn mixer thật:**
+   - Tại danh sách bản lưu, bấm nút **`[Tải .scn USB]`** tương ứng với snapshot mong muốn.
+   - Trình duyệt sẽ tải về file `.scn` chuẩn Behringer X32/M32. Người vận hành chỉ cần chép file này vào USB rồi cắm trực tiếp vào mặt trước bàn trộn cơ vật lý để nạp cảnh mà không cần máy tính.
+4. **So sánh khác biệt (Snapshot Delta Diff):**
+   - Tích chọn ô vuông trước **chính xác 2 bản sao lưu** muốn so sánh.
+   - Bấm **`[So Sánh 2 Bản Chọn]`**: Hệ thống tự động phân tích chi tiết từng kênh bị thay đổi (tên kênh, fader tăng/giảm bao nhiêu %, trạng thái Mute/Unmute, bộ lọc HPF và các dải PEQ 1-4).
+   - Kiểm định an toàn bất biến Talkback trên cả 2 bản sao lưu được hiển thị rõ ràng trên đầu kết quả.
+

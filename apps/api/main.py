@@ -98,6 +98,8 @@ speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 db = ChurchMixDatabase()
 church_profile_mgr = ChurchProfileManager()
 hall_profile_mgr = HallProfileManager()
+from packages.storage.scene_vault import SceneVaultManager
+scene_vault_mgr = SceneVaultManager(db=db)
 soundcheck_engine = VirtualSoundcheckEngine(sample_rate=48000)
 ai_copilot = ChurchMixCopilot()
 audio_device_mgr = AudioDeviceManager()
@@ -1015,6 +1017,84 @@ def export_scene_file(name: str = "ChurchMix_Sunday"):
         "sha256": snapshot.sha256,
         "content": scn_text,
     }
+
+
+# --- Scene Vault & Snapshot Archive Endpoints ---
+
+class CreateVaultSnapshotRequest(BaseModel):
+    name: str = "Sunday_Service"
+    author: str = "Operator"
+    note: str = ""
+    state_dict: Optional[Dict[str, Any]] = None
+
+
+class CompareVaultSnapshotsRequest(BaseModel):
+    snapshot_id_a: int
+    snapshot_id_b: int
+
+
+@app.get("/api/v1/vault/snapshots")
+def list_vault_snapshots(limit: int = 50):
+    """Retrieve list of archived mixer snapshots."""
+    return {"snapshots": scene_vault_mgr.list_backups(limit=limit)}
+
+
+@app.post("/api/v1/vault/snapshots")
+def create_vault_snapshot(req: CreateVaultSnapshotRequest):
+    """Archive current mixer state as a versioned snapshot in the vault."""
+    state = req.state_dict
+    if state is None:
+        if not x32_client:
+            raise HTTPException(status_code=503, detail="X32 Client not initialized")
+        snapshot = x32_client.take_full_snapshot(max_channels=32)
+        state = snapshot.parameters
+
+    backup = scene_vault_mgr.create_backup(
+        name=req.name,
+        author=req.author,
+        note=req.note,
+        state_dict=state,
+    )
+    return {"status": "BACKUP_SAVED", "backup": backup}
+
+
+@app.post("/api/v1/vault/snapshots/compare")
+def compare_vault_snapshots(req: CompareVaultSnapshotsRequest):
+    """Compare two archived snapshots and compute channel-by-channel delta."""
+    try:
+        diff = scene_vault_mgr.diff_backups(req.snapshot_id_a, req.snapshot_id_b)
+        return diff
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.get("/api/v1/vault/snapshots/{snapshot_id}")
+def get_vault_snapshot(snapshot_id: int):
+    """Retrieve a specific archived snapshot and its parameter map."""
+    backup = scene_vault_mgr.get_backup(snapshot_id)
+    if not backup:
+        raise HTTPException(status_code=404, detail=f"Snapshot ID {snapshot_id} not found")
+    return backup
+
+
+@app.delete("/api/v1/vault/snapshots/{snapshot_id}")
+def delete_vault_snapshot(snapshot_id: int):
+    """Delete a snapshot from the vault."""
+    success = scene_vault_mgr.delete_backup(snapshot_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Snapshot ID {snapshot_id} not found")
+    return {"status": "DELETED", "snapshot_id": snapshot_id}
+
+
+@app.get("/api/v1/vault/snapshots/{snapshot_id}/download-scn")
+def download_vault_snapshot_scn(snapshot_id: int):
+    """Generate and return native Behringer X32 .scn file content for USB drive."""
+    try:
+        data = scene_vault_mgr.export_backup_scn(snapshot_id)
+        return data
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 
 
 @app.post("/api/v1/simulation/run")

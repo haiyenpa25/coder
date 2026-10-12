@@ -185,6 +185,8 @@ x32-ai-sound-engineer/
 | **B28**| Quản Lý Profile Phòng Nhóm & So Sánh Baseline Âm Học Hội Trường (Multi-Sanctuary Hall Profiles & Baseline Comparator) |  Đã xong (Sprint 15) |
 | **B29**| Bộ Tự Chẩn Đoán Hệ Thống Tiền Lễ 10 Tiêu Chuẩn (`diagnose_system.py` & REST API `/api/v1/system/diagnostics`) |  Đã xong (Sprint 16) |
 | **B30**| Giao Diện Sơ Đồ 32 Kênh Nhà Thờ (`#churchChannelsModal`), Khóa Cứng Kênh 11 & Tự Động Đồng Bộ Tên Kênh |  Đã xong (Sprint 16) |
-| **Tổng**| **100 / 100 Automated Python Tests + 19 / 19 Node Tests PASSING (119 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 30 HẠNG MỤC** |
+| **B31**| Kho Lưu Trữ Scene (`SceneVaultManager`), Khóa Bất Biến DL16 #11 khi Lưu Snapshot, Xuất USB .scn Gốc & So Sánh Vi Sai Snapshot Delta |  Đã xong (Sprint 17) |
+| **Tổng**| **105 / 105 Automated Python Tests + 19 / 19 Node Tests PASSING (124 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 31 HẠNG MỤC** |
+
 
 

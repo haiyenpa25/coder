@@ -79,6 +79,11 @@
         <span>Sơ Đồ Kênh</span>
       </button>
 
+      <button onclick="openSceneVaultModal()" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-xs font-semibold transition-all cursor-pointer shadow-sm">
+        <i class="fa-solid fa-vault text-amber-400"></i>
+        <span>Kho Lưu Trữ Scene</span>
+      </button>
+
       <a href="/api/v1/reports/sunday-service" target="_blank" class="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-semibold transition-all cursor-pointer">
         <i class="fa-solid fa-file-invoice text-amber-400"></i>
         <span>In Báo Cáo</span>
@@ -1341,6 +1346,102 @@
           <span>Chẩn Đoán Lại (Re-run Check)</span>
         </button>
         <button onclick="closeDiagnosticsModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
+          Đóng
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3.11: SCENE VAULT & SNAPSHOT ARCHIVE     -->
+  <!-- ============================================== -->
+  <div id="sceneVaultModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-600/30 border border-amber-500/40 flex items-center justify-center text-amber-400 text-lg">
+            <i class="fa-solid fa-vault"></i>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white uppercase tracking-wider">Kho Lưu Trữ Scene & Sao Lưu Bản Chụp (Scene Vault)</h3>
+            <p class="text-[11px] text-slate-400">Quản lý các bản sao lưu Mixer, xuất USB định dạng gốc .scn, kiểm tra bất biến Talkback và so sánh khác biệt.</p>
+          </div>
+        </div>
+        <button onclick="closeSceneVaultModal()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center cursor-pointer">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Body -->
+      <div class="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1 text-xs">
+        <!-- Action / Backup Creation Form -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-camera text-amber-400 mr-1.5"></i>Tạo Bản Sao Lưu Mới (Snapshot Live Mixer)
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">Tự động tính mã SHA-256 & thẩm định DL16 #11</span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Tên Bản Lưu (Scene Name):</label>
+              <input id="vaultNewName" type="text" placeholder="Ví dụ: Le Sang Chua Nhat" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Kỹ Thuật Viên (Author):</label>
+              <input id="vaultNewAuthor" type="text" value="Operator" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+              <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Ghi Chú (Notes):</label>
+              <input id="vaultNewNote" type="text" placeholder="Cân chỉnh sau soundcheck ca đoàn" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-amber-500">
+            </div>
+          </div>
+          <div class="flex items-center justify-end space-x-2 pt-1">
+            <button onclick="createVaultBackupUI()" class="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold shadow-md cursor-pointer flex items-center space-x-1.5">
+              <i class="fa-solid fa-floppy-disk"></i>
+              <span>Lưu Bản Sao Vào Kho</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Visual Side-by-Side Comparison Box (Expandable) -->
+        <div id="vaultDiffBox" class="hidden p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/50 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-code-compare text-indigo-400 mr-1.5"></i>Kết Quả So Sánh Khác Biệt (Snapshot Delta)
+            </span>
+            <button onclick="closeVaultDiffBox()" class="text-slate-400 hover:text-white cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <div id="vaultDiffContent" class="space-y-2 text-xs">
+            <!-- Diff summary and changes rendered here -->
+          </div>
+        </div>
+
+        <!-- Snapshots List Section -->
+        <div>
+          <div class="flex items-center justify-between mb-2">
+            <h4 class="font-bold text-slate-300 uppercase tracking-wider text-[11px]">Danh Sách Các Bản Sao Lưu Đã Lưu Trữ:</h4>
+            <div class="flex items-center space-x-2">
+              <button onclick="compareSelectedSnapshotsUI()" class="px-3 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/40 text-[11px] font-semibold cursor-pointer">
+                <i class="fa-solid fa-code-compare mr-1"></i>So Sánh 2 Bản Chọn
+              </button>
+              <button onclick="loadVaultSnapshotsUI()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] cursor-pointer" title="Làm mới">
+                <i class="fa-solid fa-arrows-rotate"></i>
+              </button>
+            </div>
+          </div>
+          
+          <div id="vaultSnapshotsList" class="space-y-2 max-h-[350px] overflow-y-auto custom-scrollbar">
+            <!-- Snapshots loaded via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between">
+        <span class="text-[11px] text-slate-500 font-mono">Định dạng .scn tải về tương thích 100% cổng USB trước mixer X32/M32.</span>
+        <button onclick="closeSceneVaultModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold cursor-pointer">
           Đóng
         </button>
       </div>
@@ -3169,6 +3270,240 @@
         if (container) {
           container.innerHTML = `<div class="p-3 bg-red-950/50 border border-red-700 rounded-lg text-red-300 text-xs">Lỗi chạy chẩn đoán: ${e}</div>`;
         }
+    // ========================================================
+    // SCENE VAULT & SNAPSHOT ARCHIVE MANAGER
+    // ========================================================
+    let cachedVaultSnapshots = [];
+
+    function openSceneVaultModal() {
+      document.getElementById('sceneVaultModal').classList.remove('hidden');
+      loadVaultSnapshotsUI();
+    }
+
+    function closeSceneVaultModal() {
+      document.getElementById('sceneVaultModal').classList.add('hidden');
+      closeVaultDiffBox();
+    }
+
+    function closeVaultDiffBox() {
+      const box = document.getElementById('vaultDiffBox');
+      if (box) box.classList.add('hidden');
+    }
+
+    async function loadVaultSnapshotsUI() {
+      const container = document.getElementById('vaultSnapshotsList');
+      if (!container) return;
+      container.innerHTML = '<div class="text-slate-400 text-xs p-3">Đang tải danh sách bản sao lưu...</div>';
+
+      try {
+        const res = await fetch('/api/v1/vault/snapshots');
+        const data = await res.json();
+        cachedVaultSnapshots = data.snapshots || [];
+
+        if (cachedVaultSnapshots.length === 0) {
+          container.innerHTML = '<div class="text-slate-500 text-xs p-4 bg-slate-950 rounded-xl border border-slate-800 text-center">Chưa có bản sao lưu nào trong kho. Hãy nhập tên ở trên và bấm "Lưu Bản Sao Vào Kho".</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+        cachedVaultSnapshots.forEach(snap => {
+          const item = document.createElement('div');
+          item.className = 'p-3 rounded-xl bg-slate-950 border border-slate-800 hover:border-slate-700 transition-all flex items-center justify-between';
+          
+          item.innerHTML = `
+            <div class="flex items-center space-x-3">
+              <input type="checkbox" class="vault-snap-checkbox w-4 h-4 rounded bg-slate-900 border-slate-700 text-amber-500 focus:ring-0 cursor-pointer" data-id="${snap.id}">
+              <div>
+                <div class="flex items-center space-x-2">
+                  <span class="font-bold text-white text-xs">${snap.name}</span>
+                  <span class="font-mono text-[9px] px-1.5 py-0.5 rounded bg-slate-900 text-cyan-300 border border-slate-800">#${snap.id}</span>
+                  <span class="font-mono text-[9px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-800" title="SHA-256: ${snap.sha256}">SHA: ${snap.sha256.substring(0, 8)}</span>
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5">
+                  <span>${snap.note || 'Bản lưu snapshot toàn diện 32 kênh'}</span>
+                  <span class="mx-1.5 text-slate-600">•</span>
+                  <span class="text-slate-500">${snap.author}</span>
+                  <span class="mx-1.5 text-slate-600">•</span>
+                  <span class="text-slate-500 font-mono">${snap.iso_time || ''}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+              <button onclick="downloadVaultScnUI(${snap.id})" class="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-[11px] font-semibold cursor-pointer flex items-center space-x-1" title="Tải file .scn chép vào USB cắm trực tiếp mặt trước bàn mixer Behringer X32">
+                <i class="fa-solid fa-download text-[10px]"></i>
+                <span>Tải .scn USB</span>
+              </button>
+              <button onclick="deleteVaultSnapshotUI(${snap.id})" class="w-8 h-8 rounded-lg bg-slate-900 hover:bg-red-950 text-slate-400 hover:text-red-400 border border-slate-800 flex items-center justify-center cursor-pointer transition-all" title="Xóa bản sao">
+                <i class="fa-solid fa-trash-can text-xs"></i>
+              </button>
+            </div>
+          `;
+          container.appendChild(item);
+        });
+      } catch (e) {
+        container.innerHTML = `<div class="text-red-400 text-xs p-3">Lỗi tải bản sao lưu: ${e}</div>`;
+      }
+    }
+
+    async function createVaultBackupUI() {
+      const nameInput = document.getElementById('vaultNewName');
+      const authorInput = document.getElementById('vaultNewAuthor');
+      const noteInput = document.getElementById('vaultNewNote');
+
+      const name = nameInput ? nameInput.value.trim() : '';
+      const author = authorInput ? authorInput.value.trim() : 'Operator';
+      const note = noteInput ? noteInput.value.trim() : '';
+
+      if (!name) {
+        alert("Vui lòng nhập tên cho bản sao lưu Scene (ví dụ: Le Sang Chua Nhat)!");
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/v1/vault/snapshots', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, author, note })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi khi tạo bản lưu: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const data = await res.json();
+        alert(`Đã lưu thành công bản chụp "${name}" (ID #${data.backup.id}) vào Kho Scene Vault!\nBất biến DL16 #11: ${data.backup.talkback_safe ? 'AN TOÀN (P16 ONLY)' : 'CẢNH BÁO VI PHẠM!'}`);
+        
+        if (nameInput) nameInput.value = '';
+        if (noteInput) noteInput.value = '';
+        loadVaultSnapshotsUI();
+      } catch (e) {
+        alert(`Lỗi mạng hoặc server: ${e}`);
+      }
+    }
+
+    async function downloadVaultScnUI(snapshotId) {
+      try {
+        const res = await fetch(`/api/v1/vault/snapshots/${snapshotId}/download-scn`);
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Không thể tạo file .scn: ${err.detail || res.statusText}`);
+          return;
+        }
+        const data = await res.json();
+        
+        // Trigger browser download for .scn file
+        const blob = new Blob([data.content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = data.filename || `ChurchMix_Scene_${snapshotId}.scn`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (e) {
+        alert(`Lỗi tải file .scn: ${e}`);
+      }
+    }
+
+    async function deleteVaultSnapshotUI(snapshotId) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa bản sao lưu ID #${snapshotId} khỏi kho không?`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/v1/vault/snapshots/${snapshotId}`, {
+          method: 'DELETE'
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Không thể xóa: ${err.detail || res.statusText}`);
+          return;
+        }
+        loadVaultSnapshotsUI();
+      } catch (e) {
+        alert(`Lỗi xóa bản sao lưu: ${e}`);
+      }
+    }
+
+    async function compareSelectedSnapshotsUI() {
+      const checkboxes = document.querySelectorAll('.vault-snap-checkbox:checked');
+      if (checkboxes.length !== 2) {
+        alert("Vui lòng tích chọn chính xác 2 bản sao lưu để so sánh sự khác biệt!");
+        return;
+      }
+
+      const idA = parseInt(checkboxes[0].getAttribute('data-id'), 10);
+      const idB = parseInt(checkboxes[1].getAttribute('data-id'), 10);
+
+      const diffBox = document.getElementById('vaultDiffBox');
+      const diffContent = document.getElementById('vaultDiffContent');
+      if (diffBox) diffBox.classList.remove('hidden');
+      if (diffContent) diffContent.innerHTML = '<div class="text-slate-400">Đang phân tích sai khác giữa 2 bản snapshot...</div>';
+
+      try {
+        const res = await fetch('/api/v1/vault/snapshots/compare', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ snapshot_id_a: idA, snapshot_id_b: idB })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          if (diffContent) diffContent.innerHTML = `<div class="text-red-400">Lỗi so sánh: ${err.detail || res.statusText}</div>`;
+          return;
+        }
+
+        const diff = await res.json();
+        
+        let html = `
+          <div class="p-3 rounded-lg bg-slate-950 border border-slate-800 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-white">${diff.summary_vi}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold ${
+                diff.total_channels_changed === 0 ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-indigo-950 text-indigo-400 border border-indigo-800'
+              }">${diff.total_channels_changed} KÊNH THAY ĐỔI</span>
+            </div>
+            <div class="text-[11px] text-slate-400 flex items-center space-x-3">
+              <span>Bản A: <strong>${diff.label_a}</strong></span>
+              <span>•</span>
+              <span>Bản B: <strong>${diff.label_b}</strong></span>
+            </div>
+          </div>
+        `;
+
+        if (diff.channel_diffs && diff.channel_diffs.length > 0) {
+          html += '<div class="space-y-1.5 max-h-[220px] overflow-y-auto custom-scrollbar pt-1">';
+          diff.channel_diffs.forEach(cd => {
+            const isTb = cd.is_talkback;
+            html += `
+              <div class="p-2.5 rounded-lg border font-mono text-[11px] ${
+                isTb ? 'bg-red-950/30 border-red-600/50' : 'bg-slate-950 border-slate-800'
+              }">
+                <div class="flex items-center justify-between mb-1">
+                  <div class="flex items-center space-x-2">
+                    <span class="font-bold text-cyan-300">Kênh ${cd.channel < 10 ? '0' : ''}${cd.channel}</span>
+                    <span class="text-slate-300 font-sans">(${cd.name_a})</span>
+                    ${isTb ? '<span class="text-[9px] px-1.5 py-0.2 rounded bg-red-950 text-red-400 border border-red-800 font-bold">TALKBACK INVARIANT</span>' : ''}
+                  </div>
+                </div>
+                <ul class="list-disc list-inside text-[11px] text-slate-300 space-y-0.5 font-sans">
+                  ${cd.changes.map(chg => `<li>${chg}</li>`).join('')}
+                </ul>
+              </div>
+            `;
+          });
+          html += '</div>';
+        } else {
+          html += '<div class="text-center text-slate-400 py-3">Hai bản sao lưu này hoàn toàn đồng nhất về thông số (0 kênh khác biệt).</div>';
+        }
+
+        if (diffContent) diffContent.innerHTML = html;
+      } catch (e) {
+        if (diffContent) diffContent.innerHTML = `<div class="text-red-400">Lỗi kết nối khi so sánh: ${e}</div>`;
       }
     }
 
