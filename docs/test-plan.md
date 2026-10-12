@@ -16,7 +16,7 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 56 bài kiểm 
 
 ---
 
-## 2. Bảng Phân Bổ 56 Bài Test Theo Module (Test Suite Matrix)
+## 2. Bảng Phân Bổ 60 Bài Test Theo Module (Test Suite Matrix)
 
 | Tập File Test | Số Bài Test | Phạm Vi Kiểm Tra | Trạng Thái |
 | :--- | :---: | :--- | :---: |
@@ -30,14 +30,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 56 bài kiểm 
 | [tests/test_sprint8_audio_capture.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint8_audio_capture.py) | **5** | Liệt kê thiết bị sound card (WASAPI / ASIO / MME), Tự động nhận diện card X-USB / X-LIVE, Khởi tạo AudioStreamWorker, Bộ đệm vòng đa kênh, Đo mức âm lượng dBFS thời gian thực. | **PASS** |
 | [tests/test_sprint9_scene_export.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint9_scene_export.py) | **2** | Trích xuất file Scene Behringer X32 (`.scn`), Khóa cứng kênh 11 `/ch/11/mix/lr OFF` và định tuyến Ultranet `/outputs/p16/11/src 11` trên file cắm USB. | **PASS** |
 | [tests/test_sprint10_database_and_discovery.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint10_database_and_discovery.py) | **5** | SQLite Database persistence (Snapshot SHA-256, Audit Event bất biến với cryptographic hash, Phiên đo âm học H1), Tự động quét tìm bàn trộn X32 qua UDP OSC broadcast (`/info`), Wizard 6 Live Service Tactical Assistant. | **PASS** |
-| **TỔNG CỘNG** | **56** | **Bao phủ 100% các chức năng cốt lõi và bất biến an toàn** | **100% PASS** |
+| [tests/test_sprint11_e2e_service.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint11_e2e_service.py) | **4** | Kịch bản mô phỏng toàn diện buổi lễ Chúa Nhật (End-to-End Sunday Service Lifecycle): Boot & Invariant verification, Line Check 32 kênh, Vocal Tuning & Harmonic Rejection, Live Tactical Monitoring & Silence Hold & USB Scene export. | **PASS** |
+| **TỔNG CỘNG** | **60** | **Bao phủ 100% các chức năng cốt lõi và bất biến an toàn** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 56 bài test:
+Để thực thi toàn bộ 60 bài test:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
-Thời gian thực thi trung bình: **~4.5 giây**.
+Thời gian thực thi trung bình: **~5.0 giây**.
+

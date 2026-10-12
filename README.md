@@ -4,7 +4,7 @@
 > Dành cho mixer **Behringer X32 Compact / Midas M32**, stagebox **Midas DL16** và hệ thống monitor cá nhân **Ultranet P16**.
 
 [![Safety Verified](https://img.shields.io/badge/Safety-Invariant%20Guaranteed-success.svg)](#nguyên-tắc-bất-biến-sống-còn-hard-invariants)
-[![Tests Passing](https://img.shields.io/badge/Tests-56%2F56%20Passing-brightgreen.svg)](#kiểm-thử-tự-động)
+[![Tests Passing](https://img.shields.io/badge/Tests-60%2F60%20Passing-brightgreen.svg)](#kiểm-thử-tự-động)
 [![OSC Read-Only First](https://img.shields.io/badge/Mode-READ__ONLY__MODE%20First-blue.svg)](#chế-độ-vận-hành)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](#yêu-cầu-môi-trường)
 
@@ -107,8 +107,8 @@ Toàn bộ hệ thống được bảo vệ bởi **56 bài kiểm thử tự đ
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
-* Thời gian chạy: **~4.5 giây**.
-* Kết quả: **56 / 56 tests PASSING (100%)**.
+* Thời gian chạy: **~5.0 giây**.
+* Kết quả: **60 / 60 tests PASSING (100%)**.
 
 ---
 
@@ -134,7 +134,7 @@ ChurchMix/
 ├── configs/                    # Whitelist OSC, Phân quyền RBAC, Safety defaults
 ├── deploy/                     # Dockerfile, Docker Compose, Windows Service, Systemd
 ├── docs/                       # Toàn bộ 7 tài liệu kỹ thuật & quy chuẩn vận hành
-└── tests/                      # 10 bộ Unit & Integration test suites (56 tests)
+└── tests/                      # 11 bộ Unit & Integration test suites (60 tests)
 ```
 
 ---
