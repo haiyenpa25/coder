@@ -1433,6 +1433,29 @@
           </div>
         </div>
 
+        <!-- USB .SCN File Importer & Pre-Flight Safety Audit Form -->
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-3">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-white uppercase tracking-wider flex items-center">
+              <i class="fa-solid fa-file-import text-cyan-400 mr-1.5"></i>Nạp File Scene (.scn) Từ USB / Máy Tính
+            </span>
+            <span class="text-[10px] text-slate-400 font-mono">Tự động quét lỗ hổng rò rỉ Talkback & kiểm định âm học</span>
+          </div>
+
+          <div class="flex flex-col sm:flex-row items-center gap-3">
+            <input id="vaultScnFileInput" type="file" accept=".scn,.txt" onchange="handleScnFileSelected(event)" class="block w-full text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-cyan-600/20 file:text-cyan-300 hover:file:bg-cyan-600/30 cursor-pointer">
+            <button onclick="auditAndImportSelectedScnUI()" id="vaultImportScnBtn" disabled class="px-4 py-1.5 rounded-lg bg-cyan-600/40 text-slate-400 text-xs font-bold shadow-md cursor-not-allowed flex items-center space-x-1.5 flex-shrink-0 transition-all">
+              <i class="fa-solid fa-shield-virus"></i>
+              <span>Kiểm Định & Nạp Vào Kho</span>
+            </button>
+          </div>
+
+          <!-- Pre-flight Audit Result Box (Hidden by default) -->
+          <div id="vaultScnAuditBox" class="hidden p-3 rounded-lg border text-xs space-y-2">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
         <!-- Visual Side-by-Side Comparison Box (Expandable) -->
         <div id="vaultDiffBox" class="hidden p-4 rounded-xl bg-indigo-950/40 border border-indigo-500/50 space-y-3">
           <div class="flex items-center justify-between">
@@ -3792,6 +3815,155 @@
         loadVaultSnapshotsUI();
       } catch (e) {
         alert(`Lỗi xóa bản sao lưu: ${e}`);
+      }
+    }
+
+    // --- USB .SCN File Importer & Pre-Flight Safety Audit ---
+    let pendingScnContent = "";
+    let pendingScnFileName = "";
+
+    function handleScnFileSelected(event) {
+      const file = event.target.files && event.target.files[0];
+      const btn = document.getElementById('vaultImportScnBtn');
+      const auditBox = document.getElementById('vaultScnAuditBox');
+      if (!file) {
+        pendingScnContent = "";
+        pendingScnFileName = "";
+        if (btn) {
+          btn.disabled = true;
+          btn.className = 'px-4 py-1.5 rounded-lg bg-cyan-600/40 text-slate-400 text-xs font-bold shadow-md cursor-not-allowed flex items-center space-x-1.5 flex-shrink-0 transition-all';
+        }
+        if (auditBox) auditBox.classList.add('hidden');
+        return;
+      }
+
+      pendingScnFileName = file.name;
+      const reader = new FileReader();
+      reader.onload = async function(e) {
+        pendingScnContent = e.target.result;
+        if (btn) {
+          btn.disabled = false;
+          btn.className = 'px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold shadow-md cursor-pointer flex items-center space-x-1.5 flex-shrink-0 transition-all';
+        }
+        await preFlightAuditScnUI();
+      };
+      reader.readAsText(file);
+    }
+
+    async function preFlightAuditScnUI() {
+      const auditBox = document.getElementById('vaultScnAuditBox');
+      if (!auditBox || !pendingScnContent) return;
+
+      auditBox.classList.remove('hidden');
+      auditBox.className = 'p-3 rounded-lg border bg-slate-900 border-slate-700 text-xs space-y-2';
+      auditBox.innerHTML = '<div class="text-slate-400"><i class="fa-solid fa-spinner fa-spin mr-1.5 text-cyan-400"></i>Đang thẩm định an toàn âm học và bất biến Talkback từ file USB...</div>';
+
+      try {
+        const res = await fetch('/api/v1/vault/audit-scn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ scn_content: pendingScnContent })
+        });
+
+        if (!res.ok) {
+          auditBox.innerHTML = '<div class="text-red-400">Lỗi phân tích file .scn: Định dạng file không hợp lệ.</div>';
+          return;
+        }
+
+        const report = await res.json();
+        const hasViolations = report.violations && report.violations.length > 0;
+        const hasWarnings = report.warnings && report.warnings.length > 0;
+
+        let html = `
+          <div class="flex items-center justify-between pb-1 border-b border-slate-800">
+            <div class="flex items-center space-x-2">
+              <span class="font-bold text-white">${report.scene_name}</span>
+              <span class="font-mono text-[10px] text-slate-400">(${pendingScnFileName})</span>
+            </div>
+            <span class="px-2 py-0.5 rounded font-bold text-[10px] ${
+              report.invariant_passed ? 'bg-emerald-950 text-emerald-400 border border-emerald-800' : 'bg-red-950 text-red-400 border border-red-800 animate-pulse'
+            }">${report.invariant_passed ? 'TALKBACK SAFE' : 'INVARIANT VIOLATION'}</span>
+          </div>
+          <div class="text-slate-300 font-sans">${report.summary_vi}</div>
+        `;
+
+        if (hasViolations) {
+          html += '<div class="p-2 rounded bg-red-950/40 border border-red-600/50 text-red-300 space-y-1">';
+          report.violations.forEach(v => {
+            html += `<div class="flex items-start space-x-1.5"><i class="fa-solid fa-triangle-exclamation text-red-400 mt-0.5"></i><span>${v}</span></div>`;
+          });
+          html += '<div class="text-[11px] text-amber-300 pt-1 font-semibold">-> Tính năng Auto-Sanitize sẽ tự động đóng đường gửi này khi nạp vào Kho Scene Vault!</div>';
+          html += '</div>';
+        }
+
+        if (hasWarnings) {
+          html += '<div class="p-2 rounded bg-amber-950/30 border border-amber-600/40 text-amber-300 space-y-1 max-h-[120px] overflow-y-auto custom-scrollbar">';
+          report.warnings.forEach(w => {
+            html += `<div class="flex items-start space-x-1.5"><i class="fa-solid fa-circle-info text-amber-400 mt-0.5"></i><span>${w}</span></div>`;
+          });
+          html += '</div>';
+        }
+
+        auditBox.innerHTML = html;
+      } catch (e) {
+        auditBox.innerHTML = `<div class="text-red-400">Lỗi kết nối kiểm định: ${e}</div>`;
+      }
+    }
+
+    async function auditAndImportSelectedScnUI() {
+      if (!pendingScnContent) {
+        alert("Vui lòng chọn một file .scn từ USB hoặc máy tính!");
+        return;
+      }
+
+      const note = prompt("Nhập ghi chú cho bản sao lưu USB này (tùy chọn):", `Nạp từ ${pendingScnFileName}`);
+      if (note === null) return;
+
+      try {
+        const res = await fetch('/api/v1/vault/import-scn', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            scn_content: pendingScnContent,
+            author: "USB_Operator",
+            note: note,
+            auto_sanitize: true,
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Lỗi nạp file .scn: ${err.detail || res.statusText}`);
+          return;
+        }
+
+        const data = await res.json();
+        const patches = data.patches_applied || [];
+        let alertMsg = `✅ NẠP THÀNH CÔNG:\nBản Scene "${data.vault_backup.name}" (ID #${data.vault_backup.id}) đã được lưu an toàn vào Scene Vault!\n`;
+        if (patches.length > 0) {
+          alertMsg += `\nĐÃ ÁP DỤNG ${patches.length} BẢN VÁ AN TOÀN BẢO VỆ BẤT BIẾN:\n` + patches.map(p => `• ${p}`).join('\n');
+        } else {
+          alertMsg += "\nScene đạt chuẩn an toàn 100%, không cần vá lỗi.";
+        }
+        alert(alertMsg);
+
+        // Reset file input & audit box
+        const fileInput = document.getElementById('vaultScnFileInput');
+        if (fileInput) fileInput.value = '';
+        pendingScnContent = '';
+        pendingScnFileName = '';
+        const btn = document.getElementById('vaultImportScnBtn');
+        if (btn) {
+          btn.disabled = true;
+          btn.className = 'px-4 py-1.5 rounded-lg bg-cyan-600/40 text-slate-400 text-xs font-bold shadow-md cursor-not-allowed flex items-center space-x-1.5 flex-shrink-0 transition-all';
+        }
+        const auditBox = document.getElementById('vaultScnAuditBox');
+        if (auditBox) auditBox.classList.add('hidden');
+
+        // Reload snapshots list
+        loadVaultSnapshotsUI();
+      } catch (e) {
+        alert(`Lỗi mạng hoặc server: ${e}`);
       }
     }
 

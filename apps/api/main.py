@@ -82,6 +82,7 @@ from packages.storage.database import ChurchMixDatabase
 from packages.storage.church_profile import ChurchProfileManager
 from packages.storage.hall_profiles import HallProfileManager, HallProfile
 from packages.storage.report_generator import generate_printable_sunday_report_html
+from packages.storage.scn_importer import SceneImporter, SceneAuditReport
 from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_PRESETS
 from packages.ai_copilot import ChurchMixCopilot
 from apps.capture_agent.device_manager import AudioDeviceManager
@@ -1205,6 +1206,46 @@ def download_vault_snapshot_scn(snapshot_id: int):
         return data
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+class ImportScnRequest(BaseModel):
+    scn_content: str
+    author: str = "USB_Import"
+    note: str = ""
+    auto_sanitize: bool = True
+
+
+@app.post("/api/v1/vault/audit-scn")
+def audit_scn_file(req: ImportScnRequest):
+    """
+    Perform pre-flight safety audit on a raw Behringer X32 .scn text file.
+    Does not persist into vault.
+    """
+    if not req.scn_content.strip():
+        raise HTTPException(status_code=400, detail="Nội dung file .scn không được để trống.")
+    scene_name, raw_state = SceneImporter.parse_scn_text(req.scn_content)
+    report = SceneImporter.audit_scene(raw_state, scene_name=scene_name)
+    return report.to_dict()
+
+
+@app.post("/api/v1/vault/import-scn")
+def import_and_vault_scn_file(req: ImportScnRequest):
+    """
+    Parse, audit, auto-sanitize invariants, and persist a USB .scn file into Scene Vault.
+    """
+    if not req.scn_content.strip():
+        raise HTTPException(status_code=400, detail="Nội dung file .scn không được để trống.")
+    try:
+        res = SceneImporter.import_and_vault(
+            scn_content=req.scn_content,
+            vault_mgr=scene_vault_mgr,
+            author=req.author,
+            note=req.note,
+            auto_sanitize=req.auto_sanitize,
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Lỗi nạp file .scn: {str(e)}")
 
 
 

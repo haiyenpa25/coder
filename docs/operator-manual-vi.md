@@ -148,6 +148,13 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Tích chọn ô vuông trước **chính xác 2 bản sao lưu** muốn so sánh.
    - Bấm **`[So Sánh 2 Bản Chọn]`**: Hệ thống tự động phân tích chi tiết từng kênh bị thay đổi (tên kênh, fader tăng/giảm bao nhiêu %, trạng thái Mute/Unmute, bộ lọc HPF và các dải PEQ 1-4).
    - Kiểm định an toàn bất biến Talkback trên cả 2 bản sao lưu được hiển thị rõ ràng trên đầu kết quả.
+5. **Nạp & Thẩm Định File .scn từ USB (USB Scene Importer & Pre-Flight Safety Audit):**
+   - Khi có ban nhạc khách hoặc kỹ thuật viên mang file `.scn` từ nơi khác cắm USB vào máy:
+   - Trong cửa sổ Kho Lưu Trữ Scene, tại mục **`Nạp File Scene (.scn) Từ USB / Máy Tính`**, chọn file `.scn`.
+   - Hệ thống lập tức kích hoạt bộ kiểm định tiền thẩm tra (**Pre-Flight Safety Audit**):
+     - Tự động phát hiện nếu file có cài đặt sai đưa mic Talkback DL16 #11 ra loa lớn FOH hoặc Bus Livestream.
+     - Cảnh báo các fader bị đẩy quá mức danh định ($> +5\text{ dB}$) hoặc thiếu cắt tần số thấp HPF cho micro hát.
+   - Bấm **`[Kiểm Định & Nạp Vào Kho]`**: Tính năng **Auto-Sanitize** sẽ tự động vá các lỗ hổng rò rỉ Talkback (`/ch/11/mix/lr = OFF`, `/outputs/p16/11/src = 11`), kích hoạt HPF bảo vệ giọng hát, và lưu bản sao lưu an toàn 100% vào Scene Vault với mã băm SHA-256.
 
 ---
 
