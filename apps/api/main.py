@@ -330,6 +330,62 @@ def get_channels():
     return {"channels": channels}
 
 
+class ChannelMuteRequest(BaseModel):
+    on: Optional[int] = None
+    operator_id: str = "Operator"
+
+
+@app.post("/api/v1/channels/{channel_id}/mute")
+def toggle_channel_mute(channel_id: int, req: ChannelMuteRequest):
+    """Toggle or set channel mute state safely via Safety Gate and audit event logging."""
+    if not (1 <= channel_id <= 32):
+        raise HTTPException(status_code=400, detail="Channel ID must be between 1 and 32")
+    if stop_auto_triggered:
+        raise HTTPException(status_code=403, detail="CANNOT MUTATE: STOP AUTO panic button is currently ENGAGED!")
+    if not x32_client or not executor:
+        raise HTTPException(status_code=503, detail="X32 Client or SafetyGate Executor not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    param_path = f"/ch/{channel_id:02d}/mix/on"
+    current_val = int(snapshot.parameters.get(param_path, 1))
+
+    target_val = 1 - current_val if req.on is None else int(req.on)
+    if target_val not in (0, 1):
+        raise HTTPException(status_code=400, detail="Mute state 'on' must be 0 (Mute) or 1 (On)")
+
+    proposal = Proposal(
+        proposal_id=f"MUTE_CH{channel_id:02d}_{int(time.time()*1000)}",
+        target_channel=channel_id,
+        hypothesis=f"Operator manually set Channel {channel_id} state to {'ON' if target_val else 'MUTE'}",
+        confidence=1.0,
+        changes=[{"parameter": param_path, "from": current_val, "to": target_val}],
+        expected_sha256=snapshot.sha256,
+        operator_approved=True,
+        approved_by=req.operator_id,
+    )
+
+    try:
+        result = executor.execute(proposal, req.operator_id)
+        if db:
+            db.save_audit_event(
+                actor=req.operator_id,
+                action="CHANNEL_MUTE_TOGGLED",
+                proposal_id=proposal.proposal_id,
+                status="COMMITTED",
+                details={"channel_id": channel_id, "on": target_val, "previous_on": current_val},
+            )
+        return {
+            "status": "COMMITTED",
+            "channel_id": channel_id,
+            "on": target_val,
+            "state_text": "ON" if target_val else "MUTE",
+            "audit_hash": result.get("sha256"),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+
 @app.get("/api/v1/routing")
 def get_routing():
     if not x32_client:

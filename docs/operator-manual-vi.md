@@ -149,3 +149,17 @@ Trước khi bắt đầu buổi lễ 15 phút:
    - Bấm **`[So Sánh 2 Bản Chọn]`**: Hệ thống tự động phân tích chi tiết từng kênh bị thay đổi (tên kênh, fader tăng/giảm bao nhiêu %, trạng thái Mute/Unmute, bộ lọc HPF và các dải PEQ 1-4).
    - Kiểm định an toàn bất biến Talkback trên cả 2 bản sao lưu được hiển thị rõ ràng trên đầu kết quả.
 
+---
+
+### 13. THANH RADAR CẮT HÚ THỜI GIAN THỰC & BẬT/TẮT MUTE KÊNH AN TOÀN
+1. **Thanh Radar Giám Sát Rủi Ro Hú (Live Feedback Radar HUD):**
+   - Khi hệ thống phát hiện tần số dao động đơn lẻ bất thường (đã qua thuật toán Harmonic Rejection loại trừ nốt ngân ca sĩ), thanh cảnh báo màu đỏ sẽ xuất hiện ngay dưới biểu đồ RTA.
+   - Hiển thị rõ: Tần số hú (Hz), kênh nghi vấn (Channel) và độ tin cậy.
+   - Bấm **`[Tạo Đề Xuất Notch Lọc Hú]`**: Hệ thống tự động tính toán bộ lọc Notch siêu hẹp chuẩn Quy tắc 9 ($Q = 7.0$, độ sâu giới hạn $-3.5\text{ dB}$) và nạp vào khung duyệt đề xuất.
+   - Bấm **`[DUYỆT & ÁP DỤNG NOTCH CẮT HÚ]`** để gửi lệnh an toàn xuống mixer qua Safety Gate (có kiểm tra readback và lưu snapshot phục hồi).
+2. **Bật/Tắt Mute Kênh Trực Tiếp:**
+   - Trên mỗi dải kênh (Channel Strip) hoặc trong cửa sổ Chi Tiết Kênh, nút `ON / MUTE` cho phép bấm trực tiếp để ngắt/mở tín hiệu.
+   - Mọi thao tác Mute/Unmute đều được kiểm soát qua `SafetyGate` và ghi nhật ký Audit Trail.
+   - Kênh 11 Talkback ban nhạc vẫn duy trì cách ly 100% khỏi loa chính FOH kể cả khi bật hay tắt Mute.
+
+

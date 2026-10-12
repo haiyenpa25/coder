@@ -143,6 +143,29 @@
       <div class="relative w-full h-44 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden">
         <canvas id="rtaCanvas" class="w-full h-full block"></canvas>
       </div>
+
+      <!-- Real-time Feedback Detection Alert Bar (Hidden when no alerts) -->
+      <div id="liveFeedbackRadarBar" class="hidden mt-3 p-3 rounded-xl bg-red-950/40 border border-red-600/50 flex flex-wrap items-center justify-between gap-2 animate-fade-in">
+        <div class="flex items-center space-x-3">
+          <div class="w-8 h-8 rounded-lg bg-red-600/30 border border-red-500/40 flex items-center justify-center text-red-400">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs font-bold text-red-300 uppercase tracking-wide">Phát Hiện Nguy Cơ Hú (Feedback Risk Candidate)</span>
+              <span id="fbRadarFreqBadge" class="px-2 py-0.5 rounded bg-red-900 text-red-200 font-mono font-bold text-[10px]">2,850 Hz</span>
+              <span id="fbRadarChannelBadge" class="px-2 py-0.5 rounded bg-slate-900 text-slate-300 font-mono text-[10px]">Kênh 03</span>
+            </div>
+            <p id="fbRadarEvidenceText" class="text-[11px] text-slate-300 mt-0.5">Phổ đơn tần liên tục >3 khung, đã loại trừ hài âm giọng hát ca sĩ.</p>
+          </div>
+        </div>
+        <div class="flex items-center space-x-2">
+          <button id="btnQuickNotch" onclick="dispatchQuickNotchProposal()" class="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md cursor-pointer flex items-center space-x-1.5">
+            <i class="fa-solid fa-scissors"></i>
+            <span>Tạo Đề Xuất Notch Lọc Hú (Q=7.0, -3.5dB)</span>
+          </button>
+        </div>
+      </div>
     </section>
 
     <!-- SECTION 2: 32 CHANNEL STRIPS CONSOLE -->
@@ -1489,9 +1512,11 @@
             <div class="text-[10px] text-slate-400 uppercase">Fader Level</div>
             <div id="cdmFaderVal" class="text-sm font-bold text-cyan-400 mt-0.5">75% (0 dB)</div>
           </div>
-          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
+          <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 flex flex-col justify-between">
             <div class="text-[10px] text-slate-400 uppercase">Trạng Thái Mute</div>
-            <div id="cdmMuteVal" class="text-sm font-bold text-emerald-400 mt-0.5">ON (Mở)</div>
+            <button id="btnCdmToggleMute" onclick="toggleCurrentModalChannelMute()" class="mt-1 py-1 px-2 rounded font-bold text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900 cursor-pointer">
+              ON (Mở Tín Hiệu)
+            </button>
           </div>
           <div class="p-2.5 rounded-xl bg-slate-950 border border-slate-800">
             <div class="text-[10px] text-slate-400 uppercase">HPF Low-Cut</div>
@@ -1594,6 +1619,13 @@
             drawRTA(rtaData, data.feedback_alerts || []);
             updateMeters(data.meters || []);
 
+            if (data.feedback_alerts && data.feedback_alerts.length > 0) {
+              updateFeedbackRadarUI(data.feedback_alerts);
+            } else {
+              const radar = document.getElementById('liveFeedbackRadarBar');
+              if (radar) radar.classList.add('hidden');
+            }
+
             if (data.soundcheck) {
               updateSoundcheckUI(data.soundcheck);
             }
@@ -1612,6 +1644,129 @@
       ws.onclose = () => {
         setTimeout(initWebSocket, 2000);
       };
+    }
+
+    // --- Feedback Radar & Quick Notch Dispatcher ---
+    let latestFeedbackAlert = null;
+
+    function updateFeedbackRadarUI(alerts) {
+      const radar = document.getElementById('liveFeedbackRadarBar');
+      if (!radar || !alerts || alerts.length === 0) return;
+      latestFeedbackAlert = alerts[0];
+      radar.classList.remove('hidden');
+
+      const freqBadge = document.getElementById('fbRadarFreqBadge');
+      const chBadge = document.getElementById('fbRadarChannelBadge');
+      const evidenceText = document.getElementById('fbRadarEvidenceText');
+
+      if (freqBadge) freqBadge.innerText = `${Math.round(latestFeedbackAlert.freq_hz)} Hz`;
+      if (chBadge) chBadge.innerText = `Kênh ${latestFeedbackAlert.channel_id < 10 ? '0' : ''}${latestFeedbackAlert.channel_id}`;
+      if (evidenceText) {
+        const ev = latestFeedbackAlert.evidence ? latestFeedbackAlert.evidence.join(' • ') : 'Tần số đơn dao động liên tục';
+        evidenceText.innerText = `${ev} (Độ tin cậy: ${Math.round((latestFeedbackAlert.confidence || 0.85) * 100)}%)`;
+      }
+    }
+
+    async function dispatchQuickNotchProposal() {
+      const targetChannel = latestFeedbackAlert ? latestFeedbackAlert.channel_id : 3;
+      const targetFreq = latestFeedbackAlert ? latestFeedbackAlert.freq_hz : 2850.0;
+      const confidence = latestFeedbackAlert ? latestFeedbackAlert.confidence : 0.88;
+
+      try {
+        const res = await fetch('/api/v1/proposals/generate-notch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            channel_id: targetChannel,
+            freq_hz: targetFreq,
+            confidence: confidence,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Không thể tạo đề xuất cắt hú: ${err.detail || res.statusText}`);
+          return;
+        }
+        const data = await res.json();
+        activeProposalId = data.proposal_id;
+
+        const pBox = document.getElementById('proposalBox');
+        if (pBox) {
+          pBox.innerHTML = `
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-red-400 uppercase tracking-wider text-[11px]"><i class="fa-solid fa-scissors mr-1"></i>Surgical Feedback Notch</span>
+              <span class="text-[10px] bg-red-950 text-red-300 px-2 py-0.5 rounded border border-red-700/60 font-mono">CH ${data.target_channel} • Q=7.0</span>
+            </div>
+            <p class="text-slate-300 font-sans text-xs">${data.hypothesis}</p>
+            <div class="text-[10px] text-slate-400 font-mono">
+              Filt: PEQ Band 3 @ ${Math.round(targetFreq)} Hz, Gain: -3.5 dB, Q: 7.00
+            </div>
+          `;
+        }
+
+        const btnApply = document.getElementById('btnApplyProposal');
+        if (btnApply) {
+          btnApply.disabled = false;
+          btnApply.className = "w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs tracking-wider transition-all cursor-pointer shadow-lg shadow-red-600/30 flex items-center justify-center space-x-1.5";
+          btnApply.innerHTML = '<i class="fa-solid fa-check mr-1.5"></i>DUYỆT & ÁP DỤNG NOTCH CẮT HÚ (SAFETY GATE)';
+        }
+
+        if (data.simulated_curve) {
+          drawABCurve(data.simulated_curve);
+        }
+      } catch (e) {
+        alert(`Lỗi kết nối tạo đề xuất: ${e}`);
+      }
+    }
+
+    // --- Channel Mute Safety Toggle Handlers ---
+    async function toggleChannelMuteUI(event, channelId, targetOn) {
+      if (event) event.stopPropagation();
+      try {
+        const res = await fetch(`/api/v1/channels/${channelId}/mute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ on: targetOn, operator_id: 'Operator' }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Không thể thay đổi trạng thái Mute: ${err.detail || res.statusText}`);
+          return;
+        }
+        loadChannels();
+      } catch (e) {
+        alert(`Lỗi mạng: ${e}`);
+      }
+    }
+
+    async function toggleCurrentModalChannelMute() {
+      if (!currentModalChannel) return;
+      const btn = document.getElementById('btnCdmToggleMute');
+      const isCurrentlyOn = btn && btn.innerText.includes('ON');
+      const targetOn = isCurrentlyOn ? 0 : 1;
+
+      try {
+        const res = await fetch(`/api/v1/channels/${currentModalChannel}/mute`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ on: targetOn, operator_id: 'Operator' }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert(`Không thể thay đổi trạng thái Mute: ${err.detail || res.statusText}`);
+          return;
+        }
+        const data = await res.json();
+        if (btn) {
+          btn.innerText = data.on ? "ON (Mở Tín Hiệu)" : "MUTED (Đang Tắt)";
+          btn.className = data.on 
+            ? "mt-1 py-1 px-2 rounded font-bold text-xs bg-emerald-950 text-emerald-400 border border-emerald-800 hover:bg-emerald-900 cursor-pointer"
+            : "mt-1 py-1 px-2 rounded font-bold text-xs bg-red-950 text-red-400 border border-red-800 hover:bg-red-900 cursor-pointer";
+        }
+        loadChannels();
+      } catch (e) {
+        alert(`Lỗi mạng: ${e}`);
+      }
     }
 
     // --- Draw 1/12-Octave RTA Spectrum on Canvas ---
@@ -1730,9 +1885,9 @@
 
           <!-- Bottom Status Buttons -->
           <div class="w-full space-y-1">
-            <div class="text-[9px] font-mono py-0.5 rounded ${ch.on ? 'bg-slate-800 text-slate-300' : 'bg-red-950 text-red-400 font-bold'}">
+            <button onclick="toggleChannelMuteUI(event, ${ch.channel}, ${ch.on ? 0 : 1})" class="w-full text-[9px] font-mono py-1 rounded cursor-pointer transition-colors ${ch.on ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' : 'bg-red-950 hover:bg-red-900 text-red-400 font-bold border border-red-800'}" title="Bấm để ${ch.on ? 'Tắt (Mute)' : 'Mở (Unmute)'}">
               ${ch.on ? 'ON' : 'MUTE'}
-            </div>
+            </button>
             <div class="text-[8px] font-mono text-slate-500">
               HPF: ${ch.hpon ? 'ON' : 'OFF'}
             </div>

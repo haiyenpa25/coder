@@ -82,12 +82,13 @@ class SafetyPolicy:
                 )
 
             # 3. Whitelist check for allowed channel parameters:
-            # Only EQ, HPF, or limited fader
-            is_eq = f"{ch_str}/eq/" in param
+            # EQ, HPF, limited fader, or channel mute (mix/on)
+            is_eq = f"{ch_str}/eq/" in param or param == f"{ch_str}/eq/on"
             is_hpf = param in (f"{ch_str}/preamp/hpon", f"{ch_str}/preamp/hpf")
             is_fader = param == f"{ch_str}/mix/fader"
+            is_mute = param == f"{ch_str}/mix/on"
 
-            if not (is_eq or is_hpf or is_fader):
+            if not (is_eq or is_hpf or is_fader or is_mute):
                 raise ProposalRejectedError(
                     f"SAFETY DENIAL: Parameter '{param}' is not in the allowed Channel Tuning whitelist."
                 )

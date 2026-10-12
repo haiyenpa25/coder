@@ -37,15 +37,16 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint15_hall_profiles.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint15_hall_profiles.py) | **6** | Quản lý Hồ sơ Âm học Hội trường Đa không gian (Multi-Sanctuary Profiles: Main Sanctuary, Youth Chapel, Fellowship Hall, Outdoor Campus), So sánh độ lệch Baseline, Cảnh báo triệt tiêu pha No-Boost-in-Nulls, REST API chuyển đổi và đối soát baseline. | **PASS** |
 | [tests/test_sprint16_diagnostics_and_channel_map.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint16_diagnostics_and_channel_map.py) | **7** | Bộ Tự Chẩn Đoán Hệ Thống Tiền Lễ 10 Tiêu Chuẩn (`diagnose_system.py`), Quản Lý Sơ Đồ 32 Kênh Nhà Thờ (`church_profile`), Khóa Cứng Bất Biến Kênh 11, Tự Động Đồng Bộ Tên Kênh và REST API. | **PASS** |
 | [tests/test_sprint17_scene_vault_and_diff.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint17_scene_vault_and_diff.py) | **5** | Kho Lưu Trữ Scene (`SceneVaultManager`), Khóa Bất Biến Talkback DL16 #11 khi lưu Snapshot, Xuất file USB .scn định dạng chuẩn Behringer X32/M32, So sánh phân tích Delta vi sai fader/mute/EQ giữa 2 bản snapshot, REST API Vault. | **PASS** |
-| **TỔNG CỘNG PYTHON** | **105** | **Bao phủ 100% 17 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene và quy trình âm học** | **100% PASS** |
+| [tests/test_sprint18_feedback_suppressor_and_channel_control.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint18_feedback_suppressor_and_channel_control.py) | **5** | Giao Thức Phản Ứng Dò Hú Thời Gian Thực (Feedback Radar HUD), Đề Xuất Bộ Lọc Notch Cực Hẹp Phẫu Thuật (Rule 9: $Q \ge 6.0$, Depth $\le -4.5\text{ dB}$), Bật/Tắt Mute Kênh Qua SafetyGate Whitelist & Bất Biến Silence Hold. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **110** | **Bao phủ 100% 18 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú và kiểm soát kênh** | **100% PASS** |
 | **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **124** | **124 / 124 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **129** | **129 / 129 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 105 bài kiểm thử Python:
+Để thực thi toàn bộ 110 bài kiểm thử Python:
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
@@ -54,6 +55,7 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 ```powershell
 npm test
 ```
-Thời gian thực thi trung bình: **~16.5 giây (Python) + ~1.8 giây (Node)**.
+Thời gian thực thi trung bình: **~18.0 giây (Python) + ~2.0 giây (Node)**.
+
 
 

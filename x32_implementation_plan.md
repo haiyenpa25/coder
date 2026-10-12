@@ -186,7 +186,9 @@ x32-ai-sound-engineer/
 | **B29**| Bộ Tự Chẩn Đoán Hệ Thống Tiền Lễ 10 Tiêu Chuẩn (`diagnose_system.py` & REST API `/api/v1/system/diagnostics`) |  Đã xong (Sprint 16) |
 | **B30**| Giao Diện Sơ Đồ 32 Kênh Nhà Thờ (`#churchChannelsModal`), Khóa Cứng Kênh 11 & Tự Động Đồng Bộ Tên Kênh |  Đã xong (Sprint 16) |
 | **B31**| Kho Lưu Trữ Scene (`SceneVaultManager`), Khóa Bất Biến DL16 #11 khi Lưu Snapshot, Xuất USB .scn Gốc & So Sánh Vi Sai Snapshot Delta |  Đã xong (Sprint 17) |
-| **Tổng**| **105 / 105 Automated Python Tests + 19 / 19 Node Tests PASSING (124 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 31 HẠNG MỤC** |
+| **B32**| Giao Thức Phản Ứng Dò Hú Thời Gian Thực (Feedback Radar HUD), Đề Xuất Notch Lọc Hú (Rule 9) & Bật/Tắt Mute Kênh Qua SafetyGate |  Đã xong (Sprint 18) |
+| **Tổng**| **110 / 110 Automated Python Tests + 19 / 19 Node Tests PASSING (129 Tests Total)** |  **100% HOÀN TẤT TOÀN BỘ 32 HẠNG MỤC** |
+
 
 
 
