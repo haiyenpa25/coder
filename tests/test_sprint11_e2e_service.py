@@ -11,6 +11,7 @@ Tests the full lifecycle of a Sunday worship service:
 
 import unittest
 import os
+X32_TEST_PORT = int(os.environ.get("CHURCHMIX_X32_PORT", "10023"))
 import sys
 import tempfile
 import time
@@ -32,7 +33,7 @@ from packages.wizards.service import WizardService
 class TestSprint11E2EService(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.server = MockX32Server(host="127.0.0.1", port=10023)
+        cls.server = MockX32Server(host="127.0.0.1", port=X32_TEST_PORT)
         cls.server.start()
         time.sleep(0.1)
 
@@ -40,7 +41,7 @@ class TestSprint11E2EService(unittest.TestCase):
         cls.db_path = os.path.join(cls.temp_dir.name, "e2e_churchmix.db")
         cls.db = ChurchMixDatabase(db_path=cls.db_path)
 
-        cls.client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True)
+        cls.client = X32Client(host="127.0.0.1", port=X32_TEST_PORT, read_only_mode=True)
         cls.client.connect()
         cls.wizard = WizardService(client=cls.client)
 

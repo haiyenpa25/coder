@@ -10,6 +10,7 @@ Sprint 10 Test Suite:
 
 import unittest
 import os
+X32_TEST_PORT = int(os.environ.get("CHURCHMIX_X32_PORT", "10023"))
 import sys
 import tempfile
 import time
@@ -31,7 +32,7 @@ class TestSprint10DatabaseAndDiscovery(unittest.TestCase):
         cls.db = ChurchMixDatabase(db_path=cls.db_path)
 
         # Setup mock X32 server for discovery test
-        cls.server = MockX32Server(host="127.0.0.1", port=10023)
+        cls.server = MockX32Server(host="127.0.0.1", port=X32_TEST_PORT)
         cls.server.start()
         time.sleep(0.1)
 
@@ -105,16 +106,16 @@ class TestSprint10DatabaseAndDiscovery(unittest.TestCase):
 
     def test_hardware_discovery_scanner(self):
         # Discover mock console on localhost
-        consoles = X32Client.discover_consoles(target_hosts=["127.0.0.1"], port=10023, timeout=0.8)
+        consoles = X32Client.discover_consoles(target_hosts=["127.0.0.1"], port=X32_TEST_PORT, timeout=0.8)
         self.assertGreaterEqual(len(consoles), 1)
         c = consoles[0]
         self.assertEqual(c["ip"], "127.0.0.1")
-        self.assertEqual(c["port"], 10023)
+        self.assertEqual(c["port"], X32_TEST_PORT)
         self.assertIn("X32", c["model"])
         self.assertIn("V4.", c["firmware"])
 
     def test_live_assistant_wizard_service(self):
-        client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True)
+        client = X32Client(host="127.0.0.1", port=X32_TEST_PORT, read_only_mode=True)
         client.connect()
         service = WizardService(client=client)
 

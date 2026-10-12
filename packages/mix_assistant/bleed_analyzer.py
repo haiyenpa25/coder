@@ -25,7 +25,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
 from packages.safety_controller.transaction import Proposal
-from packages.safety_controller.routing import InvariantViolationError
+from packages.safety_controller.routing import InvariantViolationError, get_talkback_channel
 
 
 @dataclass
@@ -111,7 +111,7 @@ class StageBleedAdvisor:
         Analyze stage bleed into target channel from other stage microphone signals.
         """
         # Hard Invariant: Channel 11 must never be processed as an ordinary FOH channel
-        if target_channel == 11:
+        if target_channel == get_talkback_channel():
             raise InvariantViolationError(
                 "HARD SAFETY INVARIANT: Channel 11 (Band Talkback) is strictly isolated and cannot be analyzed for FOH bleed."
             )
@@ -144,7 +144,7 @@ class StageBleedAdvisor:
 
         if stage_signals:
             for s_ch, (s_name, s_sig) in stage_signals.items():
-                if s_ch == target_channel or s_ch == 11:
+                if s_ch == target_channel or s_ch == get_talkback_channel():
                     continue # Skip self and talkback
 
                 min_len = min(len(target_signal), len(s_sig))
@@ -251,7 +251,7 @@ class StageBleedAdvisor:
         """
         Formulate safe X32 Proposals for Downward Expander (/ch/{ch}/gate/*).
         """
-        if channel_id == 11:
+        if channel_id == get_talkback_channel():
             raise InvariantViolationError("HARD INVARIANT: Channel 11 (Band Talkback) must NEVER have expander proposals for FOH!")
 
         changes = [

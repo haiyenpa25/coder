@@ -6,6 +6,8 @@ preserving the DL16 In 11 Talkback protection invariant.
 from __future__ import annotations
 import os
 import json
+
+from packages.safety_controller.routing import get_talkback_channel
 from dataclasses import dataclass, asdict
 from typing import Dict, Any, List, Optional
 
@@ -109,7 +111,7 @@ class ChurchProfileManager:
             raise ValueError(f"Channel {channel_id} not found in church configuration (must be 1..32)")
 
         # Enforce hard invariant: Talkback protection cannot be removed
-        if channel_id == 11:
+        if channel_id == get_talkback_channel():
             updates.pop("is_protected", None)
             updates.pop("role", None)
             target["is_protected"] = True

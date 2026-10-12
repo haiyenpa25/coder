@@ -28,3 +28,10 @@ speech_leveler:
   max_upward_step_db: 0.5
   max_downward_step_db: 3.0
   anti_clip_threshold_dbfs: -1.5
+
+talkback_protection:
+  # Cổng vật lý DL16 dành cho Talkback ban nhạc (chỉ gửi P16, cấm ra FOH/Matrix)
+  dl16_input: 11
+  # Kênh X32 đang nhận DL16 input 11. KHÔNG mặc định bằng số cổng DL16 (AGENTS.md #6):
+  # kiểm tra trên mixer (Routing > Input) và cập nhật nếu patch thay đổi.
+  x32_channel: 11

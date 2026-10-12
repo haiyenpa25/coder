@@ -101,14 +101,14 @@ def run_all_diagnostics(verbose: bool = True) -> Dict[str, Any]:
     try:
         from packages.mock_x32.server import MockX32Server
         from packages.x32_osc_adapter.client import X32Client
-        mock = MockX32Server(host="127.0.0.1", port=10023)
+        mock = MockX32Server(host="127.0.0.1", port=int(os.environ.get("CHURCHMIX_X32_PORT", "10023")))
         try:
             mock.start()
             time.sleep(0.05)
         except Exception:
             pass # Port might be in use by running daemon
 
-        client = X32Client(host="127.0.0.1", port=10023, read_only_mode=True, timeout=0.8)
+        client = X32Client(host="127.0.0.1", port=int(os.environ.get("CHURCHMIX_X32_PORT", "10023")), read_only_mode=True, timeout=0.8)
         client.connect()
         snap = client.take_full_snapshot(max_channels=4)
         client.close()

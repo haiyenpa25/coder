@@ -24,7 +24,7 @@ from typing import Dict, Any, List, Optional, Tuple
 import numpy as np
 
 from packages.safety_controller.transaction import Proposal
-from packages.safety_controller.routing import InvariantViolationError
+from packages.safety_controller.routing import InvariantViolationError, get_talkback_channel
 
 
 @dataclass
@@ -86,7 +86,7 @@ class DuganSpeechAutomixer:
         roles = channel_roles or {}
 
         # 1. Hard Invariant Check: Channel 11 must never be present
-        if 11 in channel_levels_dbfs:
+        if get_talkback_channel() in channel_levels_dbfs:
             raise InvariantViolationError(
                 "HARD SAFETY INVARIANT VIOLATION: Channel 11 (Band Talkback) must NEVER be included in the Speech Automixer!"
             )
@@ -219,7 +219,7 @@ class DuganSpeechAutomixer:
         Formulate hardware proposals for native X32 Dugan AutoMix (/ch/{ch}/automix/*).
         """
         # Hard Invariant
-        if 11 in channels:
+        if get_talkback_channel() in channels:
             raise InvariantViolationError("HARD INVARIANT: Channel 11 (Band Talkback) must NEVER be included in Automix!")
 
         proposals = []
