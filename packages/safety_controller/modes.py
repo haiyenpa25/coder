@@ -22,6 +22,8 @@ Implements:
 from __future__ import annotations
 import enum
 import time
+import threading
+from contextlib import contextmanager
 from dataclasses import dataclass, field, asdict
 from typing import Dict, Any, List, Optional, Callable
 
@@ -85,6 +87,22 @@ class SafetyModeManager:
         self.admin_pin = admin_pin
         self.state = SafetyModeState()
         self._listeners: List[Callable[[SafetyModeState], None]] = []
+        self._authorization_lock = threading.RLock()
+        self._authorization_revision = 0
+
+    def authorization_revision(self) -> int:
+        with self._authorization_lock:
+            if self.is_read_only():
+                raise PermissionError("Giao dịch bị khóa: hệ thống đang chỉ đọc.")
+            return self._authorization_revision
+
+    @contextmanager
+    def authorize_write(self, revision: int):
+        """Serialize the packet send with STOP/mode changes, never with readback."""
+        with self._authorization_lock:
+            if revision != self._authorization_revision or self.is_read_only():
+                raise PermissionError("Giao dịch đã bị hủy bởi STOP hoặc thay đổi chế độ.")
+            yield
 
     def add_listener(self, callback: Callable[[SafetyModeState], None]) -> None:
         """Register a callback invoked whenever the safety mode changes or disengages."""
@@ -121,14 +139,16 @@ class SafetyModeManager:
                 raise PermissionError("ADMIN_PIN_INVALID: Switching to ADMIN_MAINTENANCE requires valid admin PIN.")
 
         # If previously disengaged and operator explicitly selects a new mode, clear disengaged flag
-        self.state.previous_mode = self.state.current_mode
-        self.state.current_mode = new_mode
-        self.state.is_disengaged = False
-        self.state.disengage_reason = DisengageReason.NONE
-        self.state.disengage_detail = ""
-        self.state.disengaged_at = None
-        self.state.last_mode_change_at = time.time()
-        self.state.changed_by = operator
+        with self._authorization_lock:
+            self._authorization_revision += 1
+            self.state.previous_mode = self.state.current_mode
+            self.state.current_mode = new_mode
+            self.state.is_disengaged = False
+            self.state.disengage_reason = DisengageReason.NONE
+            self.state.disengage_detail = ""
+            self.state.disengaged_at = None
+            self.state.last_mode_change_at = time.time()
+            self.state.changed_by = operator
 
         self._notify()
         return self.state
@@ -142,13 +162,15 @@ class SafetyModeManager:
         """
         Instantly drop to OBSERVE mode and lock all OSC writes.
         """
-        self.state.previous_mode = self.state.current_mode
-        self.state.current_mode = OperatorMode.OBSERVE
-        self.state.is_disengaged = True
-        self.state.disengage_reason = reason
-        self.state.disengage_detail = detail
-        self.state.disengaged_at = time.time()
-        self.state.changed_by = operator
+        with self._authorization_lock:
+            self._authorization_revision += 1
+            self.state.previous_mode = self.state.current_mode
+            self.state.current_mode = OperatorMode.OBSERVE
+            self.state.is_disengaged = True
+            self.state.disengage_reason = reason
+            self.state.disengage_detail = detail
+            self.state.disengaged_at = time.time()
+            self.state.changed_by = operator
 
         self._notify()
         return self.state

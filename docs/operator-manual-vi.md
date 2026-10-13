@@ -3,6 +3,17 @@
 
 ---
 
+### Cập nhật source ngày 13/10/2026
+
+- Có thể mở bằng `npm start -- --port 8090`; lệnh này chạy đúng API ChurchMix. Launcher Windows mặc định vẫn dùng cổng 8080.
+- Meter chưa có dữ liệu hiển thị rỗng. Đầu vào USB chưa xác minh ánh xạ không được gắn vào tên kênh X32 trên bàn trộn.
+- Gain staging và livestream ghi rõ nguồn mô phỏng. USB thật thiếu xác minh ánh xạ/tap point, clock lỗi hoặc buffer cũ sẽ bị từ chối phân tích; xem đầu vào USB ở **Giám sát tín hiệu**.
+- LUFS là số đo buffer hiện tại, chưa tích lũy cả buổi. Không dùng số liệu demo để cân chỉnh hệ thống thật.
+- STOP hủy giao dịch đang chuẩn bị và giao dịch chờ; mở lại chế độ không khôi phục quyền của giao dịch cũ. Nếu một phần đã ghi, hệ thống thử hoàn tác về giá trị trước giao dịch và xác minh đọc lại.
+- Giao diện cũ và công cụ tạo dự án đã tách vào bản lưu bên ngoài. Xem `docs/source-cleanup-2026-10-13.md` để khôi phục.
+
+---
+
 ### 1. NGUYÊN TẮC VÀNG TRƯỚC GIỜ LỄ
 1. **Âm thanh phục vụ sự thờ phượng:** Chất giọng trung thực, rõ lời, êm dịu, không gây chói tai hay mệt mỏi cho hội chúng.
 2. **Bất biến an toàn sống còn (Hard Invariant):** Cổng **DL16 số 11** (Micro Talkback ban nhạc) **CHỈ ĐƯỢC PHÉP ĐI VÀO P16**, **TUYỆT ĐỐI KHÔNG ĐƯỢC PHÉP RA LOA FOH**.

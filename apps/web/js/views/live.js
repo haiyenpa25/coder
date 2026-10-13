@@ -19,6 +19,7 @@ import {
 } from '../ui.js';
 import { api, getOperator } from '../api.js';
 import { store } from '../store.js';
+import { safeMeterLevel } from '../signal-levels.js';
 import { renderSegmentBar } from '../segments.js';
 
 // ---------- Domain constants ----------
@@ -513,7 +514,7 @@ export default {
       pending = null;
       if (t) {
         lastT = t;
-        updateMeters(t.meters || []);
+        updateMeters(t.meters || [], t.source);
         updateFeedback(Array.isArray(t.feedback_alerts) ? t.feedback_alerts : []);
         updateMode(t);
         updateCaption(t.source);
@@ -527,10 +528,11 @@ export default {
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    function updateMeters(meters) {
+    function updateMeters(meters, source) {
       for (let i = 0; i < meters.length; i++) {
         const m = meters[i];
-        const db = m.meter_dbfs === null || m.meter_dbfs === undefined ? NaN : +m.meter_dbfs;
+        const level = safeMeterLevel(m, source);
+        const db = level === null ? NaN : level;
         const ref = strips.get(+m.channel);
         if (ref) {
           const scale = Number.isFinite(db) ? Math.max(0, Math.min(1, (db - METER_FLOOR) / -METER_FLOOR)) : 0;
@@ -837,7 +839,7 @@ export default {
       meterEl = $('[data-level]', sideEl);
       meterLast = '';
       $('[data-mute]', sideEl).addEventListener('click', (e) => toggleMute(ch, e.currentTarget));
-      if (lastT) updateMeters(lastT.meters || []);
+      if (lastT) updateMeters(lastT.meters || [], lastT.source);
     }
 
     async function toggleMute(ch, btn) {
@@ -1268,6 +1270,7 @@ export default {
       const delta = +r.recommended_trim_delta_db || 0;
       pane.innerHTML = `
         <div class="stack-sm">
+          ${r.source?.simulated ? callout('warn', 'Dữ liệu mô phỏng — chưa đo đầu vào thật của kênh này.') : ''}
           <div class="row-between"><strong>Headroom &amp; mức vào — ${esc(fmt.ch(n))}</strong>${badge(hText, hKind)}</div>
           <div class="grid-3">
             <div class="stat"><div class="stat-label">Đỉnh (peak)</div><div class="stat-value" style="font-size:18px">${esc(signed(r.peak_dbfs))}</div><div class="stat-sub">dBFS · mục tiêu ${esc(signed(r.target_peak_dbfs))}</div></div>

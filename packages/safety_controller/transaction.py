@@ -13,7 +13,9 @@ from __future__ import annotations
 import time
 import math
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from contextlib import nullcontext
+from weakref import WeakKeyDictionary
 from typing import Dict, Any, List, Optional, Tuple
 
 from packages.x32_osc_adapter.client import X32Client, Snapshot
@@ -23,13 +25,13 @@ WRITE_PACING_S = 0.02  # 20ms minimum between OSC writes (AGENTS.md rule #11)
 
 # One lock per X32Client: the read-only flag lives on the shared client, so two
 # transactions (or a transaction and another writer) must never overlap.
-_client_locks: Dict[int, threading.Lock] = {}
+_client_locks = WeakKeyDictionary()
 _client_locks_guard = threading.Lock()
 
 
 def _transaction_lock_for(client: X32Client) -> threading.Lock:
     with _client_locks_guard:
-        return _client_locks.setdefault(id(client), threading.Lock())
+        return _client_locks.setdefault(client, threading.Lock())
 
 
 def _values_match(expected: Any, actual: Any) -> bool:
@@ -150,10 +152,10 @@ class SafetyPolicy:
                 )
 
             # Hard Invariant: Channel 11 must NEVER send signal to Stage Wedges (Bus 1-4) or FX
-            if ch == 11 and is_bus_send and bus_num is not None:
+            if ch == tb_ch and is_bus_send and bus_num is not None:
                 if (1 <= bus_num <= 4 or bus_num >= 13) and (to_val > 0.0 or (param.endswith("/on") and to_val == 1)):
                     raise ProposalRejectedError(
-                        f"SAFETY INVARIANT DENIAL: Channel 11 (Band Talkback) must NEVER send signal to Stage Wedge/FX Bus {bus_num:02d}."
+                        f"SAFETY INVARIANT DENIAL: Channel {tb_ch} (Band Talkback) must NEVER send signal to Stage Wedge/FX Bus {bus_num:02d}."
                     )
 
             if not (is_eq or is_hpf or is_fader or is_mute or is_trim or is_automix or is_gate or is_bus_send):
@@ -215,6 +217,20 @@ class TransactionExecutor:
         self.mode_manager = mode_manager
         self.audit_log: List[Dict[str, Any]] = []
 
+    def _authorization_revision(self):
+        try:
+            return self.mode_manager.authorization_revision() if self.mode_manager else None
+        except PermissionError as exc:
+            raise ProposalRejectedError(str(exc)) from exc
+
+    def _assert_active(self, revision):
+        if self.mode_manager:
+            try:
+                with self.mode_manager.authorize_write(revision):
+                    pass
+            except PermissionError as exc:
+                raise ProposalRejectedError(str(exc)) from exc
+
     def execute(self, proposal: Proposal, operator_id: str) -> Dict[str, Any]:
         """
         Execute a proposal through the 6-stage Safety Gate:
@@ -242,11 +258,14 @@ class TransactionExecutor:
 
         # Stage 2: Policy validation
         self.policy.validate_proposal(proposal)
+        if len({c["parameter"] for c in proposal.changes}) != len(proposal.changes):
+            raise ProposalRejectedError("A parameter may only appear once in a transaction.")
+        revision = self._authorization_revision()
 
         # Stages 3-6 run under a per-client lock so the read-only flag and the
         # snapshot/write/readback sequence can never interleave with another writer.
         with _transaction_lock_for(self.client):
-            return self._execute_locked(proposal, operator_id)
+            return self._execute_locked(proposal, operator_id, revision)
 
     def execute_batch(self, proposals: List[Proposal], operator_id: str, batch_id: str, hypothesis: str = "") -> Dict[str, Any]:
         """
@@ -263,6 +282,7 @@ class TransactionExecutor:
             raise ProposalRejectedError(
                 f"SAFETY DENIAL: Cannot apply proposal in {self.mode_manager.get_mode().value} mode (Read-Only). Switch to ASSIST or LIMITED_AUTO mode."
             )
+        revision = self._authorization_revision()
 
         expected = {p.expected_sha256 for p in proposals}
         if len(expected) != 1:
@@ -291,9 +311,10 @@ class TransactionExecutor:
             approved_by=operator_id,
         )
         with _transaction_lock_for(self.client):
-            return self._execute_locked(merged, operator_id)
+            return self._execute_locked(merged, operator_id, revision)
 
-    def _execute_locked(self, proposal: Proposal, operator_id: str) -> Dict[str, Any]:
+    def _execute_locked(self, proposal: Proposal, operator_id: str, revision=None) -> Dict[str, Any]:
+        self._assert_active(revision)
         # Stage 3: Snapshot & Optimistic lock check
         current_snapshot = self.client.take_full_snapshot(max_channels=32)
         if current_snapshot.sha256 != proposal.expected_sha256:
@@ -325,19 +346,39 @@ class TransactionExecutor:
                     f"REJECTED: Cannot read current value of '{param}' ({exc}); rollback would be impossible."
                 )
 
+        # Validate slew limits against observed values, never an estimated `from`.
+        for change in proposal.changes:
+            actual_change = {**change, "from": original_values[change["parameter"]]}
+            channel = int(change["parameter"].split("/")[2])
+            self.policy.validate_proposal(replace(proposal, target_channel=channel, changes=[actual_change]))
+        self._assert_active(revision)
+
         # Stage 5 & 6: Transaction execution with rollback support
         executed_writes: List[Tuple[str, Any]] = []
+        previous_authorizer = getattr(self.client, "write_authorizer", None)
+        allowed_writes = {c["parameter"]: c["to"] for c in proposal.changes}
+        def permit(path, args):
+            if path not in allowed_writes or len(args) != 1 or args[0] != allowed_writes[path]:
+                raise ProposalRejectedError("Parameter outside approved transaction.")
+            return self.mode_manager.authorize_write(revision) if self.mode_manager else nullcontext()
+        self.client.write_authorizer = permit
 
         # Temporarily enable writes for this verified transaction
         self.client.read_only_mode = False
         try:
             for change in proposal.changes:
+                self._assert_active(revision)
                 param = change["parameter"]
                 to_val = change["to"]
 
                 # Send write
-                self.client.send_write(param, [to_val])
                 executed_writes.append((param, to_val))
+                try:
+                    self.client.send_write(param, [to_val])
+                except PermissionError:
+                    # A permission denial happens before packet dispatch.
+                    executed_writes.pop()
+                    raise
                 time.sleep(WRITE_PACING_S)
 
                 # Readback verification
@@ -348,6 +389,7 @@ class TransactionExecutor:
                     )
 
             # Post-execution Invariant check
+            self._assert_active(revision)
             post_snapshot = self.client.take_full_snapshot(max_channels=32)
             post_routing = RoutingGraph(post_snapshot.parameters, require_complete=True)
             post_ok, post_msg = post_routing.verify_talkback_invariant()
@@ -375,7 +417,15 @@ class TransactionExecutor:
 
         except Exception as exc:
             # ROLLBACK IMMEDIATELY, in reverse order, paced and verified by readback
-            rollback_errors = self._rollback(original_values, executed_writes)
+            # Cancellation permits only restoration to this approved snapshot;
+            # no new proposed values can pass this rollback guard.
+            def restore_only(path, args):
+                if path not in original_values or len(args) != 1 or not _values_match(original_values[path], args[0]):
+                    raise ProposalRejectedError("Rollback may only restore the pre-transaction snapshot.")
+                return nullcontext()
+            self.client.write_authorizer = restore_only
+            self.client.read_only_mode = False
+            rollback_errors = self._rollback(original_values, executed_writes) if executed_writes else []
 
             audit_entry = {
                 "timestamp": time.time(),
@@ -400,6 +450,7 @@ class TransactionExecutor:
                 f"Rollback status: {'Clean' if not rollback_errors else rollback_errors}"
             )
         finally:
+            self.client.write_authorizer = previous_authorizer
             # Always restore strict read-only mode after transaction
             self.client.read_only_mode = self.mode_manager.is_read_only() if self.mode_manager else True
 
@@ -411,13 +462,6 @@ class TransactionExecutor:
         """
         errors: List[str] = []
         attempted = [p for p, _ in executed_writes]
-        # A write can fail after the packet left the socket, so also restore the
-        # parameter that was in flight when the exception happened.
-        for param in original_values:
-            if param not in attempted:
-                attempted.append(param)
-                break
-
         for param in reversed(attempted):
             orig_val = original_values.get(param)
             if orig_val is None:

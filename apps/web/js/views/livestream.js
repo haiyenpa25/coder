@@ -57,6 +57,7 @@ export default {
               `<option value="${b}" ${b === initBus ? 'selected' : ''}>Mix bus ${String(b).padStart(2, '0')}${b === 5 ? ' (mặc định)' : ''}</option>`).join('')}</select>
           </div>
         </div>
+        <div data-source></div>
         <div data-tb>${loadingRows(1)}</div>
         <div data-hero>${loadingRows(3)}</div>
         <div class="grid-4" data-tiles></div>
@@ -65,12 +66,13 @@ export default {
           body: `<div class="table-wrap"><table class="table">
             <thead><tr><th>Chuẩn</th><th class="right">Mục tiêu</th><th class="right">Cho phép</th><th class="right">Đỉnh tối đa</th><th>Ghi chú</th></tr></thead>
             <tbody data-ref></tbody></table></div>
-            <p class="small muted mt-8">Đo theo K-weighting ITU-R BS.1770-4, cổng lọc kép (−70 LUFS / −10 dB) cho giá trị cả buổi.</p>` })}
+            <p class="small muted mt-8">Giá trị của mẫu hiện tại, chưa tích lũy cả buổi. Nguồn mô phỏng không phải số đo của bus livestream thật.</p>` })}
       </div>`;
 
     const profileSel = $('#ls-profile', root);
     const busSel = $('#ls-bus', root);
     const tbBox = $('[data-tb]', root);
+    const sourceBox = $('[data-source]', root);
     const heroBox = $('[data-hero]', root);
     const tiles = $('[data-tiles]', root);
     const recBox = $('[data-rec]', root);
@@ -80,7 +82,6 @@ export default {
     let alive = true;
     let inflight = false;
     let seq = 0;
-    let loadedOnce = false;
 
     const currentProfile = () => PROFILES.find(p => p.id === profileSel.value) || PROFILES[0];
 
@@ -102,25 +103,23 @@ export default {
       try {
         const r = await api.get(`/api/v1/broadcast/loudness?${qs}`);
         if (!alive || my !== seq) return; // bỏ kết quả cũ khi đã đổi lựa chọn
-        loadedOnce = true;
         render(r);
         updated.textContent = `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`;
       } catch (e) {
         if (!alive || my !== seq) return;
-        if (!loadedOnce) {
-          tbBox.innerHTML = '';
-          heroBox.innerHTML = errorBox(e);
-          tiles.innerHTML = '';
-          recBox.innerHTML = '';
-        } else {
-          updated.innerHTML = `<span class="warn-text">Mất kết nối: ${esc(e.message)}</span>`;
-        }
+        tbBox.innerHTML = '';
+        sourceBox.innerHTML = '';
+        heroBox.innerHTML = errorBox(e);
+        tiles.innerHTML = '';
+        recBox.innerHTML = '';
+        updated.textContent = 'Chưa có số liệu hợp lệ';
       } finally {
         if (my === seq) inflight = false;
       }
     }
 
     function render(r) {
+      sourceBox.innerHTML = r.source?.simulated ? callout('warn', 'Dữ liệu mô phỏng — không phải số đo bus livestream thật.') : '';
       const prof = PROFILES.find(p => p.id === r.target_profile) || currentProfile();
       const target = r.target_lufs ?? prof.target;
       const comp = COMPLIANCE[r.compliance_status] || { label: r.compliance_status || '—', kind: 'info' };
@@ -146,7 +145,7 @@ export default {
         <div class="hero ${light}">
           <div class="hero-icon">${icon('broadcast', 'icon-lg')}</div>
           <div class="grow">
-            <div class="small muted">Độ to livestream (3 giây gần nhất)</div>
+            <div class="small muted">Độ to của buffer hiện tại (${fmt.num(r.measurement_window_s, 2)} giây)</div>
             <h2 class="mono">${fmt.num(r.short_term_lufs, 1)} LUFS</h2>
             <p>Mục tiêu ${fmt.num(target, 1)} LUFS (±${prof.tol.toFixed(1)}) · ${Math.abs(delta) < 0.05 ? 'không cần chỉnh' : `cần chỉnh ${signed(delta)} dB`} · ${esc(prof.label)}</p>
           </div>
@@ -168,8 +167,8 @@ export default {
       const near = (v) => Math.abs(+v - target) <= prof.tol ? 'ok' : 'warn';
       tiles.innerHTML = [
         tile('Tức thời', 'Trung bình 0,4 giây — dao động nhiều là bình thường', fmt.num(r.momentary_lufs, 1), 'LUFS', lufsPct(r.momentary_lufs), near(r.momentary_lufs)),
-        tile('Ngắn hạn', 'Trung bình 3 giây — dùng để chỉnh fader', fmt.num(r.short_term_lufs, 1), 'LUFS', lufsPct(r.short_term_lufs), near(r.short_term_lufs)),
-        tile('Cả buổi', 'Giá trị tích lũy, có cổng lọc lúc im lặng', fmt.num(r.integrated_lufs, 1), 'LUFS', lufsPct(r.integrated_lufs), near(r.integrated_lufs)),
+        tile('Ngắn hạn', 'Cửa sổ tối đa 3 giây, giới hạn bởi buffer hiện tại', fmt.num(r.short_term_lufs, 1), 'LUFS', lufsPct(r.short_term_lufs), near(r.short_term_lufs)),
+        tile('Buffer hiện tại', 'Chưa tích lũy cả buổi', fmt.num(r.integrated_lufs, 1), 'LUFS', lufsPct(r.integrated_lufs), near(r.integrated_lufs)),
         tile('Đỉnh thực', `Tối đa ${prof.tp.toFixed(1)} dBTP — ${peakOver ? '<span class="bad-text">đang vượt</span>' : 'trong giới hạn'}`,
           signed(r.true_peak_dbtp, 1), 'dBTP', tpPct(r.true_peak_dbtp), peakOver ? 'bad' : 'ok'),
       ].join('');

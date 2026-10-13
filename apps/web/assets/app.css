@@ -120,6 +120,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .grid-3 { display: grid; gap: var(--gap); grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid-4 { display: grid; gap: var(--gap); grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .grid-2, .grid-3, .grid-4 { align-items: start; }
+.grid-2 > *, .grid-3 > *, .grid-4 > *, .card { min-width: 0; }
+.card-head h3, .card-sub { overflow-wrap: anywhere; }
 .span-2 { grid-column: span 2; }
 .grow { flex: 1; min-width: 0; }
 .muted { color: var(--muted); }
@@ -436,7 +438,7 @@ button.status-chip:hover { border-color: var(--border-strong); color: var(--text
   }
   .app.nav-open .sidebar { transform: none; }
   .nav-toggle { display: inline-flex !important; }
-  .grid-2, .grid-3, .grid-4, .steps { grid-template-columns: 1fr; }
+  .grid-2, .grid-3, .grid-4, .steps { grid-template-columns: minmax(0, 1fr); }
   .span-2 { grid-column: auto; }
   .main { padding: 16px 16px 40px; }
   .topbar-status { display: none; }

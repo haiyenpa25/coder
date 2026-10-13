@@ -60,7 +60,8 @@ here, never in the per-tool files.
 | --- | --- |
 | `apps/api/main.py` | FastAPI app: REST `/api/v1/*`, WebSocket `/ws/live` (~10 Hz telemetry), serves `apps/web` |
 | `apps/web/index.html` + `apps/web/js/` + `apps/web/assets/app.css` | Current UI (vanilla ES modules, no build step, no CDN) |
-| `apps/web/legacy.html`, `monitoring.js/.css` | Previous single-page UI, kept as fallback (`/static/legacy.html`) |
+| `apps/api/audio_sources.py` | Analysis audio resolver: source provenance, sample rate, stale/invalid capture rejection |
+| `tools/run-api.mjs` | `npm start` launcher for the Python API; optional `--port 8090` |
 | `packages/safety_controller/` | `routing.py` (talkback invariant, RoutingGraph), `transaction.py` (SafetyPolicy whitelist + TransactionExecutor), `modes.py` |
 | `packages/x32_osc_adapter/` | OSC codec, `X32Client` (read-only by default), snapshots + SHA-256 |
 | `packages/mock_x32/server.py` | UDP X32 simulator used by all tests and the default app start |
@@ -71,7 +72,7 @@ here, never in the per-tool files.
 | `tests/` | Python `unittest` suites (`test_*.py`) and Node tests (`*.test.js`) |
 | `docs/` | Operator manual, architecture, SOPs, `licensing-SBOM.md` |
 
-`src/`, `server.js`, `templates/`, `community-skills/` belong to a separate project scaffolding tool, not to ChurchMix runtime.
+The unrelated scaffolding tool and previous UI were archived outside the repository on 2026-10-13. See `docs/source-cleanup-2026-10-13.md` for the manifest and recovery path.
 
 ## Commands (Windows; use the full Python path — `python` may be the Store alias)
 ```powershell

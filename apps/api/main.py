@@ -21,7 +21,7 @@ from typing import Dict, Any, List, Optional, Literal
 from contextlib import asynccontextmanager
 import numpy as np
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -35,7 +35,7 @@ X32_LOCAL_PORT = int(os.environ.get("CHURCHMIX_X32_PORT") or os.environ.get("CHU
 ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 sys.path.insert(0, ROOT_DIR)
 
-from packages.x32_osc_adapter.client import X32Client, Snapshot
+from packages.x32_osc_adapter.client import X32Client
 from packages.x32_osc_adapter.scene_exporter import SceneExporter
 from packages.mock_x32.server import MockX32Server
 from packages.safety_controller.routing import RoutingGraph, InvariantViolationError, get_talkback_channel
@@ -50,7 +50,6 @@ from packages.safety_controller.modes import (
     SafetyModeManager,
     OperatorMode,
     DisengageReason,
-    SafetyModeState,
 )
 from packages.signal_analysis.dsp import (
     AudioFrame,
@@ -64,47 +63,24 @@ from packages.feedback_detector.detector import FeedbackDetector, FeedbackCandid
 from packages.eq_optimizer.recommender import (
     PEQRecommender,
     PEQBandProposal,
-    x32_to_freq,
-    x32_to_gain,
-    x32_to_q,
-    freq_to_x32,
-    gain_to_x32,
-    q_to_x32,
 )
 from packages.acoustic_measurement.transfer_function import (
     compute_transfer_function,
-    estimate_delay_samples,
     filter_no_boost_nulls,
 )
 from packages.acoustic_measurement.osm_importer import (
     parse_osm_csv,
-    export_osm_csv,
-    parse_frd_file,
 )
 from packages.mix_assistant import (
     SpeechLeveler,
-    VoiceActivityDetector,
-    AntiClippingGuard,
     BroadcastMixGuard,
-    LoudnessReport,
     GainStagingAdvisor,
     GainStagingReport,
-    trim_to_x32,
-    x32_to_trim,
     DuganSpeechAutomixer,
-    AutomixerReport,
-    ChannelAutomixState,
     ListeningTestCriteria,
-    ListeningEvaluation,
-    BlindABSession,
     ListeningTestEngine,
     ExpanderSettings,
-    CrossTalkReport,
     StageBleedAdvisor,
-    P16SlotInfo,
-    ChannelBusSend,
-    MixBusSummary,
-    MonitorMatrixAuditReport,
     MonitorMatrixInspector,
 )
 from packages.wizards.service import WizardService
@@ -113,11 +89,12 @@ from packages.storage.church_profile import ChurchProfileManager
 from packages.storage.service_segments import ServiceSegmentStore, SegmentError
 from packages.storage.hall_profiles import HallProfileManager, HallProfile
 from packages.storage.report_generator import generate_printable_sunday_report_html
-from packages.storage.scn_importer import SceneImporter, SceneAuditReport
+from packages.storage.scn_importer import SceneImporter
 from packages.virtual_soundcheck.player import VirtualSoundcheckEngine, SESSION_PRESETS
 from packages.ai_copilot import ChurchMixCopilot
 from apps.capture_agent.device_manager import AudioDeviceManager
 from apps.capture_agent.stream_worker import AudioStreamWorker
+from apps.api.audio_sources import resolve_analysis_audio, AudioSourceError
 from diagnose_system import run_all_diagnostics
 from packages.monitoring.analyzer import SignalMonitor, Thresholds
 from packages.monitoring.source import collect_signal
@@ -977,12 +954,20 @@ class AnalyzeBroadcastRequest(BaseModel):
     livestream_bus: int = 5
 
 
+def _analysis_audio(channel_id=None):
+    try:
+        return resolve_analysis_audio(soundcheck_engine, audio_stream_worker, channel_id)
+    except AudioSourceError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
 @app.get("/api/v1/broadcast/loudness")
 def get_broadcast_loudness(target_profile: str = "YOUTUBE_STREAMING", livestream_bus: int = 5):
     """
     Get live broadcast audio loudness metrics (ITU-R BS.1770 / EBU R128)
     and verify Talkback isolation from the Livestream bus.
     """
+    audio_stream, source = _analysis_audio()
     state_dict = None
     if x32_client:
         try:
@@ -991,30 +976,16 @@ def get_broadcast_loudness(target_profile: str = "YOUTUBE_STREAMING", livestream
         except Exception:
             pass
 
-    # Obtain sample audio for analysis:
-    # Priority 1: Virtual Soundcheck if active
-    if soundcheck_engine.is_active:
-        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
-        audio_stream = np.mean(block_32[:, :8], axis=1).astype(np.float32)
-    # Priority 2: Audio capture agent buffer
-    elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
-        buf = audio_stream_worker.latest_buffer
-        audio_stream = buf[:, 0] if buf.ndim > 1 else buf
-    else:
-        # Standard church worship music + speech simulation
-        speech = generate_vocal_note(fundamental_hz=220.0, duration_s=0.5) * 0.35
-        music = generate_pink_noise(duration_s=0.5, amplitude=0.15)
-        audio_stream = (speech + music).astype(np.float32)
-
     report = BroadcastMixGuard.evaluate_loudness(
         signal=audio_stream,
-        sample_rate=48000,
+        sample_rate=source["sample_rate"],
         target_profile=target_profile,
         state_dict=state_dict,
         livestream_bus=livestream_bus,
     )
 
-    return report.to_dict()
+    return {**report.to_dict(), "source": source, "measurement_window_s": len(audio_stream)/source["sample_rate"],
+            "loudness_scope": "CURRENT_BUFFER"}
 
 
 @app.post("/api/v1/broadcast/analyze")
@@ -1033,6 +1004,7 @@ def get_channel_gain_staging(channel_id: int, role: Optional[str] = None):
     """
     if channel_id < 1 or channel_id > 32:
         raise HTTPException(status_code=400, detail="Channel ID must be between 1 and 32.")
+    audio_stream, source = _analysis_audio(channel_id)
 
     # 1. Resolve channel metadata
     ch_profile = church_profile_mgr.get_channel(channel_id)
@@ -1048,27 +1020,6 @@ def get_channel_gain_staging(channel_id: int, role: Optional[str] = None):
         except Exception:
             pass
 
-    # 3. Audio sampling
-    if soundcheck_engine.is_active:
-        block_32 = soundcheck_engine.generate_audio_block(block_size=2048)
-        audio_stream = block_32[:, channel_id - 1].astype(np.float32)
-    elif audio_stream_worker and audio_stream_worker.is_running and audio_stream_worker.latest_buffer is not None:
-        buf = audio_stream_worker.latest_buffer
-        if buf.ndim > 1 and buf.shape[1] >= channel_id:
-            audio_stream = buf[:, channel_id - 1]
-        else:
-            audio_stream = buf[:, 0] if buf.ndim > 1 else buf
-    else:
-        # Synthesized audio based on role
-        if ch_role in ("PASTOR", "SERMON", "PRAYER"):
-            audio_stream = generate_vocal_note(fundamental_hz=160.0, duration_s=0.5) * 0.15
-        elif ch_role in ("FEMALE_LEAD", "MALE_LEAD", "CHOIR"):
-            audio_stream = generate_vocal_note(fundamental_hz=440.0, duration_s=0.5) * 0.22
-        elif ch_role in ("DRUMS", "BASS"):
-            audio_stream = generate_pink_noise(duration_s=0.5, amplitude=0.30)
-        else:
-            audio_stream = generate_sine_wave(freq_hz=440.0, duration_s=0.5, amplitude=0.18)
-
     report = GainStagingAdvisor.analyze_headroom(
         signal=audio_stream,
         channel_id=channel_id,
@@ -1076,7 +1027,7 @@ def get_channel_gain_staging(channel_id: int, role: Optional[str] = None):
         role=ch_role,
         current_trim_float=current_trim_float,
     )
-    return report.to_dict()
+    return {**report.to_dict(), "source": source}
 
 
 @app.post("/api/v1/gain-staging/{channel_id}/propose-trim")
@@ -1089,7 +1040,7 @@ def propose_channel_trim(channel_id: int, role: Optional[str] = None):
         raise HTTPException(status_code=503, detail="X32 Client not initialized")
 
     rep_dict = get_channel_gain_staging(channel_id=channel_id, role=role)
-    report = GainStagingReport(**rep_dict)
+    report = GainStagingReport(**{key: value for key, value in rep_dict.items() if key != "source"})
 
     snapshot = x32_client.take_full_snapshot(max_channels=32)
     current_trim_float = float(snapshot.parameters.get(f"/ch/{channel_id:02d}/preamp/trim", 0.5))

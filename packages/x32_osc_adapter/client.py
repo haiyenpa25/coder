@@ -14,6 +14,7 @@ import time
 import json
 import hashlib
 import threading
+from contextlib import nullcontext
 from dataclasses import dataclass, asdict
 from typing import Dict, Any, List, Optional, Tuple
 
@@ -64,6 +65,7 @@ class X32Client:
         self._lock = threading.Lock()
         self._heartbeat_thread: threading.Thread | None = None
         self._heartbeat_active = False
+        self.write_authorizer = None
 
         # In-memory State Mirror cache: address -> (value, last_updated)
         self.state_mirror: Dict[str, Tuple[Any, float]] = {}
@@ -160,7 +162,11 @@ class X32Client:
         with self._lock:
             if not self.sock:
                 raise X32ConnectionError("Socket is not connected.")
-            self.sock.sendto(raw, (self.host, self.port))
+            permit = self.write_authorizer(address, args) if self.write_authorizer else nullcontext()
+            with permit:
+                if self.read_only_mode:
+                    raise ReadOnlyViolationError("OSC write revoked before packet dispatch.")
+                self.sock.sendto(raw, (self.host, self.port))
 
             start_t = time.time()
             while time.time() - start_t < tout:

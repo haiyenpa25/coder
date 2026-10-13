@@ -116,7 +116,6 @@ function renderSidebar() {
       ${g.items.map(r => `<a class="nav-link" href="#/${r.id}" data-route="${r.id}">${icon(r.icon)}<span>${esc(r.title)}</span></a>`).join('')}
     </div>`).join('') + `
     <div class="nav-group">
-      <a class="nav-link" href="/static/legacy.html" target="_blank" rel="noopener">${icon('file')}<span>Giao diện cũ</span></a>
     </div>`;
 }
 

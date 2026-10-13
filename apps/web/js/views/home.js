@@ -4,6 +4,7 @@
 
 import { api, getOperator } from '../api.js';
 import { store } from '../store.js';
+import { meterPercent, safeMeterLevel } from '../signal-levels.js';
 import {
   $, $$, esc, icon, fmt, callout, card, renderMarkdown, renderProposal, confirmDialog,
   withLoading, toast, downloadText, loadingRows, errorBox,
@@ -285,14 +286,16 @@ export default {
           }
         }));
       };
-      const updateMicMeters = (meters) => {
+      const updateMicMeters = (meters, source) => {
         meters.forEach(m => {
           const row = mics.querySelector(`[data-mic="${m.channel}"]`);
           if (!row) return;
-          const pct = Math.max(0, Math.min(100, ((m.meter_dbfs + 60) / 60) * 100));
+          const level = safeMeterLevel(m, source);
+          const pct = meterPercent(level);
           const bar = row.querySelector('.bar');
           bar.firstElementChild.style.width = `${pct}%`;
-          const cls = m.meter_dbfs > -6 ? 'bar grow bad' : m.meter_dbfs > -40 ? 'bar grow ok' : 'bar grow';
+          bar.title = level === null ? 'Chưa có dữ liệu micro đã xác minh' : `${level.toFixed(1)} dBFS`;
+          const cls = level !== null && level > -6 ? 'bar grow bad' : level !== null && level > -40 ? 'bar grow ok' : 'bar grow';
           if (bar.className !== cls) bar.className = cls;
         });
       };
@@ -323,7 +326,7 @@ export default {
       renderFeedback(store.telemetry?.feedback_alerts || []);
       renderMics();
       renderLivestream();
-      const off = store.on('telemetry', (t) => { renderFeedback(t.feedback_alerts || []); updateMicMeters(t.meters || []); });
+      const off = store.on('telemetry', (t) => { renderFeedback(t.feedback_alerts || []); updateMicMeters(t.meters || [], t.source); });
       const lsTimer = setInterval(renderLivestream, 5000);
       return () => { off(); clearInterval(lsTimer); segCleanup(); };
     }

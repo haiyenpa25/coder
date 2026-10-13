@@ -4,7 +4,7 @@
 > Dành cho mixer **Behringer X32 Compact / Midas M32**, stagebox **Midas DL16** và hệ thống monitor cá nhân **Ultranet P16**.
 
 [![Mock Tested](https://img.shields.io/badge/Safety-Mock%20Tested-blue.svg)](docs/monitoring-dashboard.md)
-[![Tests Passing](https://img.shields.io/badge/Tests-240%20Python%20%2B%2023%20JS-brightgreen.svg)](#kiểm-thử-tự-động)
+[![Tests Passing](https://img.shields.io/badge/Tests-256%20Python%20%2B%202%20JS-brightgreen.svg)](#kiểm-thử-tự-động)
 [![OSC Read-Only First](https://img.shields.io/badge/Mode-READ__ONLY__MODE%20First-blue.svg)](#chế-độ-vận-hành)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](#yêu-cầu-môi-trường)
 
@@ -65,7 +65,7 @@ Chuyển ở góc trên bên phải. Lựa chọn được nhớ trên từng m�
 * **Tiết mục** (Mục sư giảng · Ban hát thờ phượng · Ban ngành · Đơn ca · Tốp ca · Thông báo/MC · Cầu nguyện): bấm một nút để mở đúng micro và tắt các micro khác — luôn xem trước và xác nhận, chỉ bật/tắt (không đẩy fader), Talkback không bao giờ bị động tới. Kỹ thuật viên lưu cấu hình bằng **Lưu từ mixer**.
 * **Bàn trộn trực tiếp** kiểu X32-Edit: 32 kênh (2 layer 1–16, 17–32) với màu, EQ thu nhỏ, meter, fader; biểu đồ EQ + RTA của kênh đang chọn. Khi có hú, trang tự nhảy tới kênh gây hú, hiện cách xử lý nhanh và đề xuất **Đồng ý cắt**. Luyện tập bằng Soundcheck ảo → **Tập xử lý hú**.
 * Nút **STOP** đỏ luôn hiện ở mọi trang (phím tắt `Ctrl+Shift+S`); bấm lại để mở khóa có xác nhận. Mọi thay đổi trên mixer đều hiện bảng "trước → sau" và cần bấm duyệt.
-* Giao diện tự chứa, không tải CDN — chạy được khi máy FOH không có Internet. Giao diện cũ vẫn mở được tại `/static/legacy.html`.
+* Giao diện tự chứa, không tải CDN — chạy được khi máy FOH không có Internet. Giao diện cũ đã được chuyển vào bản lưu ngoài dự án.
 
 ## Dashboard giám sát tín hiệu
 
@@ -73,7 +73,9 @@ Trong giao diện mới: **Kỹ thuật → Giám sát tín hiệu**.
 
 Dashboard có biểu đồ Peak 32 đầu vào, lịch sử Peak/RMS 2 phút, xếp hạng thời gian vượt ngưỡng, headroom, bảng phân tích và xuất CSV. Nguồn demo/USB mô phỏng được ghi rõ; USB thật chưa ánh xạ không bị gán nhầm thành kênh X32 hay cổng DL16.
 
-Xem [hướng dẫn đọc biểu đồ và rà soát toàn dự án](docs/monitoring-dashboard.md). Kiểm thử mock chưa chứng minh an toàn routing trên mọi scene thật. Công cụ Node.js tạo dự án cũ trong repository dùng `npm start`; để mở ChurchMix audio dashboard, dùng launcher Python bên dưới.
+Xem [hướng dẫn đọc biểu đồ và rà soát toàn dự án](docs/monitoring-dashboard.md). Kiểm thử mock chưa chứng minh an toàn routing trên mọi scene thật. `npm start` hiện mở đúng ChurchMix; dùng `npm start -- --port 8090` để chọn cổng 8090.
+
+Gain staging và livestream ghi rõ nguồn mô phỏng, dùng sample rate của capture và từ chối USB thật chưa xác minh ánh xạ/tap point. LUFS hiện là phép đo buffer, chưa tích lũy cả buổi. Xem [báo cáo tối ưu source](docs/source-cleanup-2026-10-13.md).
 
 ## 4. Khởi Động Nhanh (Quick Start)
 
@@ -125,14 +127,14 @@ Không cần máy tính trực tiếp trong giờ lễ, bạn có thể xuất t
 
 ## 7. Kiểm Thử Tự Động (Automated Testing)
 
-Hệ thống có **240 bài kiểm thử Python** chạy với mock X32 hoặc fixture cô lập:
+Hệ thống có **256 bài kiểm thử Python** chạy với mock X32 hoặc fixture cô lập:
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
 * Thời gian chạy phụ thuộc máy và môi trường; khoảng 16 giây trong lần kiểm tra gần nhất.
-* Kết quả: **240 bài Python và 23 bài JavaScript đạt** (mock/fixture; JavaScript chạy bằng `npm test`).
+* Kết quả: **256 bài Python và 2 bài JavaScript đạt** (mock/fixture; JavaScript chạy bằng `npm test`). 23 bài JavaScript của công cụ tạo dự án và giao diện cũ được lưu cùng phần source đã tách.
 * Nếu đang chạy sẵn một ChurchMix khác (chiếm UDP 10023), đặt cổng mock riêng cho test: `$env:CHURCHMIX_X32_PORT = "10923"`.
 
 ---
@@ -144,7 +146,7 @@ ChurchMix/
 ├── apps/
 │   ├── api/                    # FastAPI REST & WebSocket Telemetry Server
 │   ├── capture_agent/          # Native Audio Capture qua SoundDevice (X-USB ASIO/WASAPI)
-│   └── web/                    # Giao diện: index.html + js/ (ES modules) + assets/app.css; legacy.html = bản cũ
+│   └── web/                    # Giao diện: index.html + js/ (ES modules) + assets/app.css
 ├── packages/
 │   ├── mock_x32/               # UDP Simulator giả lập X32 trên cổng 10023
 │   ├── x32_osc_adapter/        # Binary OSC Codec, Snapshot SHA-256, UDP Discovery
