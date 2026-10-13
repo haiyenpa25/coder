@@ -233,26 +233,46 @@ class PEQRecommender:
         candidate: FeedbackCandidate,
         expected_sha256: str,
         preferred_band: int = 3,
+        current_parameters: Optional[Dict[str, Any]] = None,
     ) -> Proposal:
         """
         Generate surgical PEQ notch for an identified feedback frequency:
         - Q: High (Q = 7.0) to isolate resonance
         - Gain: -3.5 dB (conservative cut, avoids mutilating vocal tone)
+
+        When the mixer's current parameters are given, the notch goes into a flat
+        (unused) mid band — preferred_band first, then the other mid band — and the
+        proposal's "from" values are the band's real current values. If both mid bands
+        are in use, preferred_band is overwritten and the hypothesis says so.
         """
         ch = candidate.channel_id
         ch_str = f"/ch/{ch:02d}"
-        prefix = f"{ch_str}/eq/{preferred_band}"
+        band = preferred_band
+        overwrites = False
+        current = {"f": 0.5, "g": 0.5, "q": 0.5}
+        if current_parameters is not None:
+            def read(b, key):
+                return current_parameters.get(f"{ch_str}/eq/{b}/{key}")
+            candidates = [preferred_band] + [b for b in (3, 2) if b != preferred_band]
+            flat = [b for b in candidates if read(b, "g") is not None and abs(float(read(b, "g")) - 0.5) < 0.01]
+            band = flat[0] if flat else preferred_band
+            overwrites = not flat
+            current = {k: (float(read(band, k)) if read(band, k) is not None else 0.5) for k in ("f", "g", "q")}
+        prefix = f"{ch_str}/eq/{band}"
 
         changes = [
-            {"parameter": f"{prefix}/f", "from": 0.5, "to": freq_to_x32(candidate.freq_hz)},
-            {"parameter": f"{prefix}/g", "from": 0.5, "to": gain_to_x32(-3.5)},
-            {"parameter": f"{prefix}/q", "from": 0.5, "to": q_to_x32(7.0)},
+            {"parameter": f"{prefix}/f", "from": current["f"], "to": freq_to_x32(candidate.freq_hz)},
+            {"parameter": f"{prefix}/g", "from": current["g"], "to": gain_to_x32(-3.5)},
+            {"parameter": f"{prefix}/q", "from": current["q"], "to": q_to_x32(7.0)},
         ]
 
+        note = ""
+        if current_parameters is not None:
+            note = f" (band {band}, GHI ĐÈ band EQ đang dùng — kiểm tra lại âm sắc sau khi cắt)" if overwrites else f" (band {band}, đang trống)"
         return Proposal(
             proposal_id=f"feedback-notch-ch{ch:02d}-{int(candidate.freq_hz)}hz",
             target_channel=ch,
-            hypothesis=f"Cắt notch hẹp tại {candidate.freq_hz} Hz để triệt tiêu cộng hưởng hú monitor/FOH",
+            hypothesis=f"Cắt notch hẹp tại {candidate.freq_hz} Hz để triệt tiêu cộng hưởng hú monitor/FOH{note}",
             confidence=candidate.confidence,
             changes=changes,
             expected_sha256=expected_sha256,

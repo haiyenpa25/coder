@@ -65,6 +65,7 @@ here, never in the per-tool files.
 | `packages/x32_osc_adapter/` | OSC codec, `X32Client` (read-only by default), snapshots + SHA-256 |
 | `packages/mock_x32/server.py` | UDP X32 simulator used by all tests and the default app start |
 | `packages/monitoring/` | Signal monitor (peak/RMS, thresholds, events) behind `/api/v1/monitoring/*` |
+| `packages/storage/service_segments.py` | Tiết mục (service segments): named ON/MUTE sets applied via `TransactionExecutor.execute_batch` behind `/api/v1/segments/*`; stored in `data/service_segments.json` |
 | `packages/*` (others) | DSP, feedback detector, EQ optimizer, mix assistant, storage, wizards, copilot |
 | `configs/safety-defaults.yaml` | Safety limits and `talkback_protection.x32_channel` (the X32 channel carrying DL16 #11) |
 | `tests/` | Python `unittest` suites (`test_*.py`) and Node tests (`*.test.js`) |
@@ -94,6 +95,7 @@ Run a second server for previews on another port, e.g. `CHURCHMIX_X32_PORT=10931
 ## Backend conventions
 - Every OSC mutation goes through `TransactionExecutor.execute()` with an approved `Proposal`. Never call `X32Client.send_write()` or toggle `read_only_mode` anywhere else.
 - New writable parameters must be added explicitly to `SafetyPolicy.validate_proposal` with limits and a test that rejects out-of-range values.
+- Multi-channel changes (e.g. segments) use `TransactionExecutor.execute_batch()` — one snapshot, ordered writes (mutes before unmutes), rollback of the whole batch. Segments only ever write `/ch/NN/mix/on`.
 - Never hard-code channel 11 for talkback logic: use `get_talkback_channel()` from `packages/safety_controller/routing.py`.
 - Anything the invariant checker needs must be captured in `X32Client.take_full_snapshot()` (see `talkback_routing_paths`). Missing routing data must fail closed.
 - When adding a mixer parameter the app reads, add it to `packages/mock_x32/server.py` too, otherwise queries time out in tests.

@@ -110,6 +110,7 @@ from packages.mix_assistant import (
 from packages.wizards.service import WizardService
 from packages.storage.database import ChurchMixDatabase
 from packages.storage.church_profile import ChurchProfileManager
+from packages.storage.service_segments import ServiceSegmentStore, SegmentError
 from packages.storage.hall_profiles import HallProfileManager, HallProfile
 from packages.storage.report_generator import generate_printable_sunday_report_html
 from packages.storage.scn_importer import SceneImporter, SceneAuditReport
@@ -134,6 +135,8 @@ speech_leveler = SpeechLeveler(target_rms_db=-20.0)
 
 db = ChurchMixDatabase()
 church_profile_mgr = ChurchProfileManager()
+segment_store = ServiceSegmentStore(church_profile_mgr.get_channels,
+                                    path=os.environ.get("CHURCHMIX_SEGMENTS_PATH") or None)
 hall_profile_mgr = HallProfileManager()
 from packages.storage.scene_vault import SceneVaultManager
 scene_vault_mgr = SceneVaultManager(db=db)
@@ -592,12 +595,14 @@ def generate_notch_tuning(req: GenerateNotchRequest):
         evidence=["Manual Ringout / Real-time Detector Alert"],
         recommended_action=f"Surgical notch at {req.freq_hz} Hz",
     )
-    proposal = recommender.recommend_feedback_notch(candidate, expected_sha256=snapshot.sha256)
+    proposal = recommender.recommend_feedback_notch(candidate, expected_sha256=snapshot.sha256,
+                                                    current_parameters=snapshot.parameters)
     active_proposals[proposal.proposal_id] = proposal
+    notch_band_index = int(proposal.changes[0]["parameter"].split("/")[4])
 
     # Simulate curve with notch
     notch_band = PEQBandProposal(
-        band_index=3,
+        band_index=notch_band_index,
         filter_type="PEQ",
         freq_hz=req.freq_hz,
         gain_db=-3.5,
@@ -2080,6 +2085,158 @@ class ChannelProfileUpdateRequest(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     notes: Optional[str] = None
+
+
+# --- Service Segments (Tiết mục): one-tap mic sets, e.g. "Mục sư giảng" ---
+
+class SegmentCreateRequest(BaseModel):
+    name: str
+    description: str = ""
+    icon: str = "mic"
+    channels: Dict[str, int] = {}
+    operator_id: str = "Operator"
+
+
+class SegmentUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    channels: Optional[Dict[str, int]] = None
+    operator_id: str = "Operator"
+
+
+class SegmentApplyRequest(BaseModel):
+    operator_id: str = "Operator"
+    expected_sha256: Optional[str] = None
+
+
+class SegmentCaptureRequest(BaseModel):
+    operator_id: str = "Operator"
+
+
+def _segment_error(e: Exception) -> HTTPException:
+    return HTTPException(status_code=404 if "Không tìm thấy" in str(e) else 400, detail=str(e))
+
+
+@app.get("/api/v1/segments")
+def list_segments():
+    """All service segments, plus which one matches the mixer's current mute state."""
+    active_id = None
+    if x32_client:
+        try:
+            active_id = segment_store.active_id(x32_client.take_full_snapshot(max_channels=32).parameters)
+        except Exception:
+            active_id = None
+    return {"segments": segment_store.list(), "active_id": active_id, "talkback_channel": get_talkback_channel()}
+
+
+@app.post("/api/v1/segments")
+def create_segment(req: SegmentCreateRequest):
+    try:
+        return segment_store.create(req.name, req.channels, req.description, req.icon, author=req.operator_id)
+    except SegmentError as e:
+        raise _segment_error(e)
+
+
+@app.post("/api/v1/segments/reset-defaults")
+def reset_segments():
+    return {"segments": segment_store.reset_defaults()}
+
+
+@app.put("/api/v1/segments/{segment_id}")
+def update_segment(segment_id: str, req: SegmentUpdateRequest):
+    try:
+        return segment_store.update(segment_id, req.model_dump(exclude={"operator_id"}), author=req.operator_id)
+    except SegmentError as e:
+        raise _segment_error(e)
+
+
+@app.delete("/api/v1/segments/{segment_id}")
+def delete_segment(segment_id: str):
+    try:
+        segment_store.delete(segment_id)
+        return {"status": "DELETED", "segment_id": segment_id}
+    except SegmentError as e:
+        raise _segment_error(e)
+
+
+@app.post("/api/v1/segments/{segment_id}/capture")
+def capture_segment(segment_id: str, req: SegmentCaptureRequest):
+    """Save the mixer's current ON/MUTE state into this segment (read-only on the mixer)."""
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+    try:
+        snapshot = x32_client.take_full_snapshot(max_channels=32)
+        return segment_store.capture(segment_id, snapshot.parameters, author=req.operator_id)
+    except SegmentError as e:
+        raise _segment_error(e)
+
+
+@app.get("/api/v1/segments/{segment_id}/preview")
+def preview_segment(segment_id: str):
+    """Which channels would be muted / unmuted. Read-only; returns the snapshot SHA to lock the apply."""
+    if not x32_client:
+        raise HTTPException(status_code=503, detail="X32 Client not initialized")
+    try:
+        snapshot = x32_client.take_full_snapshot(max_channels=32)
+        diff = segment_store.diff(segment_id, snapshot.parameters)
+    except SegmentError as e:
+        raise _segment_error(e)
+    return {**diff, "expected_sha256": snapshot.sha256}
+
+
+@app.post("/api/v1/segments/{segment_id}/apply")
+def apply_segment(segment_id: str, req: SegmentApplyRequest):
+    """
+    Switch to a segment as ONE Safety Gate batch: mutes first, then unmutes.
+    Only /ch/NN/mix/on is written — faders never move. Requires ASSIST mode or higher.
+    """
+    if stop_auto_triggered:
+        raise HTTPException(status_code=403, detail="Không thể chuyển tiết mục: hệ thống đang khóa khẩn cấp (STOP).")
+    if not x32_client or not executor:
+        raise HTTPException(status_code=503, detail="X32 Client or SafetyGate Executor not initialized")
+
+    snapshot = x32_client.take_full_snapshot(max_channels=32)
+    if req.expected_sha256 and req.expected_sha256 != snapshot.sha256:
+        raise HTTPException(status_code=409, detail="Mixer vừa thay đổi sau khi xem trước. Hãy mở lại tiết mục để xem trước lần nữa.")
+    try:
+        diff = segment_store.diff(segment_id, snapshot.parameters)
+    except SegmentError as e:
+        raise _segment_error(e)
+
+    ordered = diff["to_mute"] + diff["to_unmute"]  # silence first, then open mics
+    if not ordered:
+        return {"status": "NO_CHANGE", "segment_id": segment_id, "applied": [], "sha256": snapshot.sha256}
+
+    stamp = int(time.time() * 1000)
+    proposals = []
+    for item in ordered:
+        p = Proposal(
+            proposal_id=f"SEG_{segment_id}_CH{item['channel']:02d}_{stamp}",
+            target_channel=item["channel"],
+            hypothesis=f"Segment '{diff['name']}': channel {item['channel']} {'ON' if item['to'] else 'MUTE'}",
+            confidence=1.0,
+            changes=[{"parameter": f"/ch/{item['channel']:02d}/mix/on", "from": item["from"], "to": item["to"]}],
+            expected_sha256=snapshot.sha256,
+        )
+        p.approve(req.operator_id)
+        proposals.append(p)
+
+    batch_id = f"SEGMENT_{segment_id}_{stamp}"
+    try:
+        result = executor.execute_batch(proposals, req.operator_id, batch_id=batch_id,
+                                        hypothesis=f"Switch to segment '{diff['name']}'")
+    except Exception as e:
+        if db:
+            db.save_audit_event(actor=req.operator_id, action="SEGMENT_SWITCH", proposal_id=batch_id,
+                                status="REJECTED", details={"segment_id": segment_id, "reason": str(e)})
+        raise HTTPException(status_code=400, detail=str(e))
+
+    applied = [{"channel": i["channel"], "name": i["name"], "on": i["to"]} for i in ordered]
+    if db:
+        db.save_audit_event(actor=req.operator_id, action="SEGMENT_SWITCH", proposal_id=batch_id, status="COMMITTED",
+                            details={"segment_id": segment_id, "name": diff["name"], "applied": applied})
+    return {"status": "SUCCESS", "segment_id": segment_id, "name": diff["name"], "applied": applied, "sha256": result.get("sha256")}
 
 
 @app.get("/api/v1/config/church-channels")

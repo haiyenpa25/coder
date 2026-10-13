@@ -10,6 +10,7 @@
 export const ROUTES = [
   { id: 'home', title: 'Tổng quan hôm nay', icon: 'home', group: null, load: () => import('./views/home.js') },
 
+  { id: 'segments', title: 'Tiết mục', icon: 'listCheck', group: 'Trong buổi lễ', load: () => import('./views/segments.js') },
   { id: 'live', title: 'Bàn trộn trực tiếp', icon: 'sliders', group: 'Trong buổi lễ', load: () => import('./views/live.js') },
   { id: 'signals', title: 'Giám sát tín hiệu', icon: 'gauge', group: 'Trong buổi lễ', load: () => import('./views/signals.js') },
   { id: 'speech', title: 'Giọng nói & Automix', icon: 'mic', group: 'Trong buổi lễ', load: () => import('./views/speech.js') },

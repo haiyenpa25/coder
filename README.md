@@ -4,7 +4,7 @@
 > Dành cho mixer **Behringer X32 Compact / Midas M32**, stagebox **Midas DL16** và hệ thống monitor cá nhân **Ultranet P16**.
 
 [![Mock Tested](https://img.shields.io/badge/Safety-Mock%20Tested-blue.svg)](docs/monitoring-dashboard.md)
-[![Tests Passing](https://img.shields.io/badge/Tests-220%20Python%20%2B%2023%20JS-brightgreen.svg)](#kiểm-thử-tự-động)
+[![Tests Passing](https://img.shields.io/badge/Tests-240%20Python%20%2B%2023%20JS-brightgreen.svg)](#kiểm-thử-tự-động)
 [![OSC Read-Only First](https://img.shields.io/badge/Mode-READ__ONLY__MODE%20First-blue.svg)](#chế-độ-vận-hành)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20%7C%20Linux-lightgrey.svg)](#yêu-cầu-môi-trường)
 
@@ -62,6 +62,8 @@ Chuyển ở góc trên bên phải. Lựa chọn được nhớ trên từng m�
 
 * **Đơn giản** — cho tình nguyện viên không chuyên: một câu trạng thái lớn ("Mọi thứ sẵn sàng" / "Có dấu hiệu hú ở kênh 3"), rồi 3 bước **Trước lễ → Trong lễ → Sau lễ** với nút to và hướng dẫn bằng lời thường.
 * **Kỹ thuật** — menu bên trái theo nhóm: *Trong buổi lễ* (bàn trộn trực tiếp, giám sát tín hiệu, giọng nói & automix, livestream, monitor & P16), *Chuẩn bị* (kiểm tra trước lễ, SOP W1–W7, soundcheck ảo, âm học hội trường, nghe thử A/B), *Hệ thống* (scene & sao lưu, sơ đồ kênh, kết nối thiết bị, an toàn & nhật ký, trợ lý AI).
+* **Tiết mục** (Mục sư giảng · Ban hát thờ phượng · Ban ngành · Đơn ca · Tốp ca · Thông báo/MC · Cầu nguyện): bấm một nút để mở đúng micro và tắt các micro khác — luôn xem trước và xác nhận, chỉ bật/tắt (không đẩy fader), Talkback không bao giờ bị động tới. Kỹ thuật viên lưu cấu hình bằng **Lưu từ mixer**.
+* **Bàn trộn trực tiếp** kiểu X32-Edit: 32 kênh (2 layer 1–16, 17–32) với màu, EQ thu nhỏ, meter, fader; biểu đồ EQ + RTA của kênh đang chọn. Khi có hú, trang tự nhảy tới kênh gây hú, hiện cách xử lý nhanh và đề xuất **Đồng ý cắt**. Luyện tập bằng Soundcheck ảo → **Tập xử lý hú**.
 * Nút **STOP** đỏ luôn hiện ở mọi trang (phím tắt `Ctrl+Shift+S`); bấm lại để mở khóa có xác nhận. Mọi thay đổi trên mixer đều hiện bảng "trước → sau" và cần bấm duyệt.
 * Giao diện tự chứa, không tải CDN — chạy được khi máy FOH không có Internet. Giao diện cũ vẫn mở được tại `/static/legacy.html`.
 
@@ -123,14 +125,14 @@ Không cần máy tính trực tiếp trong giờ lễ, bạn có thể xuất t
 
 ## 7. Kiểm Thử Tự Động (Automated Testing)
 
-Hệ thống có **220 bài kiểm thử Python** chạy với mock X32 hoặc fixture cô lập:
+Hệ thống có **240 bài kiểm thử Python** chạy với mock X32 hoặc fixture cô lập:
 
 ```powershell
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
 * Thời gian chạy phụ thuộc máy và môi trường; khoảng 16 giây trong lần kiểm tra gần nhất.
-* Kết quả: **220 bài Python và 23 bài JavaScript đạt** (mock/fixture; JavaScript chạy bằng `npm test`).
+* Kết quả: **240 bài Python và 23 bài JavaScript đạt** (mock/fixture; JavaScript chạy bằng `npm test`).
 * Nếu đang chạy sẵn một ChurchMix khác (chiếm UDP 10023), đặt cổng mock riêng cho test: `$env:CHURCHMIX_X32_PORT = "10923"`.
 
 ---

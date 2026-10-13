@@ -59,7 +59,25 @@ SESSION_PRESETS: Dict[str, VirtualSoundcheckSession] = {
         active_channels=[1, 2, 7, 8],
         lead_source="Associate Pastor / Prayer (Ch 2)",
     ),
+    "FEEDBACK_DRILL": VirtualSoundcheckSession(
+        id="FEEDBACK_DRILL",
+        name="Tập xử lý hú (Feedback Drill)",
+        description="MÔ PHỎNG để luyện tập: micro ca sĩ (Kênh 3) thỉnh thoảng bị hú ở khoảng 3.15 kHz — tăng dần, kéo dài khoảng 10 giây rồi tắt. Dùng để tập nhận biết và xử lý hú; không phải tín hiệu thật.",
+        tempo_bpm=72.0,
+        key="D Major",
+        active_channels=[1, 3, 6, 7, 8],
+        lead_source="Lead Vocal Female (Ch 3) + feedback ring",
+    ),
 }
+
+# Feedback drill timing (seconds within a repeating cycle) and ring frequency.
+# 3150 Hz is deliberately not a harmonic of the 440 Hz drill vocal, so the
+# detector's harmonic-exclusion rule does not hide it.
+DRILL_CYCLE_S = 24.0
+DRILL_RING_START_S = 4.0
+DRILL_RING_FULL_S = 8.0
+DRILL_RING_END_S = 18.0
+DRILL_RING_HZ = 3150.0
 
 
 class VirtualSoundcheckEngine:
@@ -139,6 +157,8 @@ class VirtualSoundcheckEngine:
             vocal = 0.32 * np.sin(2 * np.pi * pitch * t)
             vocal += 0.16 * np.sin(2 * np.pi * (2 * pitch) * t)
             vocal += 0.08 * np.sin(2 * np.pi * (3 * pitch) * t)
+            if session.id == "FEEDBACK_DRILL":
+                vocal = 0.4 * vocal + self._drill_ring(t)
             out[:, 2] = vocal.astype(np.float32)
 
         # 4. Male Lead Vocal (Ch 4)
@@ -196,6 +216,15 @@ class VirtualSoundcheckEngine:
         self._time_elapsed += dt
         self._total_blocks_streamed += 1
         return out
+
+    def _drill_ring(self, t: np.ndarray) -> np.ndarray:
+        """Sustained pure tone that builds up, holds, then stops — a simulated howl."""
+        phase = math.fmod(self._time_elapsed, DRILL_CYCLE_S)
+        if phase < DRILL_RING_START_S or phase >= DRILL_RING_END_S:
+            return np.zeros_like(t)
+        build = (phase - DRILL_RING_START_S) / (DRILL_RING_FULL_S - DRILL_RING_START_S)
+        amplitude = 0.45 * min(1.0, max(0.05, build))
+        return amplitude * np.sin(2 * np.pi * DRILL_RING_HZ * t)
 
     def get_status(self) -> Dict[str, Any]:
         """Return Virtual Soundcheck status metadata."""

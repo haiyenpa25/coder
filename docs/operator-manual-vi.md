@@ -347,3 +347,36 @@ Trước khi bắt đầu buổi lễ 15 phút:
 
 
 
+
+---
+
+### 21. TIẾT MỤC — CHUYỂN MICRO BẰNG MỘT NÚT (MỤC SƯ GIẢNG, BAN HÁT, ĐƠN CA…)
+
+**Dành cho người không chuyên.** Chế độ *Đơn giản* → bước **2. Trong lễ** → khung **"Đang diễn ra tiết mục nào?"**.
+
+1. Bấm tên tiết mục đang diễn ra, ví dụ **Mục sư giảng**.
+2. Máy hiện danh sách **Sẽ BẬT** / **Sẽ TẮT**. Kiểm tra nhanh rồi bấm **Chuyển sang "Mục sư giảng"**.
+   Nếu hệ thống đang ở chế độ *Chỉ quan sát*, nút sẽ ghi **"Bật chế độ Hỗ trợ & chuyển"**.
+3. Máy tắt các micro trước, rồi mới mở micro cần dùng (tránh hú lúc chuyển). Ô tiết mục chuyển sang **xanh – Đang dùng**.
+
+Bộ mặc định: Mục sư giảng · Ban hát thờ phượng · Ban ngành · Đơn ca · Tốp ca · Thông báo / MC · Cầu nguyện. Bộ này được dựng theo **vai trò kênh** trong *Sơ đồ kênh*.
+
+**An toàn:**
+- Tiết mục **chỉ bật/tắt micro**, không bao giờ đẩy fader — âm lượng vẫn do người vận hành quyết định.
+- Kênh **Talkback ban nhạc (DL16 #11)** không bao giờ thuộc tiết mục.
+- Nếu mixer vừa bị chỉnh tay sau khi xem trước, máy từ chối và yêu cầu xem trước lại.
+- Có lỗi đọc lại ở bất kỳ kênh nào → toàn bộ lần chuyển được hoàn tác.
+
+**Kỹ thuật viên — lưu tiết mục:** chế độ *Kỹ thuật* → **Tiết mục**.
+- Cách nhanh: chỉnh bật/tắt micro trên mixer cho đúng một tiết mục, rồi bấm **Lưu từ mixer** ở tiết mục đó (chỉ đọc mixer).
+- Hoặc **Sửa**: chọn từng kênh *Bật / Tắt / Giữ nguyên* ("Giữ nguyên" = tiết mục không động tới kênh đó).
+- **Tiết mục mới**, **Xóa**, **Khôi phục mặc định** đều không ảnh hưởng mixer.
+- Cấu hình được lưu ở `data/service_segments.json` trên máy chủ ChurchMix.
+
+---
+
+### 22. TẬP XỬ LÝ HÚ (FEEDBACK DRILL — MÔ PHỎNG)
+
+*Kỹ thuật* → **Soundcheck ảo** → chọn **Tập xử lý hú**. Micro ca sĩ (Kênh 3) sẽ "hú" giả lập ở khoảng 3,15 kHz: tăng dần, kéo dài khoảng 10 giây rồi tắt, lặp lại mỗi 24 giây.
+
+Mở **Bàn trộn trực tiếp**: màn hình tự nhảy tới kênh gây hú, đánh dấu tần số trên biểu đồ, hiện các bước xử lý nhanh và đề xuất cắt hẹp. Bấm **Đồng ý cắt** để luyện thao tác duyệt. Đây là tín hiệu mô phỏng — không phải tiếng hú thật.

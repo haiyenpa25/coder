@@ -9,6 +9,7 @@ import {
   withLoading, toast, downloadText, loadingRows, errorBox,
 } from '../ui.js';
 import { renderCopilotBox } from './copilot.js';
+import { renderSegmentBar } from '../segments.js';
 
 const STEP_KEY = 'churchmix.homeStep';
 const KEY_ROLES = ['PASTOR_SPEECH', 'LEAD_VOCAL_FEMALE', 'LEAD_VOCAL_MALE', 'CHOIR_OVERHEAD'];
@@ -191,6 +192,11 @@ export default {
     function renderDuring() {
       panel.innerHTML = `
         <div class="stack">
+          ${card({
+            title: 'Đang diễn ra tiết mục nào?',
+            sub: 'Bấm một tiết mục: máy tự mở đúng micro và tắt các micro khác. Luôn hỏi lại trước khi đổi.',
+            body: '<div data-segments></div>',
+          })}
           <div data-feedback></div>
           <div class="grid-2">
             ${card({ title: 'Micro chính', sub: 'Mức tín hiệu trực tiếp. Thanh xanh khi đang nói.', body: '<div data-mics>' + loadingRows(3) + '</div>' })}
@@ -311,12 +317,15 @@ export default {
         }
       };
 
+      const segCleanup = renderSegmentBar($('[data-segments]', panel), {
+        onChanged: () => api.get('/api/v1/channels').then(d => { channels = d.channels || []; renderMics(); }).catch(() => {}),
+      });
       renderFeedback(store.telemetry?.feedback_alerts || []);
       renderMics();
       renderLivestream();
       const off = store.on('telemetry', (t) => { renderFeedback(t.feedback_alerts || []); updateMicMeters(t.meters || []); });
       const lsTimer = setInterval(renderLivestream, 5000);
-      return () => { off(); clearInterval(lsTimer); };
+      return () => { off(); clearInterval(lsTimer); segCleanup(); };
     }
 
     // Step 3 — after service

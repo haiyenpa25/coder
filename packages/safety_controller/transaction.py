@@ -248,6 +248,51 @@ class TransactionExecutor:
         with _transaction_lock_for(self.client):
             return self._execute_locked(proposal, operator_id)
 
+    def execute_batch(self, proposals: List[Proposal], operator_id: str, batch_id: str, hypothesis: str = "") -> Dict[str, Any]:
+        """
+        Apply several single-channel proposals as ONE transaction (e.g. a service
+        segment switching mutes on many channels). Each proposal passes the same
+        stage 0-2 checks as execute(); writes then run in the given order against a
+        single snapshot, with readback per write and rollback of ALL writes on any
+        failure or invariant violation.
+        """
+        if not proposals:
+            raise ProposalRejectedError("REJECTED: Empty batch.")
+
+        if self.mode_manager and self.mode_manager.is_read_only():
+            raise ProposalRejectedError(
+                f"SAFETY DENIAL: Cannot apply proposal in {self.mode_manager.get_mode().value} mode (Read-Only). Switch to ASSIST or LIMITED_AUTO mode."
+            )
+
+        expected = {p.expected_sha256 for p in proposals}
+        if len(expected) != 1:
+            raise ProposalRejectedError("REJECTED: Batch proposals were prepared against different mixer snapshots.")
+
+        seen_params = set()
+        changes: List[Dict[str, Any]] = []
+        for p in proposals:
+            if not p.operator_approved or not p.approved_by:
+                raise ProposalRejectedError(f"REJECTED: Proposal '{p.proposal_id}' has not been approved by an operator.")
+            self.policy.validate_proposal(p)
+            for change in p.changes:
+                if change["parameter"] in seen_params:
+                    raise ProposalRejectedError(f"REJECTED: Parameter '{change['parameter']}' appears twice in one batch.")
+                seen_params.add(change["parameter"])
+                changes.append(change)
+
+        merged = Proposal(
+            proposal_id=batch_id,
+            target_channel=0,
+            hypothesis=hypothesis or f"Batch of {len(proposals)} proposals",
+            confidence=1.0,
+            changes=changes,
+            expected_sha256=expected.pop(),
+            operator_approved=True,
+            approved_by=operator_id,
+        )
+        with _transaction_lock_for(self.client):
+            return self._execute_locked(merged, operator_id)
+
     def _execute_locked(self, proposal: Proposal, operator_id: str) -> Dict[str, Any]:
         # Stage 3: Snapshot & Optimistic lock check
         current_snapshot = self.client.take_full_snapshot(max_channels=32)

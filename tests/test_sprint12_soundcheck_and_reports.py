@@ -157,7 +157,8 @@ class TestSprint12VirtualSoundcheckAndReports(unittest.TestCase):
         res = self.client.get("/api/v1/soundcheck/sessions")
         self.assertEqual(res.status_code, 200)
         sessions = res.json()["sessions"]
-        self.assertEqual(len(sessions), 4)
+        self.assertEqual(len(sessions), 5)
+        self.assertIn("FEEDBACK_DRILL", [s["id"] for s in sessions])
 
         # Start Uptempo session
         res = self.client.post("/api/v1/soundcheck/start", json={"session_id": "SUNDAY_UPTEMPO_PRAISE"})

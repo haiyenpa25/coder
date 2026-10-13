@@ -161,7 +161,7 @@ class FeedbackDetector:
             if confidence >= self.confidence_threshold and persistence >= self.min_persistence_frames:
                 rec_action = (
                     f"Check singer distance to monitor. If ring persists, "
-                    f"propose conservative notch at {round(peak_f, 1)} Hz with Q >= 6.0 and max -3dB cut."
+                    f"propose conservative notch at {round(peak_f, 1)} Hz with Q >= 6.0 and a cut no deeper than -4.5 dB (default -3.5 dB)."
                 )
                 candidates.append(FeedbackCandidate(
                     channel_id=ch,
