@@ -65,16 +65,36 @@ class Proposal:
     operator_approved: bool = False
     approved_by: Optional[str] = None
     created_at: float = field(default_factory=time.time)
+    # Set ONLY for bus-master proposals (e.g. livestream loudness); target_channel is then ignored.
+    target_bus: Optional[int] = None
 
     def approve(self, operator_id: str):
         self.operator_approved = True
         self.approved_by = operator_id
 
 
+def _configured_bus_faders() -> set:
+    """Bus masters whose fader may be adjusted: only the livestream bus from
+    configs/safety-defaults.yaml (autopilot.livestream_bus). Empty if not configured."""
+    try:
+        import os
+        import yaml
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "configs", "safety-defaults.yaml")
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        bus = (cfg.get("autopilot") or {}).get("livestream_bus")
+        return {int(bus)} if bus is not None and 1 <= int(bus) <= 16 else set()
+    except Exception:
+        return set()
+
+
 class SafetyPolicy:
-    def __init__(self, max_fader_delta: float = 0.1, max_eq_gain_delta: float = 0.2):
+    def __init__(self, max_fader_delta: float = 0.1, max_eq_gain_delta: float = 0.2,
+                 allowed_bus_faders: Optional[set] = None, max_bus_fader_delta: float = 0.05):
         self.max_fader_delta = max_fader_delta
         self.max_eq_gain_delta = max_eq_gain_delta
+        self.allowed_bus_faders = set(allowed_bus_faders) if allowed_bus_faders is not None else _configured_bus_faders()
+        self.max_bus_fader_delta = max_bus_fader_delta
         self.denied_prefixes = [
             "/config/routing",
             "/outputs/p16",
@@ -83,8 +103,30 @@ class SafetyPolicy:
             "/-show",
         ]
 
+    def _validate_bus_proposal(self, proposal: Proposal) -> None:
+        """Bus-master fader only, on an explicitly allowed (livestream) bus, small steps."""
+        bus = proposal.target_bus
+        if type(bus) is not int or bus not in self.allowed_bus_faders:
+            raise ProposalRejectedError(
+                f"SAFETY DENIAL: Bus {bus} is not an allowed bus for fader adjustments (allowed: {sorted(self.allowed_bus_faders)})."
+            )
+        path = f"/bus/{bus:02d}/mix/fader"
+        for change in proposal.changes:
+            if change["parameter"] != path:
+                raise ProposalRejectedError(f"SAFETY DENIAL: Bus proposal may only change '{path}', not '{change['parameter']}'.")
+            for value in (change["from"], change["to"]):
+                if not isinstance(value, (int, float)) or not math.isfinite(value) or not 0.0 <= value <= 1.0:
+                    raise ProposalRejectedError(f"SAFETY DENIAL: '{path}' requires a finite fader value 0..1.")
+            if abs(change["to"] - change["from"]) > self.max_bus_fader_delta + 1e-9:
+                raise ProposalRejectedError(
+                    f"SAFETY LIMIT: Bus fader delta {abs(change['to'] - change['from']):.3f} exceeds {self.max_bus_fader_delta}."
+                )
+
     def validate_proposal(self, proposal: Proposal) -> None:
         """Validate all proposed changes against safety rules."""
+        if proposal.target_bus is not None:
+            self._validate_bus_proposal(proposal)
+            return
         ch = proposal.target_channel
         if type(ch) is not int or not 1 <= ch <= 32:
             raise ProposalRejectedError("SAFETY DENIAL: Target channel must be an integer between 1 and 32.")
@@ -349,8 +391,11 @@ class TransactionExecutor:
         # Validate slew limits against observed values, never an estimated `from`.
         for change in proposal.changes:
             actual_change = {**change, "from": original_values[change["parameter"]]}
-            channel = int(change["parameter"].split("/")[2])
-            self.policy.validate_proposal(replace(proposal, target_channel=channel, changes=[actual_change]))
+            kind, number = change["parameter"].split("/")[1:3]
+            if kind == "bus":
+                self.policy.validate_proposal(replace(proposal, target_bus=int(number), changes=[actual_change]))
+            else:
+                self.policy.validate_proposal(replace(proposal, target_bus=None, target_channel=int(number), changes=[actual_change]))
         self._assert_active(revision)
 
         # Stage 5 & 6: Transaction execution with rollback support

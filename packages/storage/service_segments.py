@@ -266,6 +266,7 @@ class ServiceSegmentStore:
             int(c["channel"]) for c in self._channels() if c.get("role") not in UNMANAGED_ROLES
         ]
         states = {}
+        reference = {}
         for ch in keys:
             if ch == tb:
                 continue
@@ -273,7 +274,45 @@ class ServiceSegmentStore:
             if value is None:
                 raise SegmentError(f"Không đọc được trạng thái kênh {ch} từ mixer.")
             states[str(ch)] = int(value)
-        return self.update(segment_id, {"channels": states}, author=author)
+            fader = parameters.get(f"/ch/{ch:02d}/mix/fader")
+            if fader is not None:
+                reference[str(ch)] = {"fader": round(float(fader), 4)}
+        seg = self.update(segment_id, {"channels": states}, author=author)
+        # Reference mix ("bản mix chuẩn"): fader positions the operator approved for this
+        # segment. Read-only data; the autopilot keeps levels within bounds around it.
+        with self._lock:
+            segments = self._read()
+            for s in segments:
+                if s["id"] == segment_id:
+                    s["reference"] = reference
+                    self._write(segments)
+                    return s
+        return seg
+
+    def reference_faders(self, segment_id: Optional[str]) -> Dict[int, float]:
+        """{channel: fader 0..1} saved with "Lưu từ mixer" for this segment (empty if none)."""
+        if not segment_id:
+            return {}
+        try:
+            seg = self.get(segment_id)
+        except SegmentError:
+            return {}
+        return {int(ch): float(v["fader"]) for ch, v in (seg.get("reference") or {}).items()
+                if isinstance(v, dict) and v.get("fader") is not None}
+
+    def drift(self, segment_id: str, parameters: Dict[str, Any], threshold_db: float = 3.0) -> List[Dict[str, Any]]:
+        """Channels whose fader moved more than threshold_db away from the segment reference."""
+        from packages.autopilot.x32_scale import fader_to_db
+        names = {int(c["channel"]): c.get("name", f"Kênh {c['channel']}") for c in self._channels()}
+        out = []
+        for ch, ref in self.reference_faders(segment_id).items():
+            cur = parameters.get(f"/ch/{ch:02d}/mix/fader")
+            if cur is None or ref <= 0 or float(cur) <= 0:
+                continue
+            delta = fader_to_db(float(cur)) - fader_to_db(ref)
+            if abs(delta) >= threshold_db:
+                out.append({"channel": ch, "name": names.get(ch, f"Kênh {ch}"), "delta_db": round(delta, 1)})
+        return out
 
     def delete(self, segment_id: str) -> None:
         with self._lock:

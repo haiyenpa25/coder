@@ -24,6 +24,15 @@ These rules govern all AI coding agents, automation services, and developers wor
 7. **A proposal is never a command.**
    - AI language models and analysis routines only explain, guide, and formulate proposals.
    - They cannot directly generate or dispatch executable OSC mutations without explicit operator approval.
+   - **Bounded pre-approval (amended 2026-10-13, owner decision):** an operator explicitly enabling the
+     Autopilot (`packages/autopilot`, Safety Engine mode `LIMITED_AUTO`) is the approval for adjustments that stay
+     inside the limits in `configs/safety-defaults.yaml` → `autopilot` (hard ceilings in `engine.HARD_CAPS`).
+     Allowed autonomously: channel faders of speech mics (±limit around the reference), narrow cut-only notches
+     into a free EQ band within a per-channel budget, and the configured livestream bus fader. Never: preamp/trim,
+     routing, Main LR, talkback, EQ boosts, overwriting an EQ band in use, raising a level during silence or
+     feedback. Every autonomous write still passes the full Safety Gate (rule 11) and is audit-logged; STOP, any
+     mode change or auto-disengage stops it immediately; measurements must be valid and mapped to X32 channels
+     (simulated data only ever drives the internal mock). Widening any limit requires the owner's decision.
 
 8. **Validate source tap points and measurement clock before DSP inference.**
    - Do not mistake pre-EQ signals for post-EQ signals.
@@ -66,6 +75,8 @@ here, never in the per-tool files.
 | `packages/x32_osc_adapter/` | OSC codec, `X32Client` (read-only by default), snapshots + SHA-256 |
 | `packages/mock_x32/server.py` | UDP X32 simulator used by all tests and the default app start |
 | `packages/monitoring/` | Signal monitor (peak/RMS, thresholds, events) behind `/api/v1/monitoring/*` |
+| `packages/autopilot/` | Autopilot (Lái tự động): speech rider, auto notch, livestream loudness, clip watch; `apps/api/autopilot_routes.py` |
+| `packages/x32_osc_adapter/meters.py` | Read-only X32 `/meters` stream (real per-channel input levels) |
 | `packages/storage/service_segments.py` | Tiết mục (service segments): named ON/MUTE sets applied via `TransactionExecutor.execute_batch` behind `/api/v1/segments/*`; stored in `data/service_segments.json` |
 | `packages/*` (others) | DSP, feedback detector, EQ optimizer, mix assistant, storage, wizards, copilot |
 | `configs/safety-defaults.yaml` | Safety limits and `talkback_protection.x32_channel` (the X32 channel carrying DL16 #11) |

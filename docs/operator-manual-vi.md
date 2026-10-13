@@ -383,3 +383,26 @@ Bộ mặc định: Mục sư giảng · Ban hát thờ phượng · Ban ngành 
 *Kỹ thuật* → **Soundcheck ảo** → chọn **Tập xử lý hú**. Micro ca sĩ (Kênh 3) sẽ "hú" giả lập ở khoảng 3,15 kHz: tăng dần, kéo dài khoảng 10 giây rồi tắt, lặp lại mỗi 24 giây.
 
 Mở **Bàn trộn trực tiếp**: màn hình tự nhảy tới kênh gây hú, đánh dấu tần số trên biểu đồ, hiện các bước xử lý nhanh và đề xuất cắt hẹp. Bấm **Đồng ý cắt** để luyện thao tác duyệt. Đây là tín hiệu mô phỏng — không phải tiếng hú thật.
+
+---
+
+### 23. LÁI TỰ ĐỘNG (AUTOPILOT) — MÁY TỰ LÀM VIỆC LẶP LẠI TRONG GIỜ LỄ
+
+**Bật:** chế độ *Đơn giản* → bước **2. Trong lễ** → **Bật lái tự động**, hoặc *Kỹ thuật* → **Lái tự động**. Bật = bạn **duyệt trước** cho máy tự chỉnh trong các giới hạn dưới đây (hệ thống chuyển sang chế độ *Tự động có giới hạn*).
+
+| Tính năng | Máy làm gì | Giới hạn |
+| --- | --- | --- |
+| Tự cân giọng nói | Giữ giọng Mục sư/MC đều | ±3 dB quanh mức chuẩn, bước 0,5 dB, ≥ 2 giây/lần; đứng yên khi im lặng; không tăng khi có hú |
+| Tự chống hú | Cắt hẹp −3,5 dB, Q 7 đúng tần số hú | Tối đa 2 lần/kênh/buổi; chỉ vào dải EQ còn trống; không bao giờ tăng EQ |
+| Tự cân livestream | Giữ bus livestream gần −16 LUFS | Chỉ bus 5, ±6 dB, bước 0,5 dB/5 giây; cần nguồn đo của chính bus livestream |
+| Cảnh báo vỡ tiếng | Báo kênh sát 0 dBFS | Chỉ cảnh báo — máy không chỉnh preamp |
+
+**Giữ chất âm:** máy không tự thiết kế âm thanh. Mức chuẩn lấy từ **bản mix chuẩn** của tiết mục (*Tiết mục → Lưu từ mixer* lưu cả vị trí fader) hoặc từ vị trí fader lúc bật. Bạn **kéo fader tay bất cứ lúc nào** — máy sẽ theo mức mới của bạn, không giành lại.
+
+**Máy không bao giờ:** chỉnh preamp, routing, Main LR, Talkback; tăng EQ; ghi đè EQ đang dùng; tăng âm lượng khi im lặng.
+
+**Dừng:** bấm **STOP**, bấm **Tắt lái tự động**, hoặc đổi chế độ. Hệ thống cũng tự dừng khi dữ liệu đo không hợp lệ, khi vỡ tiếng liên tục hoặc khi có hú mạnh (CRITICAL) — lúc đó người xử lý.
+
+**Sau lễ:** xem *Các lần cắt hú tự động* và *Cần người xử lý*. **Hoàn tác mọi thay đổi của máy** đưa fader và bus livestream về mức chuẩn, trả các dải EQ đã cắt về như trước.
+
+**Nguồn đo:** khi nối X32 thật, máy đọc **meter kênh của X32** (chỉ đọc). Dữ liệu mô phỏng chỉ được dùng với mixer giả lập — không bao giờ điều khiển bàn thật.

@@ -98,12 +98,16 @@ from apps.api.audio_sources import resolve_analysis_audio, AudioSourceError
 from diagnose_system import run_all_diagnostics
 from packages.monitoring.analyzer import SignalMonitor, Thresholds
 from packages.monitoring.source import collect_signal
+from packages.x32_osc_adapter.meters import X32MeterReader, restart_meter_reader
+from packages.autopilot import Autopilot
+from apps.api.autopilot_routes import build_router as build_autopilot_router
 import logging
 import json
 
 # --- Global State & Singletons ---
 mock_server: Optional[MockX32Server] = None
 x32_client: Optional[X32Client] = None
+x32_meter_reader: Optional[X32MeterReader] = None  # read-only /meters stream, own socket
 executor: Optional[TransactionExecutor] = None
 wizard_service: Optional[WizardService] = None
 recommender = PEQRecommender()
@@ -127,6 +131,38 @@ telemetry_logger = logging.getLogger("ChurchMix.Telemetry")
 
 active_websockets: List[WebSocket] = []
 active_feedback_alerts: List[Dict[str, Any]] = []
+
+
+# --- Autopilot ("Lái tự động"): bounded automation in LIMITED_AUTO (AGENTS.md rule 7) ---
+def _is_internal_simulator() -> bool:
+    """True only when the connected mixer is ChurchMix's own mock (simulated data may drive it)."""
+    return bool(x32_client and mock_server and mock_server.running
+                and x32_client.host in ("127.0.0.1", "localhost") and x32_client.port == mock_server.port)
+
+
+def _autopilot_loudness() -> Dict[str, Any]:
+    """Short-term loudness of the analysis audio. Its scope is the analysed input, not the
+    livestream bus itself, so the autopilot only acts on it in the simulator."""
+    from packages.mix_assistant.broadcast_meter import compute_short_term_lufs
+    try:
+        audio, source = resolve_analysis_audio(soundcheck_engine, audio_stream_worker, None)
+    except AudioSourceError:
+        return {"valid": False}
+    return {"short_term_lufs": compute_short_term_lufs(audio, source["sample_rate"]), "valid": bool(source.get("valid", True)),
+            "simulated": bool(source.get("simulated")), "scope": source.get("loudness_scope", "ANALYSIS_INPUT")}
+
+
+autopilot = Autopilot(
+    get_client=lambda: x32_client,
+    get_executor=lambda: executor,
+    mode_manager=safety_mode_mgr,
+    channel_provider=church_profile_mgr.get_channels,
+    recommender=recommender,
+    is_simulator=_is_internal_simulator,
+    reference_provider=lambda params: segment_store.reference_faders(segment_store.active_id(params)),
+    loudness_provider=_autopilot_loudness,
+    audit=lambda **kw: db.save_audit_event(**kw) if db else None,
+)
 active_proposals: Dict[str, Proposal] = {}
 
 stop_auto_triggered = False
@@ -135,7 +171,7 @@ last_acoustic_measurement: Optional[Dict[str, Any]] = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global mock_server, x32_client, executor, audio_stream_worker, wizard_service
+    global mock_server, x32_client, executor, audio_stream_worker, wizard_service, x32_meter_reader
 
     # 1. Start Mock X32 on X32_LOCAL_PORT (default 10023) if not running
     mock_port = X32_LOCAL_PORT
@@ -155,6 +191,7 @@ async def lifespan(app: FastAPI):
         snap = x32_client.take_full_snapshot(max_channels=32)
         db.save_snapshot(sha256=snap.sha256, state_dict=snap.parameters, note="Startup initial state")
         db.save_audit_event(actor="System", action="STARTUP", status="ONLINE", details={"read_only": True, "mode": "OBSERVE"})
+        x32_meter_reader = restart_meter_reader(x32_meter_reader, x32_client.host, x32_client.port, simulated=True)
         print("X32 Client successfully connected in READ_ONLY_MODE = True.")
     except Exception as e:
         print(f"Error connecting X32 Client: {e}")
@@ -169,13 +206,27 @@ async def lifespan(app: FastAPI):
     await telemetry_task
     if audio_stream_worker and audio_stream_worker.is_running:
         audio_stream_worker.stop()
+    if autopilot.enabled:
+        autopilot.disable("System", reason="Máy chủ dừng — lái tự động đã tắt.")
+    if x32_meter_reader:
+        x32_meter_reader.stop()
     if x32_client:
         x32_client.close()
     if mock_server:
         mock_server.stop()
+    # Never leave closed handles behind: later requests must see "not connected", not a dead socket.
+    x32_meter_reader = None
+    x32_client = None
+    executor = None
+    wizard_service = None
+    mock_server = None
 
 
 app = FastAPI(title="X32 AI Sound Engineer API", version="1.0.0", lifespan=lifespan)
+app.include_router(build_autopilot_router(
+    get_autopilot=lambda: autopilot, get_client=lambda: x32_client,
+    get_segment_store=lambda: segment_store, is_stopped=lambda: stop_auto_triggered,
+))
 
 # --- Origin Guard ---
 # Any web page open on the operator laptop could otherwise POST to this API and
@@ -238,7 +289,8 @@ async def audio_telemetry_loop():
             if now - refreshed > 5:
                 profiles = {p["channel"]: p for p in church_profile_mgr.get_channels()}
                 refreshed = now
-            meters, samples, source = collect_signal(soundcheck_engine, audio_stream_worker, now - started, profiles)
+            meters, samples, source = collect_signal(soundcheck_engine, audio_stream_worker, now - started, profiles,
+                                                     meter_reader=x32_meter_reader)
             if source["id"] != last_source or not source["dsp_valid"]:
                 feedback_detector.channel_history.clear()
                 last_source = source["id"]
@@ -252,7 +304,7 @@ async def audio_telemetry_loop():
                 "evidence": c.evidence, "recommended_action": c.recommended_action,
                 "simulated": source["simulated"]} for c in candidates]
             rta_bars = []
-            if source["valid"]:
+            if source["valid"] and source.get("rta_available", True):
                 freqs, psd = compute_welch_spectrum(samples, sample_rate=source["sample_rate"], nperseg=1024, noverlap=512)
                 rta_bars = compute_fractional_octave_rta(freqs, psd, fraction=12)
             has_clip = any(m["meter_dbfs"] is not None and m["meter_dbfs"] >= -0.5 for m in meters)
@@ -268,11 +320,16 @@ async def audio_telemetry_loop():
                     x32_client.read_only_mode = True
             analysis = signal_monitor.ingest(meters, source, now=now)
             analysis["events"] = analysis["events"][:30]
+            try:
+                autopilot.tick(meters, active_feedback_alerts, source)
+            except Exception:
+                telemetry_logger.exception("Autopilot tick failed")
             payload = {"type": "TELEMETRY", "timestamp": time.time(), "rta": rta_bars,
                 "meters": meters, "feedback_alerts": active_feedback_alerts,
                 "read_only_mode": x32_client.read_only_mode if x32_client else True,
                 "stop_auto": stop_auto_triggered, "safety_mode": safety_mode_mgr.state.to_dict(),
-                "soundcheck": soundcheck_engine.get_status(), "source": source, "analysis": analysis}
+                "soundcheck": soundcheck_engine.get_status(), "source": source, "analysis": analysis,
+                "autopilot": {"enabled": autopilot.enabled, "inactive_reason": autopilot.inactive_reason}}
             # A stalled browser cannot hold the broadcaster indefinitely.
             message = json.dumps(payload, allow_nan=False, separators=(",", ":"))
             clients = tuple(active_websockets)
@@ -348,6 +405,7 @@ def get_system_status():
         "stop_auto": stop_auto_triggered,
         "safety_mode": safety_mode_mgr.state.to_dict(),
         "sha256": snapshot.sha256,
+        "meters": x32_meter_reader.status() if x32_meter_reader else None,
         "dl16_talkback_invariant": {
             "safe": tb_ok,
             "message": tb_msg,
@@ -1639,7 +1697,7 @@ class HardwareConnectRequest(BaseModel):
 @app.post("/api/v1/hardware/connect")
 def switch_hardware_target(req: HardwareConnectRequest):
     """Switch connection target between Mock X32 Simulator and Real Church X32 Mixer."""
-    global x32_client, executor, wizard_service
+    global x32_client, executor, wizard_service, x32_meter_reader
 
     target_ip = "127.0.0.1" if req.mode == "SIMULATOR" else req.ip
     target_port = mock_server.port if req.mode == "SIMULATOR" and mock_server else req.port
@@ -1655,6 +1713,8 @@ def switch_hardware_target(req: HardwareConnectRequest):
         x32_client = new_client
         executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
         wizard_service = WizardService(client=x32_client)
+        x32_meter_reader = restart_meter_reader(x32_meter_reader, target_ip, target_port, simulated=bool(
+            mock_server and mock_server.running and target_ip == "127.0.0.1" and target_port == mock_server.port))
 
         if db:
             db.save_audit_event(
@@ -1678,12 +1738,16 @@ def switch_hardware_target(req: HardwareConnectRequest):
             x32_client = None
             executor = None
             wizard_service = None
+            if x32_meter_reader:
+                x32_meter_reader.stop()
+                x32_meter_reader = None
             raise HTTPException(status_code=503, detail=f"Mixer connection failed; no isolated simulator available: {e}")
         fallback = X32Client(host="127.0.0.1", port=mock_server.port, read_only_mode=True)
         fallback.connect()
         x32_client = fallback
         executor = TransactionExecutor(client=x32_client, policy=SafetyPolicy(), mode_manager=safety_mode_mgr)
         wizard_service = WizardService(client=x32_client)
+        x32_meter_reader = restart_meter_reader(x32_meter_reader, "127.0.0.1", mock_server.port, simulated=True)
         raise HTTPException(
             status_code=400,
             detail=f"Failed to connect to mixer at {target_ip}:{target_port}: {e}. Fallback to Simulator."

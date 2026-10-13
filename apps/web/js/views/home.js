@@ -198,6 +198,7 @@ export default {
             sub: 'Bấm một tiết mục: máy tự mở đúng micro và tắt các micro khác. Luôn hỏi lại trước khi đổi.',
             body: '<div data-segments></div>',
           })}
+          <div data-autopilot></div>
           <div data-feedback></div>
           <div class="grid-2">
             ${card({ title: 'Micro chính', sub: 'Mức tín hiệu trực tiếp. Thanh xanh khi đang nói.', body: '<div data-mics>' + loadingRows(3) + '</div>' })}
@@ -323,10 +324,49 @@ export default {
       const segCleanup = renderSegmentBar($('[data-segments]', panel), {
         onChanged: () => api.get('/api/v1/channels').then(d => { channels = d.channels || []; renderMics(); }).catch(() => {}),
       });
+
+      // Lái tự động — one big switch for volunteers; details live on the technical page.
+      const apBox = $('[data-autopilot]', panel);
+      let apKey = '';
+      const renderAutopilot = (ap) => {
+        const key = ap ? `${ap.enabled}|${ap.inactive_reason}` : 'none';
+        if (key === apKey) return;
+        apKey = key;
+        const on = !!ap?.enabled;
+        apBox.innerHTML = `
+          <div class="hero ${on ? (ap.inactive_reason ? 'warn' : 'ok') : ''}" style="padding:16px 18px">
+            <div class="hero-icon" style="width:44px;height:44px">${icon('zap')}</div>
+            <div class="grow">
+              <h3 style="font-size:17px">${on ? (ap.inactive_reason ? 'Lái tự động đang chờ dữ liệu' : 'Lái tự động đang giúp bạn') : 'Lái tự động: tắt'}</h3>
+              <p class="small">${on
+                ? esc(ap.inactive_reason || 'Máy đang giữ giọng nói đều, chống hú và cân livestream trong giới hạn an toàn. Bạn vẫn kéo fader tay được bất cứ lúc nào.')
+                : 'Bật để máy tự giữ giọng Mục sư đều, tự cắt hú nhẹ và giữ livestream vừa nghe — trong giới hạn đã duyệt sẵn.'}</p>
+            </div>
+            <a class="btn btn-ghost btn-sm" href="#/autopilot">Chi tiết</a>
+            <button class="btn ${on ? 'btn-danger' : 'btn-primary'}" data-ap-toggle>${on ? 'Tắt' : 'Bật lái tự động'}</button>
+          </div>`;
+        $('[data-ap-toggle]', apBox).addEventListener('click', async (e) => {
+          if (on) {
+            const res = await withLoading(e.currentTarget, () => api.post('/api/v1/autopilot/disable', { operator_id: getOperator() }));
+            if (res) { toast('Đã tắt lái tự động.', 'info'); apKey = ''; renderAutopilot(res); }
+            return;
+          }
+          const ok = await confirmDialog({
+            title: 'Bật lái tự động?',
+            message: 'Máy sẽ tự chỉnh <strong>nhẹ</strong> (giọng nói tối đa ±3 dB, cắt hú hẹp có giới hạn, chỉ bus livestream). Máy <strong>không</strong> tăng âm lượng khi im lặng và <strong>không</strong> đụng tới Talkback. Bấm nút đỏ STOP để dừng ngay bất cứ lúc nào.',
+            confirmText: 'Bật lái tự động',
+          });
+          if (!ok) return;
+          const res = await withLoading(e.currentTarget, () => api.post('/api/v1/autopilot/enable', { operator_id: getOperator() }), { errorPrefix: 'Không bật được: ' });
+          if (res) { toast('Lái tự động đang chạy.', 'ok'); apKey = ''; renderAutopilot(res); }
+        });
+      };
+      renderAutopilot(store.telemetry?.autopilot);
+
       renderFeedback(store.telemetry?.feedback_alerts || []);
       renderMics();
       renderLivestream();
-      const off = store.on('telemetry', (t) => { renderFeedback(t.feedback_alerts || []); updateMicMeters(t.meters || [], t.source); });
+      const off = store.on('telemetry', (t) => { renderFeedback(t.feedback_alerts || []); updateMicMeters(t.meters || [], t.source); renderAutopilot(t.autopilot); });
       const lsTimer = setInterval(renderLivestream, 5000);
       return () => { off(); clearInterval(lsTimer); segCleanup(); };
     }
