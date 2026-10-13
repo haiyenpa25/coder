@@ -1742,12 +1742,13 @@ def switch_hardware_target(req: HardwareConnectRequest):
 class HardwareDiscoverRequest(BaseModel):
     hosts: Optional[List[str]] = None
     timeout: float = 0.6
+    port: int = Field(default=10023, ge=1, le=65535)  # X32/M32 OSC port; override for isolated mocks
 
 
 @app.post("/api/v1/hardware/discover")
 def discover_hardware_endpoint(req: HardwareDiscoverRequest = HardwareDiscoverRequest()):
     """Discover active Behringer X32/M32 consoles on the local network or loopback."""
-    consoles = X32Client.discover_consoles(target_hosts=req.hosts, timeout=req.timeout)
+    consoles = X32Client.discover_consoles(target_hosts=req.hosts, port=req.port, timeout=req.timeout)
     return {
         "count": len(consoles),
         "consoles": consoles,

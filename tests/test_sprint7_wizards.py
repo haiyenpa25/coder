@@ -104,7 +104,7 @@ class TestSprint7Wizards(unittest.TestCase):
         self.assertTrue(data["safety_lock_engaged"])
 
     def test_hardware_discovery(self):
-        res = self.client.post("/api/v1/hardware/discover", json={"hosts": ["127.0.0.1"]})
+        res = self.client.post("/api/v1/hardware/discover", json={"hosts": ["127.0.0.1"], "port": int(os.environ.get("CHURCHMIX_X32_PORT", "10023"))})
         self.assertEqual(res.status_code, 200)
         data = res.json()
         self.assertGreaterEqual(data["count"], 1)
