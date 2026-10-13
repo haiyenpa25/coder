@@ -46,20 +46,27 @@ Tài liệu kiểm định chất lượng, bao phủ toàn bộ 63 bài kiểm 
 | [tests/test_sprint24_stage_bleed_and_expander.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint24_stage_bleed_and_expander.py) | **8** | Kiểm Soát Rò Rỉ Sân Khấu (Stage Bleed) & Cân Chỉnh Downward Expander Cho Vocal: Phân Tích Ma Trận Tương Quan Chéo, Phát Hiện Méo Pha Lọc Lược (Comb Filtering), Cân Chỉnh Expander Dịu Nhẹ (Threshold = Ồn Nền + 3 dB, Range <= 12 dB, Key HPF 250 Hz), Bảo Vệ Bất Biến Kênh 11 Band Talkback & REST API. | **PASS** |
 | [tests/test_sprint25_safety_modes_and_disengage.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint25_safety_modes_and_disengage.py) | **8** | Hệ Thống 4 Chế Độ Quyền Hạn Safety Engine (OBSERVE, ASSIST, LIMITED_AUTO, ADMIN_MAINTENANCE) & Tự Động Khóa Cứng (Auto-Disengage / Panic Freeze Watchdog: Vỡ tiếng liên tục > 5 frames, Tăng vọt nguy cơ hú, Mất telemetry > 2.5s, Nút STOP AUTO, Khóa bảo mật PIN 7777 & REST API). | **PASS** |
 | [tests/test_sprint26_monitor_matrix_and_iem.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_sprint26_monitor_matrix_and_iem.py) | **10** | Ma Trận Monitor Aux & Ultranet P16 Personal IEM: Thẩm định 16 khe P16, Bất biến cách ly Talkback DL16 #11, Phân loại MixBus (Wedges/IEMs/FX), Dò nguy cơ hú loa sàn (> 0.80 fader send), Lỗi cấu hình Tap-Point Post-Fader, Đề xuất cân bằng an toàn qua SafetyGate & REST API. | **PASS** |
-| **TỔNG CỘNG PYTHON** | **169** | **Bao phủ 100% 26 Sprints, mọi bất biến an toàn, chẩn đoán tiền lễ, kho scene, xử lý hú, kiểm soát kênh, chuẩn phát thanh LUFS, nạp USB .scn, gain staging, Dugan Automixer, Thẩm định thính giác mù A/B, Stage Bleed, Safety Modes và Monitor Matrix** | **100% PASS** |
-| **TỔNG CỘNG NODE** | **19** | **Kiểm thử công cụ CLI, hook JSON schema, template rules và environment** | **100% PASS** |
-| **TOÀN BỘ HỆ THỐNG** | **188** | **188 / 188 Bài kiểm thử tự động hoàn tất thành công** | **100% PASS** |
+| [tests/test_service_segments.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_service_segments.py) | **19** | Tiết Mục (Service Segments): Chuyển cảnh micro an toàn theo vai trò kênh, ngắt micro trước khi bật, TransactionExecutor.execute_batch, bảo vệ kênh 11 Talkback, hoàn tác rollback tự động. | **PASS** |
+| [tests/test_monitoring.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_monitoring.py) | **22** | Giám sát tín hiệu âm thanh (Peak, RMS, Crest Factor, Clip frames), phát hiện sự cố, cấu hình ngưỡng /api/v1/monitoring/thresholds, phân tích 32 kênh. | **PASS** |
+| [tests/test_safety_hardening.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_safety_hardening.py) | **19** | Gia cố an toàn hệ thống: Chặn tiêm lệnh OSC, kiểm soát revision SHA-256, cách ly FOH và kiểm tra tính toàn vẹn trạng thái mixer. | **PASS** |
+| [tests/test_performance_regressions.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_performance_regressions.py) | **5** | Kiểm thử hồi quy hiệu năng: Đo tốc độ codec OSC, snapshot diffing, throughput telemetry và thời gian phản hồi. | **PASS** |
+| [tests/test_notch_band_selection.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_notch_band_selection.py) | **3** | Lựa chọn băng tần notch phẫu thuật tối ưu trên 4 band PEQ vật lý của X32. | **PASS** |
+| [tests/test_safety_whitelist_regressions.py](file:///c:/xampp/htdocs/ChurchMix/tests/test_safety_whitelist_regressions.py) | **3** | Kiểm thử hồi quy Whitelist SafetyPolicy: Chặn các đường dẫn nhạy cảm và bảo đảm giới hạn slew-rate. | **PASS** |
+| **TỔNG CỘNG PYTHON** | **240** | **Bao phủ 100% 26 Sprints và toàn bộ các bộ kiểm thử hồi quy an toàn, tiết mục, giám sát tín hiệu và hiệu năng** | **100% PASS** |
+| **TỔNG CỘNG NODE** | **23** | **Kiểm thử công cụ CLI, hook JSON schema, template rules, giao diện Canvas charts và environment** | **100% PASS** |
+| **TOÀN BỘ HỆ THỐNG** | **263** | **263 / 263 Bài kiểm thử tự động hoàn tất thành công (100% Green)** | **100% PASS** |
 
 ---
 
 ## 3. Lệnh Chạy Toàn Bộ Test Suite
 
-Để thực thi toàn bộ 169 bài kiểm thử Python:
+Để thực thi toàn bộ 240 bài kiểm thử Python:
 ```powershell
+$env:CHURCHMIX_X32_PORT = "10923"
 & "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m unittest discover -s tests -p "test_*.py"
 ```
 
-Để thực thi 19 bài kiểm thử Node.js:
+Để thực thi 23 bài kiểm thử Node.js:
 ```powershell
 npm test
 ```
