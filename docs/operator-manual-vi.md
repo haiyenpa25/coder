@@ -340,14 +340,6 @@ Trước khi bắt đầu buổi lễ 15 phút:
      * **Tab 2: MixBuses (Wedges / IEMs / FX):** Xem tổng quan 16 bus, mức Master, số kênh gửi và huy hiệu cảnh báo rủi ro hú. Bấm nút **`[Tạo Đề Xuất Chống Hú & Cân Bằng]`** cho từng bus để AI tối ưu hóa.
      * **Tab 3: Cảnh Báo Hú & Tap-Point:** Liệt kê chi tiết mọi micro gửi quá ngưỡng hoặc sai cấu hình Tap-Point, kèm nút một chạm để tạo đề xuất khắc phục.
 
-
-
-
-
-
-
-
-
 ---
 
 ### 21. TIẾT MỤC — CHUYỂN MICRO BẰNG MỘT NÚT (MỤC SƯ GIẢNG, BAN HÁT, ĐƠN CA…)
