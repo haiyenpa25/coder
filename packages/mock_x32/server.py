@@ -11,7 +11,9 @@ Emulates:
 """
 
 from __future__ import annotations
+import math
 import socket
+import struct
 import threading
 import time
 from typing import Dict, Any, List, Tuple
@@ -28,7 +30,11 @@ class MockX32Server:
         self.thread: threading.Thread | None = None
         self.subscribers: Dict[Tuple[str, int], float] = {}
         self.lock = threading.Lock()
-        
+        # /meters subscriptions: addr -> {"bank", "expires", "interval", "next"}
+        self.meter_subscribers: Dict[Tuple[str, int], Dict[str, Any]] = {}
+        self.meter_thread: threading.Thread | None = None
+        self._meter_epoch = time.monotonic()
+
         self.state: Dict[str, Any] = {}
         self._init_default_church_state()
 
@@ -144,6 +150,8 @@ class MockX32Server:
         self.running = True
         self.thread = threading.Thread(target=self._listen_loop, daemon=True, name="MockX32ServerThread")
         self.thread.start()
+        self.meter_thread = threading.Thread(target=self._meter_loop, daemon=True, name="MockX32MeterThread")
+        self.meter_thread.start()
 
     def stop(self):
         """Stop UDP server thread."""
@@ -158,6 +166,85 @@ class MockX32Server:
                 pass
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
+        if self.meter_thread and self.meter_thread.is_alive():
+            self.meter_thread.join(timeout=1.0)
+        with self.lock:
+            self.meter_subscribers.clear()
+
+    # --- /meters emulation (read-only metering stream) ---
+    METER_STREAM_SECONDS = 10.0
+    METER_BASE_INTERVAL = 0.05
+
+    def _handle_meter_request(self, msg: OSCMessage, addr: Tuple[str, int]):
+        """`/meters ,si "/meters/1" <time_factor>`: stream meter blobs to addr for 10 s.
+
+        Only bank /meters/1 (32 inputs + 32 gate GR + 32 dynamics GR) is emulated.
+        Renewals extend the subscription. A request never changes mixer state.
+        """
+        if not msg.args or msg.args[0] != "/meters/1":
+            return
+        ints = [a for a in msg.args[1:] if isinstance(a, int) and not isinstance(a, bool)]
+        time_factor = min(max(ints[-1] if ints else 1, 1), 100)
+        now = time.monotonic()
+        with self.lock:
+            sub = self.meter_subscribers.get(addr)
+            self.meter_subscribers[addr] = {"bank": "/meters/1", "expires": now + self.METER_STREAM_SECONDS,
+                                            "interval": self.METER_BASE_INTERVAL * time_factor,
+                                            "next": sub["next"] if sub else now}
+
+    def _meter_level_db(self, ch: int, t: float) -> float | None:
+        """Plausible input level (dBFS) for a named source; None for an unpatched input."""
+        name = str(self.state.get(f"/ch/{ch:02d}/config/name", ""))
+        if not name or name == f"CH{ch:02d}":
+            return None
+        if ch == 11:  # band talkback: quiet chatter, P16 only
+            return -55.0 + 2.0 * math.sin(t * 0.7)
+        if ch in (1, 2):  # speech: syllable bursts with pauses between phrases
+            phrase = math.sin(t * 0.45 + ch) > -0.35
+            syllable = 0.5 + 0.5 * math.sin(t * 9.0 + ch) * math.sin(t * 2.3)
+            return (-24.0 + 12.0 * syllable) if phrase else -62.0
+        # music: steady level with slow swells and beat-rate movement
+        return -22.0 + 6.0 * math.sin(t * 0.35 + ch * 0.8) + 2.5 * math.sin(t * 2.0 * math.pi * 1.25 + ch)
+
+    def meter_values(self, t: float | None = None) -> List[float]:
+        """96 linear floats for /meters/1. Input meters are pre-mute: /mix/on does not change them."""
+        t = (time.monotonic() - self._meter_epoch) if t is None else t
+        values = []
+        for ch in range(1, 33):
+            db = self._meter_level_db(ch, t)
+            values.append(0.0 if db is None else 10 ** (db / 20.0))
+        return values + [0.0] * 64  # gate / dynamics gain reduction: not emulated
+
+    @staticmethod
+    def encode_meter_packet(address: str, values: List[float]) -> bytes:
+        """OSC message with one blob: <int32 LE count><float32 LE ...> (X32 meter format)."""
+        blob = struct.pack(f"<i{len(values)}f", len(values), *values)
+        def pad(b: bytes) -> bytes:
+            b += bytes(1)
+            return b + bytes(-len(b) % 4)
+        return pad(address.encode()) + pad(b",b") + struct.pack(">i", len(blob)) + blob + bytes(-len(blob) % 4)
+
+    def _meter_loop(self):
+        while self.running:
+            now = time.monotonic()
+            due = []
+            with self.lock:
+                for addr, sub in list(self.meter_subscribers.items()):
+                    if now >= sub["expires"]:
+                        del self.meter_subscribers[addr]
+                    elif now >= sub["next"]:
+                        sub["next"] = now + sub["interval"]
+                        due.append((addr, sub["bank"]))
+            if due:
+                with self.lock:
+                    packet = self.encode_meter_packet("/meters/1", self.meter_values())
+                for addr, _bank in due:
+                    try:
+                        if self.running and self.sock:
+                            self.sock.sendto(packet, addr)
+                    except Exception:
+                        pass
+            time.sleep(0.01)
 
     def _listen_loop(self):
         while self.running:
@@ -181,6 +268,10 @@ class MockX32Server:
         if addr_str == '/xremote':
             with self.lock:
                 self.subscribers[addr] = time.time()
+            return
+
+        if addr_str == '/meters':
+            self._handle_meter_request(msg, addr)
             return
 
         if addr_str == '/info':

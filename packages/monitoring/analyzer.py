@@ -78,7 +78,9 @@ class SignalMonitor:
             for meter in meters[:32]:
                 ch = meter["channel"]
                 peak, rms = meter.get("meter_dbfs"), meter.get("rms_dbfs")
-                measured = valid and all(isinstance(v, (int, float)) and math.isfinite(v) for v in (peak, rms))
+                finite = lambda v: isinstance(v, (int, float)) and math.isfinite(v)
+                # X32 meters carry peak only: rms None means "not provided", never invented.
+                measured = valid and finite(peak) and (rms is None or finite(rms))
                 status = self.classify(peak) if measured else "UNKNOWN"
                 stats = self._stats.setdefault(ch, {"peak_hold_dbfs": None, "over_seconds": 0.0,
                     "critical_seconds": 0.0, "clip_events": 0, "status": "UNKNOWN", "streak_seconds": 0.0})
@@ -112,7 +114,7 @@ class SignalMonitor:
                 rows.append({"channel": ch, "name": meter.get("name", f"Input {ch}"),
                     "peak_dbfs": peak if measured else None, "rms_dbfs": rms if measured else None,
                     "headroom_db": round(-peak, 1) if measured else None,
-                    "crest_db": round(max(0, peak - rms), 1) if measured else None,
+                    "crest_db": round(max(0, peak - rms), 1) if measured and rms is not None else None,
                     "status": status, "measured": measured,
                     **{k: round(v, 2) if isinstance(v, float) else v for k, v in stats.items() if k != "status"},
                     "advice": advice})
